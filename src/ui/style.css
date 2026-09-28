@@ -1,0 +1,237 @@
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  color: #eee;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  user-select: none;
+}
+#game {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+}
+#ui {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.hud {
+  position: absolute;
+  inset: 0;
+  font-size: 12px;
+}
+.crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  background:
+    linear-gradient(#fff, #fff) center / 2px 18px no-repeat,
+    linear-gradient(#fff, #fff) center / 18px 2px no-repeat;
+  mix-blend-mode: difference;
+  opacity: 0.85;
+}
+.debug {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  margin: 0;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #e8ecf4;
+  font-size: 12px;
+  line-height: 1.35;
+  border-radius: 4px;
+  white-space: pre;
+  max-width: calc(100vw - 32px);
+  overflow: hidden;
+}
+.hotbar {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 6px;
+  max-width: calc(100vw - 200px);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.slot {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.slot.active {
+  border-color: #fff;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+}
+.swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+.slot .key {
+  position: absolute;
+  top: 0;
+  left: 3px;
+  font-size: 9px;
+  color: #ddd;
+  text-shadow: 0 1px 1px #000;
+}
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: 64px;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  white-space: nowrap;
+}
+.mode {
+  position: absolute;
+  right: 10px;
+  top: 8px;
+  color: #cfd6e6;
+  text-shadow: 0 1px 2px #000;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+.compass {
+  position: absolute;
+  right: 10px;
+  bottom: 12px;
+  width: 150px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 6px;
+  font-size: 10px;
+}
+.compass-title {
+  letter-spacing: 0.08em;
+  color: #aab4c8;
+  margin-bottom: 4px;
+}
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 12px;
+}
+.bar-label {
+  width: 10px;
+}
+.bar-track {
+  position: relative;
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+.bar-track::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  width: 1px;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.5);
+}
+.bar-fill {
+  position: absolute;
+  top: 0;
+  height: 6px;
+  border-radius: 3px;
+}
+.compass-text {
+  margin: 4px 0;
+  color: #dfe6f3;
+}
+.radar {
+  width: 150px;
+  height: 150px;
+  image-rendering: pixelated;
+  border-radius: 3px;
+  display: block;
+}
+.radar-legend {
+  display: flex;
+  justify-content: space-between;
+  color: #aab4c8;
+  margin-top: 3px;
+}
+.loading,
+.menu {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(4, 6, 12, 0.72);
+  pointer-events: auto;
+}
+.loading-title,
+.menu h1 {
+  font-size: 34px;
+  letter-spacing: 0.3em;
+  margin: 0 0 12px;
+  color: #f2f5ff;
+}
+.menu-card {
+  max-width: 640px;
+  padding: 24px 28px;
+  text-align: center;
+}
+.menu .sub {
+  color: #aab4c8;
+  margin: 0 0 18px;
+}
+.menu .play {
+  font: inherit;
+  font-size: 16px;
+  padding: 10px 28px;
+  border: 1px solid #9fb2ff;
+  background: rgba(120, 140, 255, 0.18);
+  color: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.menu .controls {
+  margin-top: 18px;
+  color: #c9d2e4;
+  line-height: 1.7;
+  font-size: 12px;
+}
+@media (max-width: 600px) {
+  .compass {
+    width: 110px;
+  }
+  .radar {
+    width: 110px;
+    height: 110px;
+  }
+  .debug {
+    font-size: 10px;
+  }
+}
