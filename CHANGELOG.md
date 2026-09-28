@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.1.1 — Controls, seeds, worlds, touch (2026-09-28)
+
+### Changed
+- WASD is movement only; the arrow keys now turn the camera (yaw/pitch).
+
+### Added
+- Title screen with a live 4D demo world behind it; world list (play, export, delete,
+  import); create-world screen with seed field, random seed, seed ideas, game mode,
+  difficulty, hardcore and cheats flags.
+- Seeds: integers are used as-is, any other text is hashed.
+- IndexedDB saves: edited columns (gzip-compressed, block-name palette so saves survive
+  content changes), player position/orientation/mode, time, weather and hotbar; autosave
+  every 30 s and on pause/hide/quit; `.hcworld` export/import.
+- Touch controls: floating move stick, drag-to-look, tap/long-press to place/break,
+  two-finger slice rotation, button cluster; touch-specific HUD layout.
+- Settings screen (FOV, sensitivity, render distance, internal resolution, outlines,
+  vignette, pixelated upscaling, invert Y, touch controls) and pause menu.
+- Tests: seed parsing, column codec round-trip and palette remap, e2e world
+  create → edit → save → reload, touch layout.
+
 ## 0.1.0 — Phase 1: Engine (2026-09-28)
 
 ### Added

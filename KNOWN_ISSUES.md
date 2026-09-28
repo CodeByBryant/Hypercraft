@@ -32,9 +32,10 @@ Honest list as of Phase 1 (engine). Items tagged with the phase expected to addr
   blocks of the target).
 
 ## World / simulation
-- **No persistence**: edits are kept in memory only while the session lasts (edited columns
-  are retained when unloaded). IndexedDB saves and export/import come later (Phase 12, or
-  earlier if needed).
+- Saves store edited columns including their light; light changes caused by edits in a
+  *neighbouring* column after that column was saved can leave slightly stale light at the
+  seam on reload (increases are re-propagated, decreases are not).
+- Starting or leaving a world reloads the page (simple and leak-free, but not instant).
 - Terrain is a Phase 1 test generator (4 biomes, cheese caves, simple ores and trees). The
   full biome/cave/ore system is Phase 2. The **engine test garden** near spawn (x −12..12,
   z 4..28, w −4..4) is a showcase for the R6 views and will be removed.
@@ -50,9 +51,8 @@ Honest list as of Phase 1 (engine). Items tagged with the phase expected to addr
 - Mining is instant (creative-style) even in survival; no drops, inventory or crafting
   (Phase 3).
 - No audio (Phase 12).
-- Settings come only from URL parameters (`seed`, `rd`, `res`, `fov`, `steps`); there is no
-  settings screen or key-rebinding UI yet (bindings are data in `src/input/Input.ts`).
-- Gamepad and touch controls are not implemented (Phase 12).
+- No key-rebinding UI yet (bindings are data in `src/input/Input.ts`); gamepad support is
+  Phase 12. Touch controls exist but have only been tested in emulation.
 
 ## Tooling
 - The original prototype `tesseract-miner.html` was not in the repository, so the renderer

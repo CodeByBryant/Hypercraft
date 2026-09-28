@@ -18,16 +18,16 @@ npm install
 npm run dev            # http://localhost:5173
 ```
 
-Requires a browser with WebGL2. Useful URL parameters: `?seed=text`, `?rd=4` (render distance
-in chunks, 2–8), `?res=360` (fixed internal height, or `auto`), `?fov=75`, `?bench=1`
-(benchmark), `?test=1` (no pointer lock; used by tests).
+Requires a browser with WebGL2. Useful URL parameters: `?rd=4` (render distance in chunks,
+2–8), `?res=360` (fixed internal height, or `auto`), `?fov=75`, `?bench=1` (benchmark),
+`?test=1&seed=text` (ephemeral test world, no menus; used by tests).
 
 ## Controls
 
 | Input | Action |
 |---|---|
-| Mouse | look |
-| W A S D | move in the slice |
+| Mouse or **arrow keys** | look |
+| **W A S D** | move in the slice |
 | **Q / E** | move **kata / ana** along the current hidden axis |
 | Space (double-tap in creative) | jump (toggle flying) |
 | Shift / Ctrl (or R) | sneak / sprint |
@@ -40,6 +40,16 @@ in chunks, 2–8), `?res=360` (fixed internal height, or `auto`), `?fov=75`, `?b
 | F3 (or `) | debug overlay |
 | **P** | cross-section wireframe overlay |
 | G / T / Y / O | game mode / time +3 h / weather / internal resolution |
+
+**Touch screens** (auto-detected, or Settings → Touch controls): left thumb = floating move
+stick (push to the rim to sprint), right side = drag to look, tap = place, long-press = break,
+two-finger twist = rotate the slice right↔hidden, two-finger drag = forward↔hidden, plus
+buttons for jump, sneak, kata/ana, slice rotation, snap, fly, pause, F3 and P.
+
+**Worlds and seeds**: Singleplayer → Create new world. Type any seed (numbers are used
+as-is, text is hashed), roll a random one with 🎲, or pick a seed idea. Worlds autosave to the
+browser (IndexedDB) every 30 s and on pause/quit, and can be exported/imported as `.hcworld`
+files from the world list.
 
 The **hidden-axis panel** (bottom right) shows the hidden axis `h` as X/Z/W bars, and a radar of
 the plane spanned by *right* (→) and *ana* (↑) around you: walls, water, lava and drop-offs you

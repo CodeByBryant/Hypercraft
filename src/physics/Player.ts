@@ -11,7 +11,7 @@ import { Frame4 } from '../math/frame';
 import { VOID_VOXEL } from '../world/constants';
 import type { World } from '../world/World';
 
-export type GameMode = 'survival' | 'creative' | 'spectator';
+export type GameMode = 'survival' | 'creative' | 'adventure' | 'spectator';
 
 export interface MoveInput {
   forward: number;
@@ -251,7 +251,7 @@ export class Player {
   update(world: World, input: MoveInput, dt: number): void {
     if (this.frozen) return;
     const up = this.up;
-    const creative = this.mode !== 'survival';
+    const creative = this.mode === 'creative' || this.mode === 'spectator';
     if (!creative) this.flying = false;
     if (this.mode === 'spectator') this.flying = true;
     this.sneaking = input.sneak && !this.flying;

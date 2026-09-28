@@ -37,7 +37,6 @@ export class Hud {
   private readonly toast: HTMLDivElement;
   private readonly loading: HTMLDivElement;
   private readonly loadingText: HTMLDivElement;
-  readonly menu: HTMLDivElement;
   private readonly radar: HTMLCanvasElement;
   private readonly radarCtx: CanvasRenderingContext2D;
   private readonly radarImg: ImageData;
@@ -88,20 +87,6 @@ export class Hud {
     el('div', 'loading-title', this.loading, 'HYPERCRAFT');
     this.loadingText = el('div', 'loading-text', this.loading, 'Generating 4D terrain…');
 
-    this.menu = el('div', 'menu', this.root);
-    this.menu.innerHTML = `
-      <div class="menu-card">
-        <h1>HYPERCRAFT</h1>
-        <p class="sub">Phase 1 engine preview — a 4D voxel world seen one 3D slice at a time.</p>
-        <button class="play">Click to play</button>
-        <div class="controls">
-          <div><b>WASD</b> move · <b>Space</b> jump (double-tap: fly) · <b>Shift</b> sneak · <b>Ctrl</b> sprint</div>
-          <div><b>Q / E</b> move kata / ana along the hidden axis</div>
-          <div><b>Z / X</b> rotate slice right↔hidden · <b>F / V</b> forward↔hidden · <b>Alt+mouse</b> free slice rotation · <b>C</b> snap to axes</div>
-          <div><b>LMB</b> break · <b>RMB</b> place · <b>MMB</b> pick · <b>1-9 / wheel</b> hotbar</div>
-          <div><b>F3</b> debug · <b>P</b> cross-section wireframe · <b>G</b> game mode · <b>T</b> time · <b>Y</b> weather · <b>O</b> resolution</div>
-        </div>
-      </div>`;
     for (let id = 0; id < REG.count; id++) {
       const t = REG.textures[REG.texSide[id]!];
       const c = t ? hexToRgb(t.colors[0]!) : [0.5, 0.5, 0.5];
@@ -118,8 +103,8 @@ export class Hud {
     this.toastTimer = 2.2;
   }
 
-  setMenuVisible(v: boolean): void {
-    this.menu.style.display = v ? 'flex' : 'none';
+  setVisible(v: boolean): void {
+    this.root.style.display = v ? 'block' : 'none';
   }
 
   private renderHotbar(): void {
@@ -132,6 +117,10 @@ export class Hud {
       sw.style.background = blockColor(id);
       if (i < 9) el('span', 'key', s, String(i + 1));
       s.title = REG.blocks[id]?.displayName ?? REG.blocks[id]?.name ?? '';
+      s.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        g.hotbarIndex = i;
+      });
       this.slots.push(s);
     });
     this.lastHotbarVersion = g.hotbarVersion;

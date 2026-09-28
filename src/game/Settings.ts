@@ -17,6 +17,8 @@ export interface Settings {
   invertY: boolean;
   vignette: number;
   tint4D: boolean;
+  /** Touch controls: auto-detect, always on, or off. */
+  touch: 'auto' | 'on' | 'off';
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -32,6 +34,7 @@ export const DEFAULT_SETTINGS: Settings = {
   invertY: false,
   vignette: 0.35,
   tint4D: true,
+  touch: 'auto',
 };
 
 const KEY = 'hypercraft.settings.v1';

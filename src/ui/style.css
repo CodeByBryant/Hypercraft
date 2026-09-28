@@ -235,3 +235,359 @@ body {
     font-size: 10px;
   }
 }
+
+/* ---------------- touch controls ---------------- */
+.touch {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  touch-action: none;
+  -webkit-user-select: none;
+}
+.touch-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: auto;
+  touch-action: none;
+}
+.touch-zone.left {
+  left: 0;
+  width: 42%;
+}
+.touch-zone.right {
+  right: 0;
+  width: 58%;
+}
+.joy-base {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  pointer-events: none;
+}
+.joy-knob {
+  position: absolute;
+  left: 35px;
+  top: 35px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+}
+.touch-buttons {
+  position: absolute;
+  right: 12px;
+  bottom: 70px;
+  display: grid;
+  grid-template-columns: repeat(3, 62px);
+  gap: 8px;
+  pointer-events: none;
+}
+.touch-slice {
+  position: absolute;
+  right: 12px;
+  top: 60px;
+  display: grid;
+  grid-template-columns: repeat(5, 44px);
+  gap: 6px;
+  pointer-events: none;
+}
+.touch-top {
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  pointer-events: none;
+}
+.tbtn {
+  pointer-events: auto;
+  touch-action: none;
+  font: inherit;
+  font-size: 12px;
+  color: #fff;
+  background: rgba(20, 24, 36, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 10px;
+  height: 52px;
+  min-width: 44px;
+  padding: 0 6px;
+}
+.tbtn.small {
+  height: 40px;
+  font-size: 14px;
+}
+.tbtn.big {
+  grid-column: span 3;
+  height: 60px;
+  font-size: 15px;
+}
+.tbtn.on {
+  background: rgba(120, 150, 255, 0.55);
+  border-color: #cfe0ff;
+}
+.touch-top .tbtn {
+  height: 36px;
+}
+@media (max-height: 420px) {
+  .touch-buttons {
+    grid-template-columns: repeat(3, 54px);
+    bottom: 56px;
+    gap: 6px;
+  }
+  .tbtn {
+    height: 44px;
+  }
+  .tbtn.big {
+    height: 48px;
+  }
+}
+.hotbar .slot {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+/* ---------------- menus ---------------- */
+.menu-screen {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at center, rgba(8, 10, 20, 0.35), rgba(4, 6, 12, 0.78));
+  pointer-events: auto;
+  overflow: auto;
+  z-index: 20;
+}
+.menu-screen .menu-card {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 22px 24px;
+  background: rgba(10, 13, 24, 0.82);
+  border: 1px solid rgba(160, 180, 255, 0.25);
+  border-radius: 12px;
+  text-align: left;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+.menu-screen .logo {
+  font-size: clamp(28px, 7vw, 46px);
+  letter-spacing: 0.32em;
+  text-align: center;
+  margin: 6px 0 6px;
+  background: linear-gradient(90deg, #ff6b6b, #ffd166, #4dd4ac, #6ea8ff, #d07bff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.menu-screen h2 {
+  margin: 0 0 14px;
+  font-size: 20px;
+  letter-spacing: 0.12em;
+  color: #f0f3ff;
+}
+.menu-screen .sub {
+  text-align: center;
+  color: #aab4c8;
+  margin: 0 0 18px;
+}
+.menu-screen .col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.menu-screen .row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin: 8px 0;
+}
+.menu-screen .row.tight {
+  flex-wrap: nowrap;
+  margin: 4px 0;
+}
+.menu-screen button {
+  font: inherit;
+  font-size: 14px;
+  padding: 10px 16px;
+  border-radius: 7px;
+  border: 1px solid rgba(170, 185, 255, 0.35);
+  background: rgba(60, 70, 110, 0.35);
+  color: #eef1ff;
+  cursor: pointer;
+}
+.menu-screen button:hover:not([disabled]) {
+  background: rgba(90, 105, 170, 0.5);
+}
+.menu-screen button[disabled] {
+  opacity: 0.45;
+  cursor: default;
+}
+.menu-screen button.primary {
+  background: rgba(96, 125, 255, 0.45);
+  border-color: #aebfff;
+}
+.menu-screen button.danger {
+  border-color: rgba(255, 120, 120, 0.5);
+}
+.menu-screen button.small {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+.menu-screen label,
+.menu-screen .label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #c9d2e4;
+  font-size: 12px;
+  margin: 8px 0;
+  flex: 1;
+}
+.menu-screen label.check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+.menu-screen input[type='text'],
+.menu-screen select {
+  font: inherit;
+  font-size: 14px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(170, 185, 255, 0.35);
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  flex: 1;
+  min-width: 0;
+}
+.menu-screen .chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.menu-screen .chip {
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 14px;
+}
+.menu-screen .dim {
+  color: #8e99b3;
+  font-size: 12px;
+}
+.menu-screen .warn {
+  color: #ffcf7a;
+  font-size: 12px;
+}
+.menu-screen .help p {
+  color: #d6dcec;
+  line-height: 1.55;
+  font-size: 13px;
+}
+.world-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 46vh;
+  overflow: auto;
+  margin-bottom: 8px;
+}
+.world {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+}
+.world-main {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+.world-name {
+  font-size: 15px;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.world-meta {
+  font-size: 11px;
+  color: #8e99b3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 12px;
+}
+.menu-screen label.setting {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0;
+}
+.menu-screen label.setting > span:first-child {
+  width: 150px;
+  flex: none;
+}
+.menu-screen label.setting input[type='range'] {
+  flex: 1;
+}
+.menu-screen .val {
+  width: 76px;
+  text-align: right;
+  color: #fff;
+}
+
+/* Touch layout: keep the thumbs' corners free. */
+body.touch-active .compass {
+  left: 8px;
+  right: auto;
+  top: 8px;
+  bottom: auto;
+  width: 112px;
+  padding: 6px;
+  transform-origin: top left;
+}
+body.touch-active .compass .radar {
+  width: 96px;
+  height: 96px;
+}
+body.touch-active .compass .compass-text,
+body.touch-active .compass .radar-legend {
+  font-size: 9px;
+}
+body.touch-active .hotbar {
+  flex-wrap: nowrap;
+  max-width: 52vw;
+  overflow-x: auto;
+  bottom: 6px;
+  padding: 3px;
+  gap: 3px;
+}
+body.touch-active .slot {
+  flex: none;
+  width: 34px;
+  height: 34px;
+}
+body.touch-active .mode {
+  top: auto;
+  bottom: 48px;
+  right: 50%;
+  transform: translateX(50%);
+}
+body.touch-active .debug {
+  top: 170px;
+  font-size: 9px;
+}

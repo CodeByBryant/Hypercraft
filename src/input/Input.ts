@@ -6,6 +6,10 @@ export const ACTIONS = [
   'back',
   'left',
   'right',
+  'lookLeft',
+  'lookRight',
+  'lookUp',
+  'lookDown',
   'kata',
   'ana',
   'jump',
@@ -37,10 +41,14 @@ export const ACTIONS = [
 export type Action = (typeof ACTIONS)[number];
 
 export const DEFAULT_BINDINGS: Record<Action, string[]> = {
-  forward: ['KeyW', 'ArrowUp'],
-  back: ['KeyS', 'ArrowDown'],
-  left: ['KeyA', 'ArrowLeft'],
-  right: ['KeyD', 'ArrowRight'],
+  forward: ['KeyW'],
+  back: ['KeyS'],
+  left: ['KeyA'],
+  right: ['KeyD'],
+  lookLeft: ['ArrowLeft'],
+  lookRight: ['ArrowRight'],
+  lookUp: ['ArrowUp'],
+  lookDown: ['ArrowDown'],
   kata: ['KeyQ'],
   ana: ['KeyE'],
   jump: ['Space'],
@@ -125,6 +133,15 @@ export class Input {
 
   /** Test mode: accept mouse movement without pointer lock. */
   freeMouse = false;
+  /** Analog movement from touch/gamepad (-1..1), added to the keyboard axes. */
+  analogForward = 0;
+  analogStrafe = 0;
+  /** Look deltas from touch/gamepad, in radians this frame (added to mouse look). */
+  lookYaw = 0;
+  lookPitch = 0;
+  /** Slice-rotation deltas from gestures, in radians this frame. */
+  sliceRH = 0;
+  sliceFH = 0;
 
   rebuild(): void {
     this.codeToActions.clear();
@@ -197,12 +214,38 @@ export class Input {
     this.mouseDY = 0;
     this.wheel = 0;
     this.doubleJump = false;
+    this.lookYaw = 0;
+    this.lookPitch = 0;
+    this.sliceRH = 0;
+    this.sliceFH = 0;
+  }
+
+  /** Programmatic mouse buttons (touch controls): 0 = break, 2 = place, 1 = pick. */
+  setButton(b: number, down: boolean): void {
+    if (down) {
+      if ((this.buttons & (1 << b)) === 0) this.pressedButtons |= 1 << b;
+      this.buttons |= 1 << b;
+    } else this.buttons &= ~(1 << b);
+  }
+
+  /** Programmatic single press of an action's first bound key. */
+  tap(a: Action): void {
+    const code = this.bindings[a][0];
+    if (code) this.pressedKeys.add(code);
   }
 
   /** Programmatic key control (tests, touch controls later). */
   setKey(code: string, down: boolean): void {
     if (down) {
-      if (!this.keys.has(code)) this.pressedKeys.add(code);
+      if (!this.keys.has(code)) {
+        this.pressedKeys.add(code);
+        const acts = this.codeToActions.get(code);
+        if (acts?.includes('jump')) {
+          const now = performance.now();
+          if (now - this.lastJumpPress < 300) this.doubleJump = true;
+          this.lastJumpPress = now;
+        }
+      }
       this.keys.add(code);
     } else this.keys.delete(code);
   }

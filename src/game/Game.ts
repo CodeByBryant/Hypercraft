@@ -5,7 +5,6 @@
 //   light BFS (budgeted) -> GPU sync (budgeted) -> picking -> hazards -> render -> HUD.
 
 import { REG, makeVoxel, voxelId, FLUID_LAVA, VARIANT_HORIZONTAL6, VARIANT_VERTICAL2, FLUID_WATER } from '../content/registry';
-import { hashString } from '../math/rng';
 import { Environment, TICKS_PER_DAY } from '../env/Environment';
 import { Input } from '../input/Input';
 import { Player, type MoveInput } from '../physics/Player';
@@ -22,6 +21,9 @@ import { VOID_VOXEL } from '../world/constants';
 import { COLLISION_NONE } from '../content/registry';
 import type { Settings } from './Settings';
 import type { WeatherKind } from '../content/types';
+import type { Persistence } from '../save/Persistence';
+import type { SavedState, WorldInfo } from '../save/WorldInfo';
+import type { GameMode } from '../physics/Player';
 
 export const HOTBAR = [
   'stone',
@@ -49,12 +51,20 @@ export interface GameOptions {
   settings: Settings;
   test: boolean;
   workers: number;
+  world: WorldInfo;
+  persistence: Persistence | null;
+  /** Title-screen background: no input, automatic camera. */
+  demo?: boolean;
 }
 
 export class Game {
   readonly settings: Settings;
   readonly seed: number;
   readonly test: boolean;
+  readonly demo: boolean;
+  readonly info: WorldInfo;
+  readonly persistence: Persistence | null;
+  private autosaveTimer = 30;
   readonly world: World;
   readonly light: LightEngine;
   readonly pool: WorkerPool;
@@ -108,8 +118,11 @@ export class Game {
     this.canvas = canvas;
     this.settings = opts.settings;
     this.test = opts.test;
-    this.seed = hashString(opts.settings.seed);
-    const realm = REG.realm('surface');
+    this.demo = opts.demo ?? false;
+    this.info = opts.world;
+    this.persistence = opts.persistence;
+    this.seed = opts.world.seed >>> 0;
+    const realm = REG.realm(opts.world.state?.realm ?? 'surface');
     this.world = new World(realm, opts.settings.renderDistance);
     this.light = new LightEngine(this.world);
     this.pool = new WorkerPool(opts.workers, this.seed, realm.name);
@@ -133,12 +146,17 @@ export class Game {
       this.fluids.onBlockChanged(x, y, z, w, o, n);
     });
     this.world.columnAdded = (c) => this.renderer.gpu.onColumnAdded(c);
-    this.world.columnRemoved = (c) => this.renderer.gpu.onColumnRemoved(c);
+    this.world.columnRemoved = (c) => {
+      this.renderer.gpu.onColumnRemoved(c);
+      if (this.persistence && c.dirty) void this.persistence.saveColumn(c);
+    };
+    this.world.retainEdited = !this.persistence;
+    this.streamer.source = this.persistence;
 
     const gen = createGenerator(this.seed, realm);
     this.spawn = gen.spawnPoint();
     this.player.setPosition(...this.spawn);
-    this.player.mode = 'creative';
+    this.player.mode = opts.world.mode as GameMode;
 
     this.params = {
       cam: this.player.cam,
@@ -160,6 +178,76 @@ export class Game {
       pixelated: opts.settings.pixelated,
     };
     this.env.setTime(1500);
+    if (opts.world.state) this.restore(opts.world.state);
+    if (this.demo) {
+      this.player.mode = 'spectator';
+      this.player.flying = true;
+    }
+  }
+
+  /** Restore player/world state from a save. */
+  private restore(st: SavedState): void {
+    const p = this.player;
+    const sp = st.player;
+    if (sp.pos.length === 4) p.setPosition(sp.pos[0]!, sp.pos[1]!, sp.pos[2]!, sp.pos[3]!);
+    if (sp.F.length === 4 && sp.R.length === 4 && sp.H.length === 4) {
+      for (let i = 0; i < 4; i++) {
+        p.cam.F[i] = sp.F[i]!;
+        p.cam.R[i] = sp.R[i]!;
+        p.cam.H[i] = sp.H[i]!;
+      }
+      p.cam.pitch = sp.pitch;
+      p.cam.orthonormalize();
+    }
+    p.mode = sp.mode as GameMode;
+    p.flying = sp.flying;
+    this.env.ticks = st.ticks;
+    if (st.weather && st.weather !== 'clear') this.env.setWeather(st.weather as WeatherKind, false);
+    this.env.weatherLeft = st.weatherLeft;
+    if (st.hotbar) {
+      st.hotbar.forEach((n, i) => {
+        if (i < this.hotbar.length && REG.has(n)) this.hotbar[i] = REG.id(n);
+      });
+      this.hotbarVersion++;
+    }
+    if (st.hotbarIndex !== undefined) this.hotbarIndex = st.hotbarIndex;
+  }
+
+  /** Snapshot of the player/world state for saving. */
+  snapshot(): SavedState {
+    const p = this.player;
+    return {
+      realm: this.world.realm.name,
+      player: {
+        pos: Array.from(p.pos),
+        F: Array.from(p.cam.F),
+        R: Array.from(p.cam.R),
+        H: Array.from(p.cam.H),
+        pitch: p.cam.pitch,
+        mode: p.mode,
+        flying: p.flying,
+      },
+      ticks: this.env.ticks,
+      weather: this.env.weather,
+      weatherLeft: this.env.weatherLeft,
+      hotbar: this.hotbar.map((id) => REG.blocks[id]!.name),
+      hotbarIndex: this.hotbarIndex,
+    };
+  }
+
+  /** Save dirty columns and the world metadata. */
+  async saveAll(): Promise<void> {
+    const ps = this.persistence;
+    if (!ps || this.demo) return;
+    ps.saveDirty(this.world);
+    ps.info.state = this.snapshot();
+    await ps.saveMeta();
+    await ps.flush();
+  }
+
+  /** Cheat keys (time, weather, game mode) are allowed in creative or with cheats on. */
+  get cheatsAllowed(): boolean {
+    return this.info.cheats || this.player.mode === 'creative' || this.test;
   }
 
   start(): void {
@@ -212,7 +300,16 @@ export class Game {
     const input = this.input;
     const active = !this.paused && input.enabled;
 
-    if (active) this.handleInput(dt);
+    if (active && !this.demo) this.handleInput(dt);
+    if (this.demo) this.demoCamera(dt);
+    // Autosave.
+    if (this.persistence && this.loaded && !this.demo) {
+      this.autosaveTimer -= dt;
+      if (this.autosaveTimer <= 0) {
+        this.autosaveTimer = 30;
+        void this.saveAll();
+      }
+    }
 
     // Physics.
     if (!this.loaded) this.checkLoaded();
@@ -283,6 +380,16 @@ export class Game {
     input.endFrame();
   }
 
+  private demoT = 0;
+  /** Title-screen camera: slow yaw plus a slice rotation through W so the prisms morph. */
+  private demoCamera(dt: number): void {
+    this.demoT += dt;
+    const cam = this.player.cam;
+    cam.yaw(dt * 0.07);
+    cam.tiltRH(Math.sin(this.demoT * 0.21) * dt * 0.18);
+    cam.setPitch(-0.22 + Math.sin(this.demoT * 0.13) * 0.08);
+  }
+
   /** Render the current state immediately (tests/benchmarks); returns nothing, use gl.finish to time. */
   renderImmediate(): void {
     this.player.eye(this.eyePos);
@@ -320,6 +427,15 @@ export class Game {
       cam.yaw(input.mouseDX * sens);
       cam.addPitch(-input.mouseDY * sens * (this.settings.invertY ? -1 : 1));
     }
+    // Arrow keys look around (150°/s yaw, 110°/s pitch); touch/gamepad add their deltas.
+    const ky = (input.held('lookRight') ? 1 : 0) - (input.held('lookLeft') ? 1 : 0);
+    const kp = (input.held('lookUp') ? 1 : 0) - (input.held('lookDown') ? 1 : 0);
+    const kyaw = ky * dt * 2.6 + input.lookYaw;
+    const kpitch = kp * dt * 1.9 + input.lookPitch;
+    if (kyaw !== 0) cam.yaw(kyaw);
+    if (kpitch !== 0) cam.addPitch(kpitch);
+    if (input.sliceRH !== 0) cam.tiltRH(input.sliceRH);
+    if (input.sliceFH !== 0) cam.tiltFH(input.sliceFH);
     // Keyboard slice rotation (90°/s).
     const rs = dt * Math.PI * 0.5;
     if (input.held('tiltRightPlus')) cam.tiltRH(rs);
@@ -335,8 +451,8 @@ export class Game {
     }
 
     const m = this.move;
-    m.forward = (input.held('forward') ? 1 : 0) - (input.held('back') ? 1 : 0);
-    m.strafe = (input.held('right') ? 1 : 0) - (input.held('left') ? 1 : 0);
+    m.forward = Math.max(-1, Math.min(1, (input.held('forward') ? 1 : 0) - (input.held('back') ? 1 : 0) + input.analogForward));
+    m.strafe = Math.max(-1, Math.min(1, (input.held('right') ? 1 : 0) - (input.held('left') ? 1 : 0) + input.analogStrafe));
     m.ana = (input.held('ana') ? 1 : 0) - (input.held('kata') ? 1 : 0);
     m.jump = input.held('jump');
     m.sneak = input.held('sneak');
@@ -357,12 +473,12 @@ export class Game {
       this.params.wire = !this.params.wire;
       this.message?.(this.params.wire ? 'Cross-section wireframe ON (P)' : 'Cross-section wireframe OFF');
     }
-    if (input.pressed('gameMode')) {
+    if (input.pressed('gameMode') && this.cheatsAllowed) {
       p.mode = p.mode === 'creative' ? 'survival' : p.mode === 'survival' ? 'spectator' : 'creative';
       this.message?.(`Game mode: ${p.mode}`);
     }
-    if (input.pressed('timeSkip')) this.env.setTime(this.env.timeOfDay + TICKS_PER_DAY / 8);
-    if (input.pressed('weather')) {
+    if (input.pressed('timeSkip') && this.cheatsAllowed) this.env.setTime(this.env.timeOfDay + TICKS_PER_DAY / 8);
+    if (input.pressed('weather') && this.cheatsAllowed) {
       const i = WEATHER_CYCLE.indexOf(this.env.weather);
       const next = WEATHER_CYCLE[(i + 1) % WEATHER_CYCLE.length]!;
       this.env.setWeather(next);
@@ -389,6 +505,21 @@ export class Game {
         this.hotbar[this.hotbarIndex] = id;
         this.hotbarVersion++;
       }
+    }
+  }
+
+  /** Apply settings that need more than a per-frame read (render distance, resolution). */
+  applySettings(): void {
+    const s = this.settings;
+    if (s.resolution === 'auto') this.scaler.mode = 'auto';
+    else {
+      this.scaler.mode = 'fixed';
+      this.scaler.fixedHeight = s.resolution;
+    }
+    if (s.renderDistance !== this.world.radius) {
+      this.world.resize(s.renderDistance);
+      this.renderer.gpu.resize(this.world.N, this.world.heightChunks);
+      this.streamer.invalidate();
     }
   }
 

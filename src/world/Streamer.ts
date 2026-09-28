@@ -13,6 +13,12 @@ import type { WorkerPool } from './gen/WorkerPool';
 import type { ColumnMsg } from './gen/protocol';
 import type { LightEngine } from './light/LightEngine';
 
+/** Where previously saved columns come from (IndexedDB in normal play). */
+export interface ColumnSource {
+  has(cx: number, cz: number, cw: number): boolean;
+  load(cx: number, cz: number, cw: number): Promise<Column | null>;
+}
+
 export class Streamer {
   readonly world: World;
   readonly pool: WorkerPool;
@@ -31,6 +37,10 @@ export class Streamer {
   private readonly toUnload: Column[] = [];
   /** Called after a column becomes resident (before seams are seeded). */
   onColumnAdded: ((c: Column) => void) | null = null;
+  source: ColumnSource | null = null;
+  /** Columns being loaded from the save store. */
+  private readonly loading = new Set<number>();
+  loadedFromSave = 0;
 
   constructor(world: World, pool: WorkerPool, light: LightEngine) {
     this.world = world;
@@ -40,7 +50,7 @@ export class Streamer {
   }
 
   get pendingCount(): number {
-    return this.pending.size;
+    return this.pending.size + this.loading.size;
   }
 
   loadRadius(): number {
@@ -113,7 +123,8 @@ export class Streamer {
       const cz = w.oz + (Math.floor(i / N) % N);
       const cw = w.ow + Math.floor(i / (N * N));
       if (w.column(cx, cz, cw) !== null) continue;
-      if (this.pending.has(columnKey(cx, cz, cw))) continue;
+      const key = columnKey(cx, cz, cw);
+      if (this.pending.has(key) || this.loading.has(key)) continue;
       const m = this.metric(cx, cz, cw, eye, hidden);
       if (m > lr) continue;
       this.cand[count++] = Math.floor(m * 16) * 65536 + i;
@@ -130,6 +141,24 @@ export class Streamer {
       const kept = w.takeRetained(cx, cz, cw);
       if (kept) {
         this.addColumn(kept);
+        continue;
+      }
+      if (this.source && this.source.has(cx, cz, cw)) {
+        const key = columnKey(cx, cz, cw);
+        this.loading.add(key);
+        this.source
+          .load(cx, cz, cw)
+          .then((col) => {
+            this.loading.delete(key);
+            this.dirtyPlan = true;
+            if (!col || !w.inWindow(cx, cz, cw) || w.column(cx, cz, cw) !== null) return;
+            this.loadedFromSave++;
+            this.addColumn(col);
+          })
+          .catch((err) => {
+            this.loading.delete(key);
+            console.error('failed to load saved column', cx, cz, cw, err);
+          });
         continue;
       }
       if (this.pool.capacity() <= 0) break;

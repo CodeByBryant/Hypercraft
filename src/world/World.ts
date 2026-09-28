@@ -13,7 +13,12 @@ export class Column {
   readonly heightmap: Uint8Array;
   /** Per (x, z, w): RGBA = blended grass colour + biome index. */
   readonly surface: Uint8Array;
+  /** Modified since generation (kept in memory when there is no save store). */
   edited = false;
+  /** Modified since the last save. */
+  dirty = false;
+  /** Per-column extra data persisted with the column (block entities etc.). */
+  extra: Record<string, unknown> = {};
   /** Bitmask of the six face neighbours (±x, ±z, ±w) whose light seam was processed. */
   seams = 0;
   gpuSurfaceDirty = true;
@@ -64,6 +69,8 @@ export class World {
   private slots: (Column | null)[];
 
   readonly dirtyChunks: Chunk[] = [];
+  /** Keep edited columns in memory when they leave the window (no persistent store). */
+  retainEdited = true;
   readonly dirtyColumns: Column[] = [];
   private readonly blockListeners: BlockChangeListener[] = [];
   columnAdded: ((c: Column) => void) | null = null;
@@ -140,7 +147,7 @@ export class World {
     const i = this.slotIndex(c.cx, c.cz, c.cw);
     if (this.slots[i] === c) this.slots[i] = null;
     this.columns.delete(c.key);
-    if (c.edited) this.retained.set(c.key, c);
+    if (c.edited && this.retainEdited) this.retained.set(c.key, c);
     this.columnRemoved?.(c);
   }
 
@@ -191,6 +198,7 @@ export class World {
     if (old === v) return false;
     ch.setBlock(lx, ly, lz, lw, v);
     col.edited = true;
+    col.dirty = true;
     this.markChunkDirty(ch);
     this.updateHeightmap(col, lx, y, lz, lw, v);
     for (let i = 0; i < this.blockListeners.length; i++) this.blockListeners[i]!(x, y, z, w, old, v);
