@@ -179,8 +179,9 @@ export class GpuWorld {
   }
 
   private estimateLayers(N: number): number {
-    // ~35% of the window's columns resident, ~500 non-uniform bricks each.
-    const bricks = N * N * N * 0.35 * 500;
+    // ~30% of the window's columns resident (slice-shaped shell), ~850 non-uniform block
+    // bricks each on Phase 2 terrain (measured ~790 at render distance 4).
+    const bricks = N * N * N * 0.3 * 850;
     return Math.max(2, Math.min(this.maxLayers, Math.ceil(bricks / BRICKS_PER_LAYER)));
   }
 

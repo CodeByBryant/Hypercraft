@@ -22,7 +22,7 @@ self.onmessage = (e: MessageEvent<ToWorker>) => {
   const m = e.data;
   if (m.type === 'init') {
     const realm = REG.realm(m.realm);
-    gen = createGenerator(m.seed, realm);
+    gen = createGenerator(m.seed, realm, m.options);
     blocks = new Uint16Array(COLUMN_LAYER * gen.height);
     light = new Uint8Array(COLUMN_LAYER * gen.height);
     post({ type: 'ready' });

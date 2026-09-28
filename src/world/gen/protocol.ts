@@ -5,6 +5,7 @@ export interface InitMsg {
   type: 'init';
   seed: number;
   realm: string;
+  options: { garden?: boolean };
 }
 
 export interface GenMsg {

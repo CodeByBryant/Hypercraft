@@ -3,12 +3,13 @@
 A 4D voxel survival sandbox for the browser. The world is made of tesseracts; you see a true
 3D cross-section of it, and every system is built around a fourth spatial axis.
 
-**Status: Phase 1 (engine) complete, awaiting approval.** See
-[`docs/phases/phase-1.md`](docs/phases/phase-1.md) for what works, what's broken and what's next.
+**Status: Phase 2 (surface terrain) complete.** Phase reports (what works, what's broken,
+what's next): [Phase 1 — engine](docs/phases/phase-1.md) ·
+[Phase 2 — surface terrain](docs/phases/phase-2.md).
 
 | Axis-aligned slice | 30° XW tilt | 45° XW + 45° ZW tilt |
 |---|---|---|
-| ![](docs/screenshots/phase-1/1-axis-aligned.png) | ![](docs/screenshots/phase-1/2-xw-30.png) | ![](docs/screenshots/phase-1/3-xw45-zw45.png) |
+| ![](docs/screenshots/phase-2/1-axis-aligned.png) | ![](docs/screenshots/phase-2/2-xw-30.png) | ![](docs/screenshots/phase-2/3-xw45-zw45.png) |
 | cubes | stretched/split boxes | triangular & hexagonal prisms |
 
 ## Run it
@@ -20,7 +21,8 @@ npm run dev            # http://localhost:5173
 
 Requires a browser with WebGL2. Useful URL parameters: `?rd=4` (render distance in chunks,
 2–8), `?res=360` (fixed internal height, or `auto`), `?fov=75`, `?bench=1` (benchmark),
-`?test=1&seed=text` (ephemeral test world, no menus; used by tests).
+`?test=1&seed=text` (ephemeral test world with the engine test garden, no menus and no
+particles unless `&particles=1`; used by tests).
 
 ## Controls
 
@@ -75,4 +77,5 @@ node scripts/alloc-profile.mjs      # sample per-frame allocations (needs `npm r
 - How to add a [block](docs/how-to/add-a-block.md), [biome](docs/how-to/add-a-biome.md),
   [realm](docs/how-to/add-a-realm.md), [mob](docs/how-to/add-a-mob.md) (planned),
   [structure](docs/how-to/add-a-structure.md) (planned)
-- [Benchmarks](docs/benchmarks/phase-1.md) · [Changelog](CHANGELOG.md) · [Known issues](KNOWN_ISSUES.md)
+- Benchmarks: [Phase 1](docs/benchmarks/phase-1.md), [Phase 2](docs/benchmarks/phase-2.md) ·
+  [Changelog](CHANGELOG.md) · [Known issues](KNOWN_ISSUES.md)

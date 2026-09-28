@@ -7,7 +7,9 @@ import { SHAPES } from './shapes';
 import { TEXTURES } from './textures';
 import { BIOMES } from './biomes';
 import { REALMS } from './realms';
-import type { BiomeDef, BlockDef, Box4, Hex, RealmDef, ShapeDef, TextureDef } from './types';
+import { TREES } from './trees';
+import { TERRAIN_BLOCKS, TERRAIN_TEXTURES } from './terrain';
+import type { BiomeDef, BlockDef, Box4, Hex, RealmDef, ShapeDef, TextureDef, TreeDef } from './types';
 
 /** A voxel is a uint16: block id in the low 12 bits, a 4-bit meta nibble on top. */
 export const ID_MASK = 0x0fff;
@@ -102,7 +104,9 @@ export class Registry {
   readonly biomes: BiomeDef[];
   readonly realms: RealmDef[];
   readonly shapeDefs: ShapeDef[];
+  readonly trees: TreeDef[];
   readonly count: number;
+  private readonly treeByName = new Map<string, number>();
 
   private readonly byName = new Map<string, number>();
   private readonly texByName = new Map<string, number>();
@@ -140,12 +144,14 @@ export class Registry {
     textures: TextureDef[],
     biomes: BiomeDef[],
     realms: RealmDef[],
+    trees: TreeDef[] = [],
   ) {
     this.blocks = blocks;
     this.textures = textures;
     this.biomes = biomes;
     this.realms = realms;
     this.shapeDefs = shapes;
+    this.trees = trees;
     this.count = blocks.length;
     const errors: string[] = [];
 
@@ -249,12 +255,22 @@ export class Registry {
     this.collision[VOID] = COLLISION_FULL;
     this.isFullShape[VOID] = 1;
 
+    trees.forEach((t, i) => {
+      if (this.treeByName.has(t.name)) errors.push(`duplicate tree "${t.name}"`);
+      this.treeByName.set(t.name, i);
+      if (!this.byName.has(t.log)) errors.push(`tree "${t.name}": unknown log "${t.log}"`);
+      if (t.leaves && !this.byName.has(t.leaves)) errors.push(`tree "${t.name}": unknown leaves "${t.leaves}"`);
+    });
     biomes.forEach((b, i) => {
       if (this.biomeByName.has(b.name)) errors.push(`duplicate biome "${b.name}"`);
       this.biomeByName.set(b.name, i);
       for (const k of ['surface', 'subsurface', 'underwater'] as const) {
         if (!this.byName.has(b[k])) errors.push(`biome "${b.name}": unknown block "${b[k]}"`);
       }
+      if (b.stone && !this.byName.has(b.stone)) errors.push(`biome "${b.name}": unknown stone "${b.stone}"`);
+      if (b.ceiling && !this.byName.has(b.ceiling)) errors.push(`biome "${b.name}": unknown ceiling "${b.ceiling}"`);
+      for (const t of b.trees) if (!this.treeByName.has(t.tree)) errors.push(`biome "${b.name}": unknown tree "${t.tree}"`);
+      for (const p of b.plants) if (!this.byName.has(p.block)) errors.push(`biome "${b.name}": unknown plant "${p.block}"`);
     });
     realms.forEach((r, i) => {
       if (this.realmByName.has(r.name)) errors.push(`duplicate realm "${r.name}"`);
@@ -290,6 +306,18 @@ export class Registry {
     const i = this.biomeByName.get(name);
     if (i === undefined) throw new Error(`unknown biome "${name}"`);
     return this.biomes[i]!;
+  }
+
+  tree(name: string): TreeDef {
+    const i = this.treeByName.get(name);
+    if (i === undefined) throw new Error(`unknown tree "${name}"`);
+    return this.trees[i]!;
+  }
+
+  biomeIndex(name: string): number {
+    const i = this.biomeByName.get(name);
+    if (i === undefined) throw new Error(`unknown biome "${name}"`);
+    return i;
   }
 
   realm(name: string): RealmDef {
@@ -349,7 +377,9 @@ export class Registry {
   }
 }
 
-export const REG = new Registry(BLOCKS, SHAPES, TEXTURES, BIOMES, REALMS);
+export const ALL_BLOCKS: BlockDef[] = [...BLOCKS, ...TERRAIN_BLOCKS];
+export const ALL_TEXTURES: TextureDef[] = [...TEXTURES, ...TERRAIN_TEXTURES];
+export const REG = new Registry(ALL_BLOCKS, SHAPES, ALL_TEXTURES, BIOMES, REALMS, TREES);
 
 /** Frequently used ids (resolved once). */
 export const B = {

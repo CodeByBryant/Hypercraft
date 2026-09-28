@@ -177,6 +177,87 @@ export function generateTexture(def: TextureDef, index: number): Uint8Array {
             col = scale(mix(c0, c1, v / 16), 1 + (j - 0.5) * 0.2);
             break;
           }
+          case 'bands': {
+            // Layered rock: horizontal bands through the palette, wobbling with u/s.
+            const k = Math.floor((v + 2 * noise.n3(u * 0.15, 0.5, s * 0.15)) / 3);
+            const band = ((k % cols.length) + cols.length) % cols.length;
+            col = scale(cols[band]!, 1 + (j - 0.5) * amount * 2);
+            break;
+          }
+          case 'speckle': {
+            col = scale(mix(c0, c1, 0.5 + 0.5 * lo), 1 + (j - 0.5) * amount * 2);
+            if (hash4f(u, v, s, 13, seed) < density) col = scale(c2, 0.9 + j * 0.2);
+            break;
+          }
+          case 'crystal': {
+            // Faceted: planes of constant (u ± v ± s) with bright edges.
+            const f1 = (u + v + s) & 7, f2 = (u - v + 16 + s) & 7, f3 = (u + v - s + 16) & 7;
+            const edge = f1 === 0 || f2 === 0 || f3 === 0;
+            col = edge ? c2 : scale(mix(c0, c1, 0.5 + 0.5 * noise.n3(u * 0.3, v * 0.3, s * 0.3)), 1 + (j - 0.5) * 0.1);
+            a = baseAlpha;
+            break;
+          }
+          case 'cap': {
+            // Mushroom cap: base colour with white spots (3D blobs).
+            const sp = noise.n3(u * 0.35 + 3, v * 0.35, s * 0.35);
+            col = sp > 0.45 ? c1 : scale(c0, 1 + (j - 0.5) * 0.15);
+            break;
+          }
+          case 'fruit': {
+            // Leaves with fruit dots (alpha holes like leaves).
+            col = scale(mix(c0, c1, 0.5 + 0.5 * lo), 1 + (j - 0.5) * 0.3);
+            a = hash4f(u >> 1, v >> 1, s >> 1, 9, seed) < density ? 0 : 1;
+            if (hash4f(u >> 2, v >> 2, s >> 2, 21, seed) < 0.12 && ((u + v + s) & 3) === 0) {
+              col = c2;
+              a = 1;
+            }
+            break;
+          }
+          case 'bamboo': {
+            const node = (v & 3) === 0;
+            col = node ? scale(c1, 0.9) : scale(mix(c0, c1, (u + s) / 30), 1 + (j - 0.5) * 0.1);
+            break;
+          }
+          case 'dripstone': {
+            const streak = hash4f(u, 0, s, 17, seed);
+            col = scale(mix(c0, c1, streak), 1 + (hash4f(u, v >> 1, s, 18, seed) - 0.5) * 0.15);
+            break;
+          }
+          case 'flower': {
+            // Stem + blossom near the top; alpha cut-out.
+            const stem = (u === 7 || u === 8) && (s === 7 || s === 8 || hash4f(u, 3, s, 19, seed) < 0.05);
+            const r = Math.hypot(u - 7.5, v - 11.5, s - 7.5);
+            if (r < 3.2 && hash4f(u, v, s, 20, seed) < 0.85) {
+              col = scale(c2, 0.85 + j * 0.3);
+              a = 1;
+            } else if (stem && v < 11) {
+              col = c0;
+              a = 1;
+            } else {
+              a = 0;
+            }
+            break;
+          }
+          case 'mushroom': {
+            const r2 = Math.hypot(u - 7.5, s - 7.5);
+            if (v >= 6 && v <= 8 && r2 < 5) {
+              col = scale(c1, 0.9 + j * 0.2);
+              a = 1;
+            } else if (v < 6 && r2 < 1.6) {
+              col = c0;
+              a = 1;
+            } else a = 0;
+            break;
+          }
+          case 'bud': {
+            // Crystal spikes growing from the floor.
+            const cx = (u >> 2) * 4 + 1.5, cs = (s >> 2) * 4 + 1.5;
+            const hgt = 4 + Math.floor(hash4f(u >> 2, 0, s >> 2, 22, seed) * 10);
+            const rr = Math.hypot(u - cx, s - cs);
+            a = rr < 1.6 * (1 - v / (hgt + 1)) && v < hgt ? 1 : 0;
+            col = mix(c0, c2, v / 16);
+            break;
+          }
           case 'marker': {
             const frame = u === 0 || u === 15 || v === 0 || v === 15 || s === 0 || s === 15;
             col = frame ? c1 : scale(c0, 1 + (j - 0.5) * 0.08);

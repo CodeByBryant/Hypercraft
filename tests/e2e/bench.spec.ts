@@ -2,11 +2,11 @@ import { expect, test } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import './util';
 
-// Phase 1 engine benchmarks (run with BENCH=1 npx playwright test bench). In CI/containers
+// Engine benchmarks (run with BENCH=1 npx playwright test bench; BENCH_OUT names the JSON). In CI/containers
 // WebGL runs on SwiftShader (CPU), so render timings here are NOT GPU numbers; the
 // GPU-independent metrics (ray steps per pixel, streaming throughput, worker times, CPU frame
 // cost, memory) are. Real-GPU numbers come from the in-game benchmark (?bench=1).
-test('phase 1 benchmarks', async ({ page }) => {
+test('engine benchmarks', async ({ page }) => {
   test.skip(!process.env.BENCH, 'set BENCH=1 to run the benchmark');
   const errors: string[] = [];
   const t0 = Date.now();
@@ -42,12 +42,13 @@ test('phase 1 benchmarks', async ({ page }) => {
   const render: Record<string, unknown>[] = [];
   for (const v of views) {
     await page.evaluate(
-      ([y, view]) => {
+      ([pos, view]) => {
+        const p = pos as number[];
         window.__hc.setFlying(true);
-        window.__hc.teleport(0.5, y as number, -3.5, 0.5);
+        window.__hc.teleport(p[0]!, p[1]! + 3, p[2]!, p[3]!);
         window.__hc.setView(view as { pitch: number });
       },
-      [spawn[1]! + 3, v.view] as const,
+      [spawn, v.view] as const,
     );
     await page.evaluate(() => window.__hc.idle(240_000));
     const row: Record<string, unknown> = { view: v.name };
@@ -63,10 +64,11 @@ test('phase 1 benchmarks', async ({ page }) => {
   await page.evaluate(() => window.__hc.setResolution(180));
   const cols0 = (await page.evaluate(() => window.__hc.state())).workers as { done: number };
   let t = Date.now();
-  await page.evaluate(([y]) => {
+  await page.evaluate(([pos]) => {
+    const p = pos as number[];
     window.__hc.setView({ pitch: -14 });
-    window.__hc.teleport(0.5, y as number, -3.5, 32.5);
-  }, [spawn[1]! + 3] as const);
+    window.__hc.teleport(p[0]!, p[1]! + 3, p[2]!, p[3]! + 32);
+  }, [spawn] as const);
   await page.evaluate(() => window.__hc.idle(240_000));
   const kataMs = Date.now() - t;
   const cols1 = (await page.evaluate(() => window.__hc.state())).workers as { done: number };
@@ -91,7 +93,7 @@ test('phase 1 benchmarks', async ({ page }) => {
     },
   };
   mkdirSync('test-results/bench', { recursive: true });
-  writeFileSync('test-results/bench/phase1.json', JSON.stringify(report, null, 2));
+  writeFileSync(process.env.BENCH_OUT ?? 'test-results/bench/bench.json', JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
   expect(errors).toEqual([]);
 });

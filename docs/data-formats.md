@@ -58,23 +58,58 @@ mask (grass sides tint only the grassy fringe).
 ## Biomes (`src/content/biomes.ts`)
 
 ```ts
-{ name: 'ice_plains', displayName: 'Ice Plains', temperature: 0.08, humidity: 0.4,
-  surface: 'snow', subsurface: 'dirt', underwater: 'gravel',
-  heightBias: -2, heightScale: 0.6, treeDensity: 0.0006, grassDensity: 0,
-  frozenWater: true, precipitation: 'snow',
-  skyColor: '#a9c3e8', fogColor: '#dfe9f5', grassColor: '#80b497',
-  foliageColor: '#60a17b', waterColor: '#3d57d6' }
+{ name: 'cherry_grove', displayName: 'Cherry Grove', kind: 'land',
+  climate: [0.5, 0.55, 0.75, 0.55],          // land: [temperature, humidity, weirdness, mountains]
+  surface: 'petal_turf', subsurface: 'loam', underwater: 'sand',
+  stone: undefined,                           // optional: replaces stone in the top 16 blocks
+  terrain: undefined,                         // optional style: dunes | mesa | marsh | steppe | ...
+  heightBias: 8, heightScale: 1.2,
+  trees: [{ tree: 'cherry', density: 0.006 }],                 // per column, see trees.ts
+  plants: [{ block: 'pink_petals', density: 0.12 }],           // placement: surface | underwater
+  particles: [{ kind: 'petal', color: '#f7a8c8', rate: 8 }],   // ambient, per second
+  frozenWater: false, precipitation: 'rain',
+  skyColor: '#8fb2ff', fogColor: '#e8d4ec', grassColor: '#b6db61',
+  foliageColor: '#b6db61', waterColor: '#5db7ef',
+  music: 'cherry',                                             // Phase 12 audio tag
+  mobs: { day: [...], night: [...], cave: [...] },             // Phase 4 spawn tables
+  structures: ['stone_circle', 'campsite'] }                   // Phase 5 structure names
 ```
 
-Selection: the nearest biome in (temperature, humidity) climate space, with height parameters
-and grass colour blended by `1/d⁴` weights (`selectBiome`, unit-tested). Climate fields are 3D
-noise over (x, z, w), so biomes vary along W.
+`kind` decides how the biome is chosen:
+
+* **land**: nearest climate point in (temperature, humidity, weirdness, mountains), where
+  continentalness says "land". Height bias/scale and grass colour are blended across borders
+  with `1/d⁴` weights; `share` (the dominant biome's weight) fades terrain styles in.
+* **ocean**: where continentalness is below −0.2, nearest point in (temperature, depth);
+  `climate` is `[temperature, depth 0..1, 0, 0]`.
+* **underground**: cave decoration (floors, ceilings, cave plants, particles), chosen from
+  cave humidity/weirdness noise; `climate` is informational.
+
+All climate fields are fBm noise over the horizontal 3-space (x, z, w), plus an *ana bias*
+field that changes about 9x faster along W, so walking kata/ana crosses biomes quicker than
+walking in X/Z (see `src/world/gen/surface/Climate.ts`).
+
+Particle kinds: `dust`, `leaf`, `petal`, `snow`, `ash`, `spore`, `firefly`, `ember`,
+`bubble`, `mote` (behaviour table in `src/env/Particles.ts`). `glow` ignores lighting,
+`night` only spawns after dusk.
+
+## Trees (`src/content/trees.ts`)
+
+```ts
+{ name: 'spruce', shape: 'cone', log: 'spruce_log', leaves: 'spruce_leaves',
+  height: [7, 11], radius: [2.4, 3.2] }
+```
+
+Shapes are 4D-native (canopies are balls, cones or ellipsoids in x, z and w, so every slice
+cuts them differently): `ball`, `birch`, `wide`, `cone`, `acacia` (trunk bends toward one of
+±X/±Z/±W), `bamboo`, `mushroom` (hollow cap), `dead`, `cactus`, `kelp` (grows up to the
+water surface). Biomes reference trees by name; the registry rejects unknown names.
 
 ## Realms (`src/content/realms.ts`)
 
 ```ts
 { name: 'surface', displayName: 'The Surface', heightChunks: 8, gravityAxis: 1, gravity: 32,
-  seaLevel: 48, generator: 'surface_phase1', coordinateScale: 1, dayCycle: true, ambient: 0.035,
+  seaLevel: 48, generator: 'surface', coordinateScale: 1, dayCycle: true, ambient: 0.035,
   weather: ['clear','rain','snow','thunder','phase_storm'], skyColor: '#7aa9ff',
   fogColor: '#c3dbff', floorBlock: 'bedrock', ceilingBlock: null }
 ```

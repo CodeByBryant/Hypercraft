@@ -275,6 +275,7 @@ export class Menus {
         range('vignette', 0, 1, 0.05, (v) => v.toFixed(2)),
         toggle('pixelated'),
         toggle('invertY'),
+        select('particles', [['all', 'All'], ['reduced', 'Reduced'], ['off', 'Off']]),
         select('touch', [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']]),
       ),
       h('button', { class: 'primary', onclick: back }, 'Done'),
@@ -309,6 +310,7 @@ const LABELS: Partial<Record<keyof Settings, string>> = {
   pixelated: 'Pixelated upscaling',
   invertY: 'Invert mouse Y',
   touch: 'Touch controls',
+  particles: 'Particles',
 };
 
 function labelOf(k: keyof Settings): string {

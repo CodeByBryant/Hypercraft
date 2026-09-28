@@ -59,7 +59,7 @@ export const BLOCKS: BlockDef[] = [
     damage: 4,
     replaceable: true,
   },
-  { name: 'log', displayName: 'Tesseract Log', render: 'opaque', solid: true, textures: { top: 'log_top', bottom: 'log_top', side: 'log_side' }, hardness: 2 },
+  { name: 'log', displayName: 'Tesseract Log', render: 'opaque', solid: true, textures: { top: 'log_top', bottom: 'log_top', side: 'log_side' }, hardness: 2, tags: ['log'] },
   {
     name: 'leaves',
     render: 'cutout',
@@ -69,6 +69,7 @@ export const BLOCKS: BlockDef[] = [
     lightOpacity: 1,
     opaque: false,
     hardness: 0.2,
+    tags: ['leaves'],
   },
   { name: 'planks', render: 'opaque', solid: true, textures: { all: 'planks' }, hardness: 2 },
   {
@@ -92,8 +93,8 @@ export const BLOCKS: BlockDef[] = [
     replaceable: false,
     hardness: 0,
   },
-  { name: 'coal_ore', render: 'opaque', solid: true, textures: { all: 'coal_ore' }, hardness: 3 },
-  { name: 'iron_ore', render: 'opaque', solid: true, textures: { all: 'iron_ore' }, hardness: 3 },
+  { name: 'coal_ore', render: 'opaque', solid: true, textures: { all: 'coal_ore' }, hardness: 3, tags: ['ore'] },
+  { name: 'iron_ore', render: 'opaque', solid: true, textures: { all: 'iron_ore' }, hardness: 3, tags: ['ore'] },
   {
     name: 'hyperite_ore',
     displayName: 'Hyperite Ore',
@@ -102,6 +103,7 @@ export const BLOCKS: BlockDef[] = [
     textures: { all: 'hyperite_ore' },
     emission: 7,
     hardness: 4,
+    tags: ['ore'],
   },
   { name: 'obsidian', render: 'opaque', solid: true, textures: { all: 'obsidian' }, hardness: 50 },
   {
@@ -154,6 +156,7 @@ export const BLOCKS: BlockDef[] = [
     biomeTint: 1,
     replaceable: true,
     hardness: 0,
+    tags: ['plant'],
   },
   { name: 'marker_x', displayName: '+X Marker', render: 'opaque', solid: true, textures: { all: 'marker_x' }, hardness: 0.5 },
   { name: 'marker_y', displayName: '+Y Marker', render: 'opaque', solid: true, textures: { all: 'marker_y' }, hardness: 0.5 },

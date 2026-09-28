@@ -140,6 +140,8 @@ async function boot(): Promise<void> {
   const bench = q.has('bench');
   const test = q.has('test') || bench;
   if (test) {
+    // Deterministic screenshots: no ambient particles unless asked for (?particles=1).
+    if (!q.has('particles')) settings.particles = 'off';
     const game = startGame(ephemeralWorld(q.get('seed') ?? 'hypercraft', 'creative'), null, settings, true);
     if (game && bench) {
       const overlay = document.createElement('div');

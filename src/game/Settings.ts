@@ -19,6 +19,8 @@ export interface Settings {
   tint4D: boolean;
   /** Touch controls: auto-detect, always on, or off. */
   touch: 'auto' | 'on' | 'off';
+  /** Ambient particle density. */
+  particles: 'all' | 'reduced' | 'off';
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -35,6 +37,7 @@ export const DEFAULT_SETTINGS: Settings = {
   vignette: 0.35,
   tint4D: true,
   touch: 'auto',
+  particles: 'all',
 };
 
 const KEY = 'hypercraft.settings.v1';
@@ -53,7 +56,12 @@ export function loadSettings(): Settings {
   if (q.has('res')) s.resolution = q.get('res') === 'auto' ? 'auto' : Math.max(120, Number(q.get('res')));
   if (q.has('fov')) s.fov = Number(q.get('fov'));
   if (q.has('steps')) s.maxSteps = Number(q.get('steps'));
+  if (q.has('particles')) s.particles = q.get('particles') === '0' ? 'off' : 'all';
   return s;
+}
+
+export function particleDensity(s: Settings): number {
+  return s.particles === 'off' ? 0 : s.particles === 'reduced' ? 0.4 : 1;
 }
 
 export function saveSettings(s: Settings): void {

@@ -1,15 +1,17 @@
 # Known issues
 
-Honest list as of Phase 1 (engine). Items tagged with the phase expected to address them.
+Honest list as of Phase 2 (surface terrain). Items tagged with the phase expected to address them.
 
 ## Unverified / performance
 - **R5 not measured on real GPUs.** Development ran in a GPU-less container (SwiftShader
   software GL, about 3 s per 360p frame). GPU-independent metrics look healthy (about 25 ray
   steps per pixel, see `docs/benchmarks/phase-1.md`), but 60 fps at 360p on integrated GPUs
   must be confirmed with `?bench=1` on real hardware.
-- **GPU memory**: brick pools use ~84 MB at render distance 4 (≈530 non-uniform 16-bit block
-  bricks per column + light bricks). Options: fewer isolated ore bricks, 8-bit palette bricks,
-  shrinking pools. Default render distance may need to drop to 3 on low-end devices.
+- **GPU memory**: Phase 2 terrain is much busier than the Phase 1 test terrain: about 980
+  non-uniform block bricks per column (was ≈530), so brick pools at render distance 4 are
+  larger (see `docs/benchmarks/phase-2.md`). Options: 8-bit palette bricks, fewer isolated
+  ore bricks, shrinking pools. Default render distance may need to drop to 3 on low-end
+  devices (Phase 12 settings presets).
 - **Pool regrow hitch**: when a brick pool fills up it is recreated larger and *every*
   resident chunk is re-uploaded, which is a visible stall. The initial size is estimated from
   the render distance, so this should be rare.
@@ -26,7 +28,10 @@ Honest list as of Phase 1 (engine). Items tagged with the phase expected to addr
   (intended 4D effect, but can look blocky).
 - Translucency is capped at 6 pass-throughs per ray; deep stacks of glass/water go dark behind.
 - Rain/snow are screen-space overlays masked by whether the player is under open sky; they
-  are not 4D particles and do not stop at nearby roofs.
+  are not 4D particles and do not stop at nearby roofs. (Biome snowfall *particles* are 4D and
+  do respect roofs.)
+- Ambient particles take their brightness from the light value of the cell they are in; they
+  cast no shadows and pass through leaves and other non-opaque blocks.
 - Distant fog colour can differ slightly from the sky at high elevations during sunsets.
 - The P wireframe overlay is busy in dense terrain (it outlines every exposed cell within 2
   blocks of the target).
@@ -36,9 +41,20 @@ Honest list as of Phase 1 (engine). Items tagged with the phase expected to addr
   *neighbouring* column after that column was saved can leave slightly stale light at the
   seam on reload (increases are re-propagated, decreases are not).
 - Starting or leaving a world reloads the page (simple and leak-free, but not instant).
-- Terrain is a Phase 1 test generator (4 biomes, cheese caves, simple ores and trees). The
-  full biome/cave/ore system is Phase 2. The **engine test garden** near spawn (x −12..12,
-  z 4..28, w −4..4) is a showcase for the R6 views and will be removed.
+- The **engine test garden** only exists in test worlds (`?test=1`); it is a flat plateau
+  on the nearest flat dry site (x −12..12, z −8..28, w −4..4 around it) used by the R6 views
+  and the e2e walk test.
+- Worldgen: structures are Phase 5 (biomes already list their structure names); mob spawn
+  tables are data only until Phase 4. Underground biomes are chosen by two noise fields in
+  `caveBiome()`, so a new underground biome needs a selection rule there (its decoration is
+  data-driven).
+- Lakes take their level from the direct climate sample rather than the column lattice, so a
+  rim can be off by a block; trees rooted in a neighbouring column can overhang a lake.
+- Worlds saved with 0.1.x regenerate unedited columns with the Phase 2 generator; their
+  edited columns keep old terrain, so seams can appear at those columns.
+- Trees and features crossing column borders are generated with a 4-block margin; a very
+  wide canopy (radius > 4) or a volcano/spire straddling several columns is consistent, but
+  giant structures will need the Phase 5 structure pipeline.
 - Fluids: no "flow toward the nearest drop" heuristic, flowing water does not push entities,
   surfaces are per-cell boxes (no sloped surfaces), and generated oceans are static until
   disturbed.

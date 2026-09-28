@@ -22,12 +22,13 @@ test('R6 reference views', async ({ page }) => {
   for (const v of VIEWS) {
     // Hover a few blocks above spawn, just in front of the engine test garden.
     await page.evaluate(
-      ([y, view]) => {
+      ([pos, view]) => {
+        const p = pos as number[];
         window.__hc.setFlying(true);
-        window.__hc.teleport(0.5, y as number, -3.5, 0.5);
+        window.__hc.teleport(p[0]!, p[1]! + 3, p[2]!, p[3]!);
         window.__hc.setView(view as { pitch: number });
       },
-      [spawn[1]! + 3, v.view] as const,
+      [spawn, v.view] as const,
     );
     await page.evaluate(() => window.__hc.idle(240_000));
     const ms = await page.evaluate(() => window.__hc.benchRender(3));

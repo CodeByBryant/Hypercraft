@@ -6,6 +6,7 @@ import type { World } from '../world/World';
 import { mod } from '../world/constants';
 import { GpuWorld } from './GpuWorld';
 import { LineOverlay } from './LineOverlay';
+import { SpriteBatch } from './SpriteBatch';
 import { Program } from './gl';
 import fullscreenVs from './shaders/fullscreen.vert.glsl?raw';
 import raymarchFs from './shaders/raymarch.frag.glsl?raw';
@@ -69,6 +70,7 @@ export class Renderer {
   readonly canvas: HTMLCanvasElement;
   readonly gpu: GpuWorld;
   readonly lines: LineOverlay;
+  readonly sprites: SpriteBatch;
   private readonly march: Program;
   private readonly comp: Program;
   private readonly vao: WebGLVertexArrayObject;
@@ -100,6 +102,7 @@ export class Renderer {
     this.march = new Program(gl, fullscreenVs, raymarchFs, 'raymarch');
     this.comp = new Program(gl, fullscreenVs, compositeFs, 'composite');
     this.lines = new LineOverlay(gl);
+    this.sprites = new SpriteBatch(gl);
     this.vao = gl.createVertexArray()!;
     const ext = gl.getExtension('EXT_disjoint_timer_query_webgl2') as { TIME_ELAPSED_EXT: number; GPU_DISJOINT_EXT: number } | null;
     this.timerExt = ext;
@@ -278,6 +281,8 @@ export class Renderer {
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.bindVertexArray(null);
 
+    this.sprites.fade = p.maxDist * 0.75;
+    this.sprites.draw(this.auxTex!, tanX, tanY, cw, ch);
     this.lines.draw(this.auxTex!, tanX, tanY, cw, ch);
     this.endTimer();
   }

@@ -1,5 +1,52 @@
 # Changelog
 
+## 0.2.0 — Phase 2: Surface terrain (2026-09-28)
+
+### Added
+- **4D climate**: continentalness, erosion, ridged peaks, temperature, humidity and
+  weirdness as fBm over (x, z, w), plus an "ana bias" field that varies ~9x faster along W,
+  so kata/ana walks cross biomes faster than X/Z walks. Smooth fields are sampled on a
+  4-block lattice anchored to world coordinates (seamless across columns).
+- **27 biomes** (19 land, 5 ocean, 3 underground), chosen by nearest climate point with
+  `1/d⁴` blending of height and colours: Meadow, Tesseract Forest, Birch Glade, Orchard
+  Hills, Cherry Grove, Glass Marsh, Mushroom Fen, Dense Taiga, Snow Taiga, Ice Plains, Frost
+  Spires, Weathered Steppe, Savanna, Bamboo Thicket, Dune Sea, Sunscar Mesa, Bone Desert,
+  Volcanic Highlands, Hollow Peaks; Ocean, Deep Ocean, Frozen Ocean, Coral Shallows, Kelp
+  Deep; Lush Caves, Dripstone Caves, The Silent Layer.
+- Terrain styles: dunes whose crests shift with W, terraced mesas with W-shifting
+  terracotta bands, marsh flats, stepped steppe, volcano cones with lava craters, frost
+  spires, W-banded floating islands (Hollow Peaks), rivers carved to below sea level.
+- **4D caves**: cheese hyper-caverns, worm tunnels (intersection of three zero sets = curves
+  in 4D), fissures, **Ana Sheets** (huge cavities one or two blocks thin along W, wide in X
+  and Z), ravines (water-filled trenches under the sea), sinkholes, lava lakes below y 10,
+  flooded humid caves; data-driven cave biomes decorate floors and ceilings (`ceiling` block,
+  floor/ceiling plants, trees).
+- **Lakes**: contained 4D bowls above sea level (frozen in cold biomes).
+- **Ores** as 4D capsule veins with depth ranges (coal, copper, iron, gold, azurite,
+  fluxite, verdant in mountains, hyperite) and deep variants near bedrock; geodes (shell,
+  calcite, amethyst, clusters), fossils in the Bone Desert.
+- ~170 new blocks (stones, soils, turf per biome, terracotta, corals, logs/leaves for 8 wood
+  types, cactus, bamboo, kelp, seagrass, anemones, flowers and glowing plants, ores); every
+  biome has at least 3 unique blocks and 2 unique plants (unit-tested); 16 tree archetypes
+  with 4D canopies (ball, birch, cone, acacia bending into ±W, wide, bamboo, giant mushrooms,
+  dead trees, cactus, kelp).
+- **Ambient particles** per biome (dust, leaves, petals, snow, ash, spores, fireflies,
+  embers, bubbles, motes), each a tiny 4-ball drawn as its slice disc, so they swell and fade
+  as they drift through your slice; *Particles* setting (all/reduced/off).
+- F3 shows the world seed, the cave biome underground and particle counts.
+- Unit tests: 15 world-generation tests (determinism, all biomes occur, underground biomes,
+  caves, Ana Sheets, ore depths, rivers, lakes, vegetation, spawn on dry land, speed), 3
+  particle tests, unique content per biome.
+
+### Changed
+- Generator is `surface` (Phase 1's `surface_phase1` is gone): worlds created with 0.1.x
+  regenerate with the new terrain; edited columns from old saves keep their old contents.
+- Column generation optimised (segmented fills, shared cave-field interpolation, hoisted
+  ids): about 44 ms per column in Node.
+- The engine test garden (test worlds only) now searches for a flat dry site and covers the
+  spawn point; e2e views/bench are spawn-relative.
+- Brick pools start larger (sized for Phase 2 terrain) to avoid regrow stalls.
+
 ## 0.1.1 — Controls, seeds, worlds, touch (2026-09-28)
 
 ### Changed

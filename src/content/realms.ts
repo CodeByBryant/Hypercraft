@@ -11,7 +11,7 @@ export const REALMS: RealmDef[] = [
     gravityAxis: 1,
     gravity: 32,
     seaLevel: 48,
-    generator: 'surface_phase1',
+    generator: 'surface',
     coordinateScale: 1,
     dayCycle: true,
     ambient: 0.035,

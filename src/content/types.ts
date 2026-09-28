@@ -95,7 +95,17 @@ export type TexturePattern =
   | 'torch'
   | 'portal'
   | 'plant'
-  | 'marker';
+  | 'marker'
+  | 'bands'
+  | 'speckle'
+  | 'crystal'
+  | 'cap'
+  | 'fruit'
+  | 'bamboo'
+  | 'dripstone'
+  | 'flower'
+  | 'mushroom'
+  | 'bud';
 
 /** Procedural 16x16x16 solid texture (sampled on the 3D facets of tesseracts). */
 export interface TextureDef {
@@ -110,20 +120,65 @@ export interface TextureDef {
   seed?: number;
 }
 
+export type TreeShape = 'ball' | 'birch' | 'cone' | 'acacia' | 'wide' | 'bamboo' | 'mushroom' | 'dead' | 'cactus' | 'kelp';
+
+/** A tree / large-plant archetype (logs, leaves and the procedural 4D shape). */
+export interface TreeDef {
+  name: string;
+  shape: TreeShape;
+  log: string;
+  leaves?: string;
+  /** Trunk height range. */
+  height: [number, number];
+  /** Canopy radius range (4D ball / cone / ellipsoid radius). */
+  radius: [number, number];
+}
+
+export type TerrainStyle = 'normal' | 'dunes' | 'mesa' | 'spires' | 'floating' | 'volcanic' | 'marsh' | 'steppe' | 'hills';
+
+export type PlantPlacement = 'surface' | 'underwater' | 'floor' | 'ceiling';
+
+export interface ParticleDef {
+  kind: 'spore' | 'snow' | 'ash' | 'petal' | 'leaf' | 'dust' | 'firefly' | 'bubble' | 'ember' | 'mote';
+  color: Hex;
+  /** Particles per second around the player (at full density). */
+  rate: number;
+  glow?: boolean;
+  /** Only at night. */
+  night?: boolean;
+}
+
+export interface MobSpawn {
+  mob: string;
+  weight: number;
+  group?: [number, number];
+}
+
 export interface BiomeDef {
   name: string;
   displayName: string;
-  /** Climate point; the generator picks the nearest biome in (temperature, humidity) space. */
-  temperature: number;
-  humidity: number;
+  /**
+   * land: chosen from (temperature, humidity, weirdness, mountains);
+   * ocean: chosen where continentalness is low, from (temperature, depth);
+   * underground: cave decoration, chosen from (humidity, weirdness) and depth.
+   */
+  kind: 'land' | 'ocean' | 'underground';
+  /** Climate point: land [t, h, weird, mountains]; ocean [t, depth, 0, 0]; underground [h, weird, depth, 0]. */
+  climate: [number, number, number, number];
   surface: string;
   subsurface: string;
   underwater: string;
+  /** Replaces stone near the surface (e.g. sandstone under deserts). */
+  stone?: string;
+  /** Underground biomes: block that replaces cave ceilings (floors use `surface`). */
+  ceiling?: string;
+  terrain?: TerrainStyle;
   /** Height bias and amplitude multipliers applied to the base terrain. */
   heightBias: number;
   heightScale: number;
-  treeDensity: number;
-  grassDensity: number;
+  trees: { tree: string; density: number }[];
+  plants: { block: string; density: number; placement?: PlantPlacement }[];
+  particles?: ParticleDef[];
   frozenWater: boolean;
   precipitation: 'rain' | 'snow' | 'none';
   skyColor: Hex;
@@ -132,6 +187,10 @@ export interface BiomeDef {
   foliageColor: Hex;
   waterColor: Hex;
   music?: string;
+  /** Spawn tables (Phase 4 mobs). */
+  mobs?: { day?: MobSpawn[]; night?: MobSpawn[]; water?: MobSpawn[]; cave?: MobSpawn[] };
+  /** Structure names that may generate here (Phase 5). */
+  structures?: string[];
 }
 
 export type WeatherKind = 'clear' | 'rain' | 'snow' | 'thunder' | 'phase_storm';

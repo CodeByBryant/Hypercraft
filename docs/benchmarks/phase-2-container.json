@@ -1,0 +1,85 @@
+{
+  "date": "2026-09-28T22:58:39.416Z",
+  "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+  "settings": {
+    "renderDistance": 4,
+    "internal": "360p",
+    "workers": {
+      "done": 196,
+      "errors": 0,
+      "genMs": 42.948937936310074,
+      "lightMs": 13.162312731595113,
+      "packMs": 8.718156230384942
+    }
+  },
+  "startup": {
+    "readyMs": 3489,
+    "fullyStreamedMs": 9021,
+    "columns": 196,
+    "gpu": {
+      "uploadsThisFrame": 0,
+      "bytesThisFrame": 0,
+      "freshChunksThisFrame": 0,
+      "blockGroups": 19236,
+      "lightGroups": 10504,
+      "poolBytes": 146800640,
+      "regrows": 2,
+      "queued": 0
+    },
+    "cpuMemMB": 99.996337890625
+  },
+  "cpuFrameMs": {
+    "avg": 0.15750000003026798,
+    "p95": 0.3000000002793968
+  },
+  "render": [
+    {
+      "view": "axis-aligned",
+      "swMs@180p": 625,
+      "swMs@360p": 2430,
+      "steps360": {
+        "avg": 20.498563368055557,
+        "max": 76,
+        "p95": 44
+      },
+      "swMs@720p": 8914
+    },
+    {
+      "view": "xw30",
+      "swMs@180p": 742,
+      "swMs@360p": 2618,
+      "steps360": {
+        "avg": 23.18324652777778,
+        "max": 84,
+        "p95": 51
+      },
+      "swMs@720p": 9865
+    },
+    {
+      "view": "xw45+zw45",
+      "swMs@180p": 686,
+      "swMs@360p": 2252,
+      "steps360": {
+        "avg": 19.98431423611111,
+        "max": 85,
+        "p95": 47
+      },
+      "swMs@720p": 8896
+    }
+  ],
+  "streaming": {
+    "anaTwoChunks": {
+      "ms": 1531,
+      "columnsGenerated": 84
+    },
+    "rotateXW90": {
+      "ms": 1627,
+      "columnsGenerated": 56
+    },
+    "perColumnWorkerMs": {
+      "generate": 33.21608800875497,
+      "light": 13.926842953862481,
+      "pack": 7.914137014692104
+    }
+  }
+}

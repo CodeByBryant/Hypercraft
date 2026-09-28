@@ -44,7 +44,8 @@ export async function runBenchmark(game: Game, overlay: HTMLElement): Promise<Be
   while (!game.loaded) await nextFrame();
   // Hover above spawn looking at the test garden.
   game.player.flying = true;
-  game.player.setPosition(0.5, game.spawn[1] + 3, -3.5, 0.5);
+  const sp = game.spawn;
+  game.player.setPosition(sp[0], sp[1] + 3, sp[2], sp[3]);
   let calm = 0;
   while (calm < 30) {
     const busy = game.streamer.pendingCount > 0 || game.light.pending() > 0 || game.world.dirtyChunks.length > 0;

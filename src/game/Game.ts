@@ -5,6 +5,7 @@
 //   light BFS (budgeted) -> GPU sync (budgeted) -> picking -> hazards -> render -> HUD.
 
 import { REG, makeVoxel, voxelId, FLUID_LAVA, VARIANT_HORIZONTAL6, VARIANT_VERTICAL2, FLUID_WATER } from '../content/registry';
+import { Particles } from '../env/Particles';
 import { Environment, TICKS_PER_DAY } from '../env/Environment';
 import { Input } from '../input/Input';
 import { Player, type MoveInput } from '../physics/Player';
@@ -16,10 +17,10 @@ import { WorkerPool } from '../world/gen/WorkerPool';
 import { LightEngine } from '../world/light/LightEngine';
 import { FluidSim } from '../world/fluids/Fluids';
 import { makeRayHit, raycast, type RayHit } from '../world/raycast';
-import { createGenerator } from '../world/gen/generators';
+import { createGenerator, type WorldGenerator } from '../world/gen/generators';
 import { VOID_VOXEL } from '../world/constants';
 import { COLLISION_NONE } from '../content/registry';
-import type { Settings } from './Settings';
+import { particleDensity, type Settings } from './Settings';
 import type { WeatherKind } from '../content/types';
 import type { Persistence } from '../save/Persistence';
 import type { SavedState, WorldInfo } from '../save/WorldInfo';
@@ -71,12 +72,16 @@ export class Game {
   readonly streamer: Streamer;
   readonly renderer: Renderer;
   readonly env: Environment;
+  readonly particles = new Particles();
   readonly fluids: FluidSim;
   readonly player: Player;
   readonly input: Input;
   readonly scaler: ResolutionScaler;
   readonly canvas: HTMLCanvasElement;
   readonly spawn: [number, number, number, number];
+  /** Main-thread instance of the realm generator (spawn, biome queries). */
+  readonly generator: WorldGenerator;
+  readonly genOptions: { garden?: boolean };
 
   readonly params: RenderParams;
   readonly target: RayHit = makeRayHit();
@@ -125,7 +130,8 @@ export class Game {
     const realm = REG.realm(opts.world.state?.realm ?? 'surface');
     this.world = new World(realm, opts.settings.renderDistance);
     this.light = new LightEngine(this.world);
-    this.pool = new WorkerPool(opts.workers, this.seed, realm.name);
+    this.genOptions = { garden: opts.test && !opts.demo };
+    this.pool = new WorkerPool(opts.workers, this.seed, realm.name, this.genOptions);
     this.streamer = new Streamer(this.world, this.pool, this.light);
     this.streamer.hiddenStretch = opts.settings.hiddenStretch;
     this.renderer = new Renderer(canvas, this.world);
@@ -153,7 +159,8 @@ export class Game {
     this.world.retainEdited = !this.persistence;
     this.streamer.source = this.persistence;
 
-    const gen = createGenerator(this.seed, realm);
+    const gen = createGenerator(this.seed, realm, this.genOptions);
+    this.generator = gen;
     this.spawn = gen.spawnPoint();
     this.player.setPosition(...this.spawn);
     this.player.mode = opts.world.mode as GameMode;
@@ -177,6 +184,7 @@ export class Game {
       pitch: 0,
       pixelated: opts.settings.pixelated,
     };
+    this.particles.density = particleDensity(opts.settings);
     this.env.setTime(1500);
     if (opts.world.state) this.restore(opts.world.state);
     if (this.demo) {
@@ -353,6 +361,15 @@ export class Game {
     const bi = this.world.biomeAt(ex, ez, ew);
     const exposure = this.world.skyHeight(ex, ez, ew) <= this.eyePos[1]! ? 1 : 0;
     this.env.update(dt, bi >= 0 ? REG.biomes[bi]! : null, exposure);
+    // Ambient particles: the surface biome, or the cave biome when well underground.
+    let pb = bi >= 0 ? REG.biomes[bi]! : null;
+    const ey = Math.floor(this.eyePos[1]!);
+    if (!exposure && this.generator.caveBiomeAt && this.world.skyHeight(ex, ez, ew) > ey + 8) {
+      const cb = this.generator.caveBiomeAt(ex, ey, ez, ew);
+      pb = cb >= 0 ? REG.biomes[cb]! : null;
+    }
+    this.renderer.sprites.clear();
+    this.particles.update(dt, this.world, this.eyePos, p.cam, pb, this.env.sky.daylight, p.eyeInWater, this.renderer.sprites);
     this.hazardTimer -= dt;
     if (this.hazardTimer <= 0) {
       this.hazardTimer = 0.2;
@@ -516,6 +533,7 @@ export class Game {
       this.scaler.mode = 'fixed';
       this.scaler.fixedHeight = s.resolution;
     }
+    this.particles.density = particleDensity(s);
     if (s.renderDistance !== this.world.radius) {
       this.world.resize(s.renderDistance);
       this.renderer.gpu.resize(this.world.N, this.world.heightChunks);

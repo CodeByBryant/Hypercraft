@@ -270,6 +270,8 @@ export class Hud {
     const light = g.eyeLight();
     const bi = g.world.biomeAt(Math.floor(e[0]!), Math.floor(e[2]!), Math.floor(e[3]!));
     const biome = bi >= 0 ? REG.biomes[bi]!.displayName : '—';
+    const cbi = g.generator.caveBiomeAt?.(Math.floor(e[0]!), Math.floor(e[1]!), Math.floor(e[2]!), Math.floor(e[3]!)) ?? -1;
+    const cave = cbi >= 0 && g.world.skyHeight(Math.floor(e[0]!), Math.floor(e[2]!), Math.floor(e[3]!)) > e[1]! + 4 ? `  cave ${REG.biomes[cbi]!.displayName}` : '';
     const tod = g.env.timeOfDay;
     const hours = Math.floor(((tod / TICKS_PER_DAY) * 24 + 6) % 24);
     const mins = Math.floor((((tod / TICKS_PER_DAY) * 24 + 6) % 1) * 60);
@@ -277,7 +279,7 @@ export class Hud {
     for (const c of g.world.columns.values()) chunks += c.chunks.length;
     const v4 = (v: Float64Array) => `(${fmt(v[0]!)},${fmt(v[1]!)},${fmt(v[2]!)},${fmt(v[3]!)})`;
     const lines = [
-      `HYPERCRAFT · Phase 1 engine`,
+      `HYPERCRAFT · seed ${g.info.seedText}`,
       `fps ${g.fps.toFixed(0)}  frame ${g.frameMs.toFixed(1)} ms  cpu ${g.cpuMs.toFixed(1)} ms  gpu ${g.renderer.hasGpuTimer ? rs.gpuMs.toFixed(2) + ' ms' : 'n/a'}`,
       `internal ${rs.internalW}x${rs.internalH} (${g.scaler.mode === 'auto' ? 'auto' : 'fixed'})  canvas ${g.canvas.width}x${g.canvas.height}`,
       `ray steps avg ${rs.avgSteps.toFixed(1)}  max ${rs.maxSteps}  (cap ${g.settings.maxSteps})`,
@@ -287,7 +289,7 @@ export class Hud {
       `hidden h ${v4(cam.hidden)}  tilt ${((cam.hiddenAxisTilt() * 180) / Math.PI).toFixed(1)}°`,
       `fwd    f ${v4(cam.fwd)}`,
       `right  r ${v4(cam.right)}`,
-      `biome ${biome}  light sky ${light >> 4} block ${light & 15}  ${p.onGround ? 'ground' : 'air'}${p.inWater ? ' water' : ''}${p.onClimbable ? ' climb' : ''}`,
+      `biome ${biome}${cave}  particles ${g.particles.visible}/${g.particles.alive}  light sky ${light >> 4} block ${light & 15}  ${p.onGround ? 'ground' : 'air'}${p.inWater ? ' water' : ''}${p.onClimbable ? ' climb' : ''}`,
       ``,
       `columns ${g.world.columns.size} (chunks ${chunks})  pending ${g.streamer.pendingCount}  backlog ${g.streamer.backlog}  window ${g.world.N}³`,
       `workers ${g.pool.size}: gen ${ws.genMs.toFixed(1)} ms  light ${ws.lightMs.toFixed(1)} ms  pack ${ws.packMs.toFixed(1)} ms  done ${ws.done}`,

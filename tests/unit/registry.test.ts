@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ALL_BLOCKS,
+  ALL_TEXTURES,
   B,
   REG,
   Registry,
@@ -12,7 +14,7 @@ import {
   COLLISION_NONE,
   COLLISION_SHAPE,
 } from '../../src/content/registry';
-import { BLOCKS } from '../../src/content/blocks';
+import { TREES } from '../../src/content/trees';
 import { SHAPES } from '../../src/content/shapes';
 import { TEXTURES } from '../../src/content/textures';
 import { BIOMES } from '../../src/content/biomes';
@@ -21,7 +23,8 @@ import { buildAtlas, generateTexture } from '../../src/content/textureGen';
 
 describe('content registry', () => {
   it('compiles the shipped content', () => {
-    expect(REG.count).toBe(BLOCKS.length);
+    expect(REG.count).toBe(ALL_BLOCKS.length);
+    expect(REG.count).toBeGreaterThan(150);
     expect(B.air).toBe(0);
     expect(REG.render[B.stone]).toBe(RENDER_OPAQUE);
     expect(REG.opaque[B.stone]).toBe(1);
@@ -69,10 +72,42 @@ describe('content registry', () => {
   });
 
   it('reports content errors clearly', () => {
-    const bad = [...BLOCKS, { name: 'stone', render: 'opaque' as const, solid: true, textures: { all: 'nope' } }];
-    expect(() => new Registry(bad, SHAPES, TEXTURES, BIOMES, REALMS)).toThrow(/duplicate block "stone"[\s\S]*unknown texture "nope"/);
-    const noAir = BLOCKS.slice(1);
-    expect(() => new Registry(noAir, SHAPES, TEXTURES, BIOMES, REALMS)).toThrow(/air/);
+    const bad = [...ALL_BLOCKS, { name: 'stone', render: 'opaque' as const, solid: true, textures: { all: 'nope' } }];
+    expect(() => new Registry(bad, SHAPES, ALL_TEXTURES, BIOMES, REALMS, TREES)).toThrow(/duplicate block "stone"[\s\S]*unknown texture "nope"/);
+    const noAir = ALL_BLOCKS.slice(1);
+    expect(() => new Registry(noAir, SHAPES, ALL_TEXTURES, BIOMES, REALMS, TREES)).toThrow(/air/);
+    const badBiome = [{ ...BIOMES[0]!, name: 'x', trees: [{ tree: 'nonexistent', density: 1 }] }];
+    expect(() => new Registry(ALL_BLOCKS, SHAPES, ALL_TEXTURES, badBiome, REALMS, TREES)).toThrow(/unknown tree "nonexistent"/);
+  });
+
+  it('gives every biome at least 3 unique blocks and 2 unique plants', () => {
+    // Blocks a biome references (surface layers, stone, ceiling, tree logs/leaves, plants),
+    // counted as unique when no other biome references them.
+    const blocksOf = new Map<string, Set<string>>();
+    const plantsOf = new Map<string, Set<string>>();
+    const use = (m: Map<string, Set<string>>, block: string, biome: string) => {
+      if (!m.has(block)) m.set(block, new Set());
+      m.get(block)!.add(biome);
+    };
+    for (const b of REG.biomes) {
+      for (const n of [b.surface, b.subsurface, b.underwater, b.stone, b.ceiling]) if (n) use(blocksOf, n, b.name);
+      for (const t of b.trees) {
+        const d = REG.tree(t.tree);
+        use(blocksOf, d.log, b.name);
+        if (d.leaves) use(blocksOf, d.leaves, b.name);
+      }
+      for (const p of b.plants) {
+        use(blocksOf, p.block, b.name);
+        use(plantsOf, p.block, b.name);
+      }
+    }
+    const short: string[] = [];
+    for (const b of REG.biomes) {
+      const ub = [...blocksOf].filter(([, s]) => s.size === 1 && s.has(b.name)).length;
+      const up = [...plantsOf].filter(([, s]) => s.size === 1 && s.has(b.name)).length;
+      if (ub < 3 || up < 2) short.push(`${b.name}: ${ub} blocks, ${up} plants`);
+    }
+    expect(short).toEqual([]);
   });
 
   it('generates deterministic textures and an atlas', () => {

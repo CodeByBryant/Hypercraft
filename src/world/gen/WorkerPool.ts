@@ -20,7 +20,7 @@ export class WorkerPool {
   readonly stats: GenStats = { done: 0, errors: 0, genMs: 0, lightMs: 0, packMs: 0 };
   lastError = '';
 
-  constructor(count: number, seed: number, realm: string) {
+  constructor(count: number, seed: number, realm: string, options: { garden?: boolean } = {}) {
     for (let i = 0; i < count; i++) {
       const w = new Worker(new URL('./genWorker.ts', import.meta.url), { type: 'module', name: `gen-${i}` });
       w.onmessage = (e: MessageEvent<FromWorker>) => this.handle(i, e.data);
@@ -28,7 +28,7 @@ export class WorkerPool {
         this.lastError = e.message;
         console.error('worker error', e);
       };
-      const init: ToWorker = { type: 'init', seed, realm };
+      const init: ToWorker = { type: 'init', seed, realm, options };
       w.postMessage(init);
       this.workers.push(w);
       this.load.push(0);
