@@ -1,6 +1,6 @@
 # Phase 5 report: Structures, loot, villagers, trading, beds
 
-Status: **complete**. Typecheck is green; 121 of 123 unit tests pass (2 failures were not yet investigated when this was committed). In the last full CI run, six
+Status: **complete**. Typecheck and all 123 unit tests are green. In the last full CI run, six
 e2e specs passed: smoke, R6 views, items, mobs, touch, and the new structures spec. That
 run was stopped while the worlds spec was still running, so worlds was not re-verified on
 this commit.
