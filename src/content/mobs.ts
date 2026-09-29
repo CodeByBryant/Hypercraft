@@ -2,8 +2,9 @@
 // frame (x right, y up, z forward, w the mob's own ana axis). The ray marcher intersects them
 // exactly, so a mob's cross-section morphs as your slice moves through it.
 //
-// Four-legged 4D animals stand on four legs at the corners of a tetrahedron in (x, z, w):
-// the minimal stable stance in a 3D footprint. Any single slice shows 0 to 3 of them.
+// A 4D animal needs a 3D footprint (in x, z, w) to stand. Quadrupeds get six legs: the four
+// familiar ones in their own w = 0 plane (what an aligned slice shows), plus one leg toward
+// each of ±w. Rotating the slice brings those into view and hides others.
 
 import type { Hex, MobDef, MobPart } from './types';
 
@@ -13,37 +14,42 @@ const box = (at: V4, size: V4, color: Hex, anim?: MobPart['anim'], phase?: numbe
 const ball = (at: V4, r: number, color: Hex, anim?: MobPart['anim'], phase?: number, glow?: boolean): MobPart => ({ kind: 'ball', at, r, color, anim, phase, glow });
 const capsule = (at: V4, to: V4, r: number, color: Hex, anim?: MobPart['anim'], phase?: number): MobPart => ({ kind: 'capsule', at, to, r, color, anim, phase });
 
-/** Four legs at the vertices of a tetrahedron in (x, z, w). */
-function tetraLegs(color: Hex, height: number, spread: number, thick: number): MobPart[] {
+/** Six legs: four at the corners of the (x, z) footprint at w = 0, one toward each of ±w. */
+function stanceLegs(color: Hex, height: number, spread: number, thick: number): MobPart[] {
   const v: [number, number, number][] = [
-    [1, 1, 1],
-    [1, -1, -1],
-    [-1, 1, -1],
-    [-1, -1, 1],
+    [1, 1, 0],
+    [-1, 1, 0],
+    [1, -1, 0],
+    [-1, -1, 0],
+    [0, 0, 1.15],
+    [0, 0, -1.15],
   ];
-  return v.map(([x, z, w], i) => box([x * spread, height / 2, z * spread, w * spread], [thick, height / 2, thick, thick], color, 'leg', (i * Math.PI) / 2));
+  const ph = [0, Math.PI, Math.PI, 0, Math.PI / 2, (3 * Math.PI) / 2];
+  return v.map(([x, z, w], i) => box([x * spread, height / 2, z * spread, w * spread], [thick, height / 2, thick, thick], color, 'leg', ph[i]));
 }
 
-/** Two legs (humanoids) plus a heel toward ±w so the body is stable in 4D. */
+/** Two legs in the w = 0 plane (humanoids, birds) plus a heel toward +w: a 4D tripod. */
 function bipedLegs(color: Hex, height: number, spread: number, thick: number): MobPart[] {
   return [
-    box([-spread, height / 2, 0, -spread * 0.6], [thick, height / 2, thick, thick], color, 'leg', 0),
-    box([spread, height / 2, 0, -spread * 0.6], [thick, height / 2, thick, thick], color, 'leg', Math.PI),
-    box([0, height / 2, 0, spread * 0.9], [thick, height / 2, thick, thick], color, 'leg', Math.PI / 2),
+    box([-spread, height / 2, 0, 0], [thick, height / 2, thick, thick], color, 'leg', 0),
+    box([spread, height / 2, 0, 0], [thick, height / 2, thick, thick], color, 'leg', Math.PI),
+    box([0, height / 2, -spread * 0.5, spread * 1.2], [thick, height / 2, thick, thick], color, 'leg', Math.PI / 2),
   ];
 }
 
-/** Eight spider legs toward the corners of a cube in (x, z, w). */
+/** Eight spider legs: four diagonals in the w = 0 plane and four reaching into ±w. */
 function spiderLegs(color: Hex, y: number, reach: number): MobPart[] {
-  const out: MobPart[] = [];
-  let i = 0;
-  for (const x of [-1, 1])
-    for (const z of [-1, 1])
-      for (const w of [-1, 1]) {
-        out.push(capsule([x * 0.15, y, z * 0.15, w * 0.15], [x * reach, 0.05, z * reach, w * reach], 0.05, color, 'leg', i * 0.8));
-        i++;
-      }
-  return out;
+  const ends: [number, number, number][] = [
+    [1, 1, 0],
+    [-1, 1, 0],
+    [1, -1, 0],
+    [-1, -1, 0],
+    [1, 0, 1],
+    [-1, 0, 1],
+    [1, 0, -1],
+    [-1, 0, -1],
+  ];
+  return ends.map(([x, z, w], i) => capsule([x * 0.15, y, z * 0.15, w * 0.15], [x * reach, 0.05, z * reach, w * reach], 0.05, color, 'leg', i * 0.8));
 }
 
 export const MOBS: MobDef[] = [
@@ -57,7 +63,7 @@ export const MOBS: MobDef[] = [
     speed: 1.6,
     width: 0.45,
     height: 1.25,
-    parts: [box([0, 0.78, 0, 0], [0.36, 0.3, 0.52, 0.36], '#eeeeea'), box([0, 1.02, 0.62, 0], [0.18, 0.17, 0.2, 0.18], '#d8c8b0', 'head'), ...tetraLegs('#d8c8b0', 0.5, 0.24, 0.07)],
+    parts: [box([0, 0.78, 0, 0], [0.36, 0.3, 0.52, 0.36], '#eeeeea'), box([0, 1.02, 0.62, 0], [0.18, 0.17, 0.2, 0.18], '#d8c8b0', 'head'), ...stanceLegs('#d8c8b0', 0.5, 0.24, 0.07)],
     drops: [{ item: 'wool', count: [1, 1] }, { item: 'raw_mutton', count: [1, 2] }],
   },
   {
@@ -74,7 +80,7 @@ export const MOBS: MobDef[] = [
       box([0.2, 0.95, 0.1, 0.2], [0.18, 0.2, 0.22, 0.18], '#f0ece4'),
       box([0, 1.1, 0.72, 0], [0.2, 0.2, 0.2, 0.2], '#4a2a1a', 'head'),
       box([0, 1.36, 0.72, 0], [0.26, 0.04, 0.04, 0.26], '#e8e0c8', 'head'),
-      ...tetraLegs('#3a2418', 0.55, 0.28, 0.08),
+      ...stanceLegs('#3a2418', 0.55, 0.28, 0.08),
     ],
     drops: [{ item: 'leather', count: [0, 2] }, { item: 'raw_beef', count: [1, 3] }],
   },
@@ -94,7 +100,7 @@ export const MOBS: MobDef[] = [
       box([0, 0.64, 0.3, 0], [0.03, 0.05, 0.02, 0.03], '#d02020', 'head'),
       box([0.22, 0.52, 0, 0], [0.04, 0.1, 0.14, 0.12], '#e0e0dc', 'wing'),
       box([-0.22, 0.52, 0, 0], [0.04, 0.1, 0.14, 0.12], '#e0e0dc', 'wing', Math.PI),
-      ...tetraLegs('#f0a020', 0.26, 0.08, 0.025),
+      ...bipedLegs('#f0a020', 0.26, 0.08, 0.025),
     ],
     drops: [{ item: 'feather', count: [0, 2] }, { item: 'raw_chicken', count: [1, 1] }],
     lays: { item: 'egg', every: [300, 600] },
@@ -130,7 +136,7 @@ export const MOBS: MobDef[] = [
       box([0, 0.18, 0, 0], [0.2, 0.14, 0.24, 0.2], '#4a8a3a'),
       ball([0.1, 0.36, 0.14, 0.1], 0.06, '#e8e070', 'head'),
       ball([-0.1, 0.36, 0.14, -0.1], 0.06, '#e8e070', 'head'),
-      ...tetraLegs('#3a6a2a', 0.1, 0.18, 0.04),
+      ...stanceLegs('#3a6a2a', 0.1, 0.18, 0.04),
     ],
     drops: [{ item: 'slime_ball', count: [0, 1] }],
   },
@@ -148,7 +154,7 @@ export const MOBS: MobDef[] = [
       box([0, 0.62, 0.4, 0], [0.14, 0.13, 0.14, 0.14], '#f0f4f8', 'head'),
       box([0, 0.6, 0.58, 0], [0.05, 0.05, 0.06, 0.05], '#303038', 'head'),
       capsule([0, 0.5, -0.32, 0], [0, 0.42, -0.72, 0.1], 0.08, '#e0e8f0', 'tail'),
-      ...tetraLegs('#e0e8f0', 0.3, 0.16, 0.045),
+      ...stanceLegs('#e0e8f0', 0.3, 0.16, 0.045),
     ],
     drops: [{ item: 'leather', count: [0, 1] }],
   },
@@ -166,7 +172,7 @@ export const MOBS: MobDef[] = [
       ball([0, 1.85, 0, 0], 0.32, '#b8904a'),
       capsule([0, 1.5, 0.75, 0], [0, 2.1, 1.05, 0], 0.13, '#c8a060', 'head'),
       box([0, 2.15, 1.2, 0], [0.14, 0.12, 0.2, 0.14], '#b8904a', 'head'),
-      ...tetraLegs('#a8804a', 1.1, 0.32, 0.09),
+      ...stanceLegs('#a8804a', 1.1, 0.32, 0.09),
     ],
     drops: [{ item: 'leather', count: [1, 3] }],
   },
@@ -185,7 +191,7 @@ export const MOBS: MobDef[] = [
       box([0, 1.8, 1.0, 0], [0.12, 0.12, 0.24, 0.12], '#6a3a1f', 'head'),
       box([0, 1.55, 0.55, 0], [0.04, 0.2, 0.16, 0.2], '#2a1a10', 'head'),
       capsule([0, 1.2, -0.68, 0], [0, 0.7, -0.85, 0], 0.07, '#2a1a10', 'tail'),
-      ...tetraLegs('#5a3a1f', 0.8, 0.3, 0.07),
+      ...stanceLegs('#5a3a1f', 0.8, 0.3, 0.07),
     ],
     drops: [{ item: 'leather', count: [0, 2] }],
   },
@@ -350,7 +356,7 @@ export const MOBS: MobDef[] = [
       box([0, 1.66, 0, 0], [0.22, 0.2, 0.22, 0.22], '#4aa83a', 'pulse'),
       box([0.08, 1.7, 0.22, 0.08], [0.05, 0.05, 0.01, 0.05], '#102010'),
       box([-0.08, 1.7, 0.22, -0.08], [0.05, 0.05, 0.01, 0.05], '#102010'),
-      ...tetraLegs('#4a9a3a', 0.36, 0.14, 0.07),
+      ...stanceLegs('#4a9a3a', 0.36, 0.14, 0.07),
     ],
     drops: [{ item: 'phase_dust', count: [0, 2] }],
     blast: { radius: 3.2, fuse: 1.5 },
@@ -367,6 +373,7 @@ export const MOBS: MobDef[] = [
     height: 0.8,
     parts: [ball([0, 0.45, -0.1, 0], 0.32, '#3a3030'), ball([0, 0.45, 0.28, 0], 0.18, '#2a2020', 'head'), ball([0.06, 0.52, 0.44, 0.06], 0.04, '#ff2020', 'head', 0, true), ...spiderLegs('#2a2020', 0.45, 0.62)],
     drops: [{ item: 'string', count: [0, 2] }],
+    spins: { block: 'cobweb', every: [7, 12] },
   },
   {
     name: 'hollow_husk',

@@ -39,6 +39,83 @@ body {
   mix-blend-mode: difference;
   opacity: 0.85;
 }
+.crosshair.mob {
+  background:
+    linear-gradient(#ff4a4a, #ff4a4a) center / 2px 18px no-repeat,
+    linear-gradient(#ff4a4a, #ff4a4a) center / 18px 2px no-repeat;
+  mix-blend-mode: normal;
+  opacity: 1;
+}
+.bowbar {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 36px;
+  height: 3px;
+  margin: 16px 0 0 -18px;
+  background: rgba(0, 0, 0, 0.5);
+  display: none;
+}
+.bowfill {
+  height: 100%;
+  width: 0;
+}
+.hit-side {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 14%;
+  opacity: 0;
+  pointer-events: none;
+}
+.hit-side.left {
+  left: 0;
+  background: linear-gradient(90deg, rgba(220, 20, 30, 0.75), rgba(220, 20, 30, 0));
+}
+.hit-side.right {
+  right: 0;
+  background: linear-gradient(270deg, rgba(220, 20, 30, 0.75), rgba(220, 20, 30, 0));
+}
+.vitals {
+  position: absolute;
+  left: 50%;
+  bottom: 66px;
+  transform: translateX(-50%);
+  display: none;
+  gap: 18px;
+  align-items: flex-end;
+}
+.vitals canvas {
+  width: 198px;
+  height: 16px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
+}
+.vitals .hearts {
+  order: -1;
+}
+.vitals .hearts.low {
+  animation: hc-shake 0.35s infinite;
+}
+@keyframes hc-shake {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1px); }
+}
+.threat {
+  position: absolute;
+  left: 50%;
+  top: 34px;
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  border-radius: 4px;
+  background: rgba(40, 0, 60, 0.6);
+  border: 1px solid rgba(190, 90, 255, 0.7);
+  color: #e6c2ff;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  display: none;
+}
 .debug {
   position: absolute;
   left: 8px;
@@ -110,7 +187,7 @@ body {
 .readout {
   position: absolute;
   left: 50%;
-  bottom: 92px;
+  bottom: 118px;
   transform: translateX(-50%);
   padding: 3px 10px;
   background: rgba(0, 0, 0, 0.5);
@@ -130,7 +207,7 @@ body {
 .toast {
   position: absolute;
   left: 50%;
-  bottom: 66px;
+  bottom: 90px;
   transform: translateX(-50%);
   padding: 4px 10px;
   background: rgba(0, 0, 0, 0.55);
@@ -233,6 +310,16 @@ body {
   max-width: 640px;
   padding: 24px 28px;
   text-align: center;
+}
+.menu-card.death {
+  background: rgba(90, 0, 0, 0.35);
+  border-radius: 8px;
+}
+.death-title {
+  color: #ff6a6a;
+  font-size: 34px;
+  letter-spacing: 0.04em;
+  text-shadow: 0 2px 0 #300;
 }
 .menu .sub {
   color: #aab4c8;

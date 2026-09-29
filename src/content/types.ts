@@ -49,6 +49,8 @@ export interface BlockDef {
   biomeTint?: 0 | 1 | 2;
   /** Contact damage per second (e.g. lava). */
   damage?: number;
+  /** Movement speed multiplier while inside the block (cobwebs 0.15); also stops falls. */
+  slows?: number;
   /** Seconds to mine by hand (Phase 3 uses it; Phase 1 creative breaks instantly). */
   hardness?: number;
   tags?: string[];
@@ -403,6 +405,11 @@ export interface MobDef {
   blast?: { radius: number; fuse: number };
   /** Periodically drops an item (hyperchickens lay eggs): item and seconds range. */
   lays?: { item: string; every: [number, number] };
+  /**
+   * While hunting, places this block in an empty cell between itself and the player every
+   * few seconds (Web Weavers spin cobwebs, often kata or ana of your slice).
+   */
+  spins?: { block: string; every: [number, number] };
 }
 
 export type WeatherKind = 'clear' | 'rain' | 'snow' | 'thunder' | 'phase_storm';

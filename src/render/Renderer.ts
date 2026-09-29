@@ -7,6 +7,7 @@ import { mod } from '../world/constants';
 import { GpuWorld } from './GpuWorld';
 import { LineOverlay } from './LineOverlay';
 import { SpriteBatch } from './SpriteBatch';
+import { ENTITY_TEX_H, ENTITY_TEX_W, MOB_TEXELS, PART_BASE, PART_TEXELS } from '../game/mobs/MobManager';
 import { Program } from './gl';
 import fullscreenVs from './shaders/fullscreen.vert.glsl?raw';
 import raymarchFs from './shaders/raymarch.frag.glsl?raw';
@@ -48,9 +49,14 @@ export interface RenderParams {
   select: Int32Array;
   /** Mining progress 0..1 on the selected cell (crack overlay). */
   breakProgress: number;
+  /** Mobs packed into the entity buffer this frame (see MobManager.pack). */
+  entityCount: number;
+  entityData: Float32Array | null;
   underwater: number;
   hazard: Float32Array;
   blocked: Float32Array;
+  /** Hostile mobs hidden kata / ana of the slice (R2 proximity warning), 0..1. */
+  threat: Float32Array;
   vignette: number;
   damage: number;
   yaw: number;
@@ -94,6 +100,7 @@ export class Renderer {
   readonly stats: RenderStats = { internalW: 0, internalH: 0, gpuMs: 0, avgSteps: 0, maxSteps: 0, statsAge: 0 };
   collectStats = false;
   private readonly eyeLocal = new Float32Array(4);
+  private readonly entityTex: WebGLTexture;
 
   constructor(canvas: HTMLCanvasElement, world: World) {
     this.canvas = canvas;
@@ -119,10 +126,17 @@ export class Renderer {
       ['uShapes', 5],
       ['uAtlas', 6],
       ['uSurface', 7],
+      ['uEntities', 8],
     ];
     for (const [n, u] of units) gl.uniform1i(this.march.loc(n), u);
     this.comp.use();
     gl.uniform1i(this.comp.loc('uColor'), 0);
+    // Mob buffer: RGBA32F, rows filled as needed each frame.
+    this.entityTex = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, this.entityTex);
+    gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA32F, ENTITY_TEX_W, ENTITY_TEX_H);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   }
 
   private ensureTargets(iw: number, ih: number): void {
@@ -253,6 +267,18 @@ export class Renderer {
     gl.bindTexture(gl.TEXTURE_2D, gw.atlasTex);
     gl.activeTexture(gl.TEXTURE7);
     gl.bindTexture(gl.TEXTURE_3D, gw.surfaceTex);
+    gl.activeTexture(gl.TEXTURE8);
+    gl.bindTexture(gl.TEXTURE_2D, this.entityTex);
+    const ec = p.entityData ? p.entityCount : 0;
+    if (ec > 0 && p.entityData) {
+      // Upload the rows holding mob records and their parts.
+      let parts = 0;
+      for (let e = 0; e < ec; e++) parts = Math.max(parts, p.entityData[e * MOB_TEXELS * 4 + 17]! + p.entityData[e * MOB_TEXELS * 4 + 18]!);
+      const texels = PART_BASE + parts * PART_TEXELS;
+      const rows = Math.min(ENTITY_TEX_H, Math.ceil(texels / ENTITY_TEX_W));
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, ENTITY_TEX_W, rows, gl.RGBA, gl.FLOAT, p.entityData, 0);
+    }
+    gl.uniform1i(m.loc('uEntityCount'), ec);
     gl.bindVertexArray(this.vao);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
@@ -278,6 +304,7 @@ export class Renderer {
     gl.uniform1f(c.loc('uFlash'), sky.flash);
     gl.uniform2f(c.loc('uHazard'), p.hazard[0]!, p.hazard[1]!);
     gl.uniform2f(c.loc('uBlocked'), p.blocked[0]!, p.blocked[1]!);
+    gl.uniform2f(c.loc('uThreat'), p.threat[0]!, p.threat[1]!);
     gl.uniform1f(c.loc('uVignette'), p.vignette);
     gl.uniform2f(c.loc('uLook'), p.yaw, p.pitch);
     gl.uniform1f(c.loc('uDamage'), p.damage);

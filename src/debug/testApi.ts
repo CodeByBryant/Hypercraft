@@ -17,6 +17,28 @@ export interface ViewSpec {
 
 export function installTestApi(game: Game, screen?: InventoryScreen): void {
   const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
+  let frozenMobs = false;
+  /** A point `dist` ahead / `side` right / `hidden` ana of the player, standing on the ground. */
+  const aheadOnGround = (dist: number, side: number, hidden: number): number[] => {
+    const p = game.player;
+    const F = p.cam.F, R = p.cam.R, H = p.cam.H;
+    const q = [0, 0, 0, 0].map((_, k) => p.pos[k]! + F[k]! * dist + R[k]! * side + H[k]! * hidden);
+    const x = Math.floor(q[0]!), z = Math.floor(q[2]!), w = Math.floor(q[3]!);
+    // The first floor at or below the player's level (+3), so tree canopies do not count.
+    let y = Math.floor(p.pos[1]!) + 3;
+    for (; y > 1; y--) {
+      const below = game.world.getBlock(x, y - 1, z, w) & 0xfff;
+      const at = game.world.getBlock(x, y, z, w) & 0xfff;
+      if (REG.solid[below] && !REG.solid[at]) break;
+    }
+    q[1] = y > 1 ? y : game.world.skyHeight(x, z, w);
+    return q;
+  };
+  // Frozen mobs: skip their update (the game calls update every frame).
+  const update = game.mobs.update.bind(game.mobs);
+  game.mobs.update = (...args: Parameters<typeof update>) => {
+    if (!frozenMobs) update(...args);
+  };
   const px = new Uint8Array(4);
   /** gl.finish() does not block on Chrome's GPU process; a 1-pixel read does. */
   const sync = () => {
@@ -187,6 +209,83 @@ export function installTestApi(game: Game, screen?: InventoryScreen): void {
     placeTarget: (name: string) => game.placeAtTarget(REG.id(name)),
     target: () => (game.hasTarget ? { ...game.target, p: Array.from(game.target.p), name: REG.name(game.target.voxel) } : null),
     blockAt: (x: number, y: number, z: number, w: number) => REG.name(game.world.getBlock(x, y, z, w)),
+    /** Top of the light-blocking terrain (incl. tree canopies) at a column. */
+    skyHeight: (x: number, z: number, w: number) => game.world.skyHeight(Math.floor(x), Math.floor(z), Math.floor(w)),
+    // ---- Phase 4: mobs, combat, health
+    /** Spawn a mob at a 4D point; returns its id (or -1). */
+    spawnMob(name: string, x: number, y: number, z: number, w: number, scale?: number): number {
+      return game.mobs.spawn(name, x, y, z, w, scale)?.id ?? -1;
+    },
+    /**
+     * Spawn a mob `dist` blocks ahead in the current slice, `side` to the right and `hidden`
+     * along the hidden axis, standing on the ground; it faces the player. Returns its id.
+     */
+    spawnMobAhead(name: string, dist: number, side = 0, hidden = 0, worldAligned = false): number {
+      const q = aheadOnGround(dist, side, hidden);
+      const m = game.mobs.spawn(name, q[0]!, q[1]!, q[2]!, q[3]!);
+      if (!m) return -1;
+      const F = game.player.cam.F;
+      // Face the player: with the view's own hidden axis, or with world W (a tilted slice
+      // then cuts the body obliquely).
+      if (worldAligned) m.face(0, -1, 0);
+      else m.face(-F[0]!, -F[2]!, -F[3]!, game.player.cam.H);
+      return m.id;
+    },
+    /** Move a mob back in front of the player (standing, at rest). */
+    placeMobAhead(id: number, dist: number, side = 0, hidden = 0): boolean {
+      const m = game.mobs.list.find((x) => x.id === id);
+      if (!m) return false;
+      const q = aheadOnGround(dist, side, hidden);
+      for (let k = 0; k < 4; k++) {
+        m.pos[k] = q[k]!;
+        m.vel[k] = 0;
+      }
+      return true;
+    },
+    mobs: () =>
+      game.mobs.list.map((m) => ({ id: m.id, name: m.def.name, health: m.health, pos: Array.from(m.pos), mode: m.mode, awake: m.awake })),
+    /** Freeze mob AI and physics (for screenshots), or resume. */
+    freezeMobs(on: boolean): void {
+      frozenMobs = on;
+    },
+    clearMobs(): void {
+      game.mobs.list.length = 0;
+      game.projectiles.list.length = 0;
+    },
+    setMobSpawning(on: boolean): void {
+      game.mobs.enabled = on;
+    },
+    packedMobs: () => game.mobs.packed,
+    targetMob: () => (game.targetMob ? { id: game.targetMob.id, name: game.targetMob.def.name } : null),
+    /** Click the attack button (one press). */
+    async attack(): Promise<void> {
+      game.input.setButton(0, true);
+      await nextFrame();
+      game.input.setButton(0, false);
+      await nextFrame();
+    },
+    /** Draw the bow for `ms` milliseconds, then release. */
+    async bow(ms: number): Promise<void> {
+      game.input.setButton(2, true);
+      const t0 = performance.now();
+      while (performance.now() - t0 < ms) await nextFrame();
+      game.input.setButton(2, false);
+      await nextFrame();
+      await nextFrame();
+    },
+    arrows: () => game.projectiles.list.map((a) => ({ pos: Array.from(a.pos), stuck: a.stuck, byPlayer: a.byPlayer })),
+    vitals: () => ({ health: game.vitals.health, air: game.vitals.air, dead: game.vitals.dead, cause: game.vitals.deathCause }),
+    hurt: (amount: number, cause = 'Test') => game.hurtPlayer(amount, null, cause),
+    setHealth(hp: number): void {
+      game.vitals.health = hp;
+      game.vitals.hurtCooldown = 0;
+    },
+    respawn: () => game.respawn(),
+    explode: (x: number, y: number, z: number, w: number, r: number) => game.explode(x, y, z, w, r),
+    threat: () => ({ glow: Array.from(game.params.threat), text: document.querySelector('.threat')?.textContent ?? '' }),
+    setDifficulty(d: 'peaceful' | 'easy' | 'normal' | 'hard'): void {
+      game.info.difficulty = d;
+    },
     setTime: (t: number) => game.env.setTime(t),
     setWeather: (w: WeatherKind) => game.env.setWeather(w),
     setResolution(h: number | 'auto'): void {

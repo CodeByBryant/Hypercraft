@@ -25,7 +25,12 @@ import { Inventory, HOTBAR_SIZE } from './items/Inventory';
 import { ItemEntities } from './items/ItemEntities';
 import { BlockEntities } from './items/BlockEntities';
 import { breakInfo, rollDrops, wearFor } from './items/Mining';
-import type { ItemStack } from './items/ItemStack';
+import { countIn, removeFrom, type ItemStack } from './items/ItemStack';
+import { MobManager, type Mob, type MobHost } from './mobs/MobManager';
+import { Projectiles, type ProjectileHost } from './mobs/Projectiles';
+import { MAX_AIR, MAX_HEALTH, Vitals } from './Vitals';
+import { ARROW_SPEED, CRIT_MULTIPLIER, arrowDamage, attackCooldown, attackDamage, bowPower, hitWear, swingStrength } from './combat';
+import type { BiomeDef } from '../content/types';
 import type { FurnaceKind } from '../content/types';
 import { IconAtlas, SHEET } from '../ui/IconAtlas';
 import { particleDensity, type Settings } from './Settings';
@@ -70,6 +75,9 @@ export type ScreenRequest =
   | { kind: 'furnace'; pos: [number, number, number, number]; furnace: FurnaceKind };
 
 const WEATHER_CYCLE: WeatherKind[] = ['clear', 'rain', 'snow', 'thunder', 'phase_storm'];
+const DIFFICULTY: Record<string, number> = { peaceful: 0, easy: 1, normal: 2, hard: 3 };
+/** Attack reach (blocks) in survival and creative. */
+const REACH_ATTACK = [3.5, 5];
 const HOTBAR_ACTIONS = ['hotbar1', 'hotbar2', 'hotbar3', 'hotbar4', 'hotbar5', 'hotbar6', 'hotbar7', 'hotbar8', 'hotbar9'] as const;
 
 export interface GameOptions {
@@ -156,6 +164,32 @@ export class Game {
   private readonly fluidHit: RayHit = makeRayHit();
   private iconAtlas: IconAtlas | null = null;
 
+  // ---- Phase 4: mobs, combat, health
+  readonly mobs: MobManager;
+  readonly projectiles = new Projectiles();
+  readonly vitals = new Vitals();
+  /** Mob under the crosshair (nearer than the targeted block), or null. */
+  targetMob: Mob | null = null;
+  /** Hostile mobs near the player, nearest first (HUD proximity warning). */
+  readonly threats: Mob[] = [];
+  /** Seconds the bow has been drawn (0 = not drawing). */
+  bowDraw = 0;
+  /** Called once when the player dies (death screen); `respawn()` brings them back. */
+  onDeath: ((cause: string) => void) | null = null;
+  private readonly pickOut: { mob: Mob | null } = { mob: null };
+  private sinceSwing = 99;
+  private envDamageTimer = 0;
+  private sprintNoise = 0;
+  private deathHandled = false;
+  private readonly origin = new Float64Array(4);
+  private readonly mobHost: MobHost;
+  private readonly projHost: ProjectileHost;
+  private readonly biomeFn = (x: number, z: number, w: number): BiomeDef | null => {
+    const b = this.world.biomeAt(x, z, w);
+    return b >= 0 ? REG.biomes[b]! : null;
+  };
+  private readonly caveFn: ((x: number, y: number, z: number, w: number) => number) | null;
+
   /** Item icon sheet (built on first use; also feeds dropped-item sprites). */
   get icons(): IconAtlas {
     if (!this.iconAtlas) {
@@ -234,6 +268,55 @@ export class Game {
     this.player.setPosition(...this.spawn);
     this.player.mode = opts.world.mode as GameMode;
 
+    // Mobs: natural spawning is off in test worlds (tests spawn what they need).
+    this.mobs = new MobManager(this.world);
+    this.mobs.enabled = !opts.test && !this.demo;
+    this.caveFn = gen.caveBiomeAt ? (x, y, z, w) => gen.caveBiomeAt!(x, y, z, w) : null;
+    const game = this;
+    this.mobHost = {
+      world: this.world,
+      playerPos: this.player.pos,
+      playerHidden: this.player.cam.H,
+      get playerTargetable() {
+        const m = game.player.mode;
+        return game.loaded && !game.vitals.dead && (m === 'survival' || m === 'adventure');
+      },
+      get playerInWater() {
+        return game.player.inWater;
+      },
+      get daylight() {
+        return game.env.sky.daylight;
+      },
+      get difficulty() {
+        return DIFFICULTY[game.info.difficulty] ?? 2;
+      },
+      dropItem: (x, y, z, w, st) => this.dropInSlice(x, y, z, w, st),
+      hurtPlayer: (amount, from, cause) => void this.hurtPlayer(amount, from, cause),
+      explode: (x, y, z, w, r) => this.explode(x, y, z, w, r),
+      shoot: (from, vel, damage, item, byPlayer) => this.projectiles.spawn(from, vel, damage, item, byPlayer),
+      mobDied: (m) => {
+        const h = m.height * 0.5;
+        this.particles.burst(m.pos[0]!, m.pos[1]! + h, m.pos[2]!, m.pos[3]!, this.player.cam, 'poof', '#e8e8e8', 14, 1.6, m.width);
+      },
+    };
+    this.projHost = {
+      playerPos: this.player.pos,
+      get playerHeight() {
+        return game.player.height;
+      },
+      hurtPlayer: (amount, from, cause) => void this.hurtPlayer(amount, from, cause),
+      collect: (item) => {
+        if (this.player.mode === 'spectator') return false;
+        if (this.player.mode === 'creative') return true;
+        const st = { id: item, count: 1, damage: 0 };
+        if (this.inv.add(st) > 0) return false;
+        this.onPickup?.(item, 1);
+        return true;
+      },
+      eye: this.eyePos,
+      hidden: this.player.cam.H,
+    };
+
     this.params = {
       cam: this.player.cam,
       eye: this.eyePos,
@@ -245,9 +328,12 @@ export class Game {
       selectOn: false,
       select: new Int32Array(4),
       breakProgress: 0,
+      entityCount: 0,
+      entityData: null,
       underwater: 0,
       hazard: new Float32Array(2),
       blocked: new Float32Array(2),
+      threat: new Float32Array(2),
       vignette: opts.settings.vignette,
       damage: 0,
       yaw: 0,
@@ -284,6 +370,7 @@ export class Game {
     if (st.weather && st.weather !== 'clear') this.env.setWeather(st.weather as WeatherKind, false);
     this.env.weatherLeft = st.weatherLeft;
     const inv = sp.data?.inventory;
+    this.vitals.load(sp.data?.vitals);
     if (inv) this.inv.load(inv);
     else if (st.hotbar) {
       // 0.1.x saves had a creative block palette instead of an inventory.
@@ -303,17 +390,20 @@ export class Game {
   /** Snapshot of the player/world state for saving. */
   snapshot(): SavedState {
     const p = this.player;
+    // Quitting from the death screen saves the player as respawned (the inventory has
+    // already spilled where they died).
+    const dead = this.vitals.dead;
     return {
       realm: this.world.realm.name,
       player: {
-        pos: Array.from(p.pos),
+        pos: dead ? [...this.spawn] : Array.from(p.pos),
         F: Array.from(p.cam.F),
         R: Array.from(p.cam.R),
         H: Array.from(p.cam.H),
         pitch: p.cam.pitch,
-        mode: p.mode,
+        mode: dead && this.info.hardcore ? 'spectator' : p.mode,
         flying: p.flying,
-        data: { inventory: this.inv.save() },
+        data: { inventory: this.inv.save(), vitals: dead ? { health: MAX_HEALTH, air: MAX_AIR } : this.vitals.save() },
       },
       ticks: this.env.ticks,
       weather: this.env.weather,
@@ -387,7 +477,8 @@ export class Game {
     const input = this.input;
     const active = !this.paused && input.enabled;
 
-    if (active && !this.demo) this.handleInput(dt);
+    if (active && !this.demo && !this.vitals.dead) this.handleInput(dt);
+    else this.stopMoving();
     if (this.demo) this.demoCamera(dt);
     // Autosave.
     if (this.persistence && this.loaded && !this.demo) {
@@ -401,7 +492,13 @@ export class Game {
     // Physics.
     if (!this.loaded) this.checkLoaded();
     p.update(this.world, this.move, dt);
-    this.items.update(dt, this.world, p.up, this.world.realm.gravity, this.loaded && p.mode !== 'spectator' ? p.pos : null, p.height, this.collect);
+    if (!this.demo) this.updateVitals(dt);
+    this.items.update(dt, this.world, p.up, this.world.realm.gravity, this.loaded && p.mode !== 'spectator' && !this.vitals.dead ? p.pos : null, p.height, this.collect);
+    if (this.loaded && !this.demo) {
+      p.eye(this.eyePos);
+      this.mobs.update(dt, this.mobHost, this.biomeFn, this.caveFn);
+      this.projectiles.update(dt, this.world, this.mobs, this.projHost);
+    }
 
     // Fixed-rate world ticks.
     this.tickAcc += dt;
@@ -427,7 +524,14 @@ export class Game {
 
     // Picking.
     this.hasTarget = p.frozen ? false : raycast(this.world, this.eyePos, p.cam.fwd, p.mode === 'survival' ? 5 : 7, this.target);
-    this.params.selectOn = this.hasTarget;
+    // Mobs under the crosshair win over blocks behind them.
+    this.targetMob = null;
+    if (!p.frozen && p.mode !== 'spectator' && this.mobs.list.length > 0) {
+      const reach = REACH_ATTACK[p.mode === 'creative' ? 1 : 0]!;
+      const limit = this.hasTarget ? Math.min(reach, this.target.t) : reach;
+      if (this.mobs.pick(this.eyePos, p.cam.fwd, limit, this.pickOut) < limit) this.targetMob = this.pickOut.mob;
+    }
+    this.params.selectOn = this.hasTarget && !this.targetMob;
     if (this.hasTarget) {
       const s = this.params.select;
       s[0] = this.target.x;
@@ -436,6 +540,14 @@ export class Game {
       s[3] = this.target.w;
     }
     this.buildOverlay();
+    // Mob cross-sections for the ray marcher (coordinates relative to the window origin).
+    const org = this.origin;
+    org[0] = this.world.ox * 16;
+    org[1] = 0;
+    org[2] = this.world.oz * 16;
+    org[3] = this.world.ow * 16;
+    this.params.entityCount = this.mobs.pack(this.eyePos, p.cam, this.params.maxDist, org);
+    this.params.entityData = this.mobs.gpuData;
 
     // Environment + screen effects.
     const ex = Math.floor(this.eyePos[0]!), ez = Math.floor(this.eyePos[2]!), ew = Math.floor(this.eyePos[3]!);
@@ -452,14 +564,16 @@ export class Game {
     this.renderer.sprites.clear();
     this.particles.update(dt, this.world, this.eyePos, p.cam, pb, this.env.sky.daylight, p.eyeInWater, this.renderer.sprites);
     this.items.draw(this.renderer.sprites, this.eyePos, p.cam, this.world);
+    this.projectiles.draw(this.renderer.sprites, this.eyePos, p.cam, this.items.iconU, this.items.iconV);
     this.hazardTimer -= dt;
     if (this.hazardTimer <= 0) {
       this.hazardTimer = 0.2;
       this.scanHazards();
+      this.scanThreats();
     }
     const pr = this.params;
     pr.underwater += ((p.eyeInWater ? 1 : 0) - pr.underwater) * Math.min(1, dt * 8);
-    pr.damage = Math.max(0, pr.damage - dt * 2);
+    pr.damage = Math.max(pr.damage - dt * 2, this.vitals.flash * 0.8, this.vitals.dead ? 0.6 : 0);
     if (p.inLava) pr.damage = 1;
     pr.yaw = Math.atan2(p.cam.F[0]!, p.cam.F[2]!);
     pr.pitch = p.cam.pitch;
@@ -587,11 +701,18 @@ export class Game {
     }
     if (input.pressed('resolution')) this.cycleResolution();
 
-    // Break / place / pick.
+    // Attack / break / place / pick.
     this.breakCooldown -= dt;
     this.placeCooldown -= dt;
+    this.sinceSwing += dt;
     const mode = p.mode;
-    if (mode === 'creative') {
+    const heldNow = this.held;
+    const heldId = heldNow ? heldNow.id : -1;
+    if (this.targetMob && mode !== 'spectator') {
+      // Holding the button keeps swinging at full strength (touch controls, auto-attack).
+      this.resetMining();
+      if (input.buttonPressed(0) || (input.buttonHeld(0) && this.sinceSwing >= attackCooldown(heldId))) this.attack(this.targetMob);
+    } else if (mode === 'creative') {
       this.params.breakProgress = 0;
       if (input.buttonPressed(0) || (input.buttonHeld(0) && this.breakCooldown <= 0)) {
         this.breakTarget();
@@ -599,12 +720,335 @@ export class Game {
       }
     } else if (mode === 'survival' && input.buttonHeld(0) && this.hasTarget) {
       this.mineStep(dt);
-    } else this.resetMining();
-    if (mode !== 'spectator' && (input.buttonPressed(2) || (input.buttonHeld(2) && this.placeCooldown <= 0))) {
-      this.useHeld(input.held('sneak'));
-      this.placeCooldown = 0.25;
+    } else {
+      this.resetMining();
+      if (input.buttonPressed(0)) this.sinceSwing = 0; // a swing at the air still resets the cooldown
+    }
+    const bow = heldNow !== null && IREG.def(heldNow.id).use === 'bow';
+    if (bow && mode !== 'spectator' && !this.stationTargeted()) {
+      // Bow: hold to draw, release to shoot.
+      if (input.buttonHeld(2)) this.bowDraw += dt;
+      else if (this.bowDraw > 0) {
+        this.releaseBow();
+        this.bowDraw = 0;
+      }
+    } else {
+      this.bowDraw = 0;
+      if (mode !== 'spectator' && (input.buttonPressed(2) || (input.buttonHeld(2) && this.placeCooldown <= 0))) {
+        this.useHeld(input.held('sneak'));
+        this.placeCooldown = 0.25;
+      }
     }
     if (input.buttonPressed(1) && this.hasTarget) this.pickBlock();
+    // Sprinting is loud (Lurkers hunt by sound).
+    if (p.sprinting && p.onGround) {
+      this.sprintNoise -= dt;
+      if (this.sprintNoise <= 0) {
+        this.sprintNoise = 1;
+        this.mobs.noise(p.pos);
+      }
+    }
+  }
+
+  /** No movement input (paused, dead, a screen is open). */
+  private stopMoving(): void {
+    const m = this.move;
+    m.forward = 0;
+    m.strafe = 0;
+    m.ana = 0;
+    m.jump = false;
+    m.sneak = false;
+    m.sprint = false;
+    this.bowDraw = 0;
+  }
+
+  /** Is the crosshair on a crafting table or container (right click opens it)? */
+  private stationTargeted(): boolean {
+    if (!this.hasTarget || this.input.held('sneak')) return false;
+    const tid = voxelId(this.target.voxel);
+    return REG.blocks[tid]!.name === 'crafting_table' || this.blockEntities.hasEntity(tid);
+  }
+
+  // ------------------------------------------------------------------ combat & health
+
+  /** Melee attack on a mob with the held item. Returns true if it landed. */
+  attack(m: Mob): boolean {
+    const p = this.player;
+    const held = this.held;
+    const heldId = held ? held.id : -1;
+    const cd = attackCooldown(heldId);
+    const full = this.sinceSwing >= cd * 0.9;
+    let dmg = attackDamage(heldId) * swingStrength(this.sinceSwing, cd);
+    // Critical hit: a full-strength swing while falling.
+    const crit = full && !p.onGround && !p.flying && p.vel[p.up]! < 0 && !p.inWater && !p.onClimbable;
+    if (crit) dmg *= CRIT_MULTIPLIER;
+    this.sinceSwing = 0;
+    // Knockback along your forward direction: it stays inside the slice.
+    const from = this.tmp4;
+    const F = p.cam.F;
+    for (let k = 0; k < 4; k++) from[k] = m.pos[k]! - F[k]!;
+    if (!this.mobs.damage(m, dmg, from, this.eyePos, p.cam.H)) return false;
+    // Hit particles where the ray met the body.
+    const e = this.eyePos, f = p.cam.fwd;
+    let t = 0;
+    for (let k = 0; k < 4; k++) t += (m.pos[k]! - e[k]!) * f[k]!;
+    t = Math.max(0.5, t - m.width);
+    this.particles.burst(e[0]! + f[0]! * t, e[1]! + f[1]! * t, e[2]! + f[2]! * t, e[3]! + f[3]! * t, p.cam, crit ? 'spark' : 'poof', crit ? '#fff2a0' : '#b02020', crit ? 12 : 6, crit ? 3 : 1.2, 0.1, crit);
+    if (crit) this.message?.('Critical hit!');
+    this.mobs.noise(m.pos);
+    // Weapon wear (survival).
+    if (held && p.mode === 'survival') {
+      const wear = hitWear(heldId);
+      if (wear > 0) {
+        held.damage += wear;
+        if (held.damage >= IREG.durability[held.id]!) {
+          this.inv.set(this.hotbarIndex, null);
+          this.message?.(`${IREG.displayName(held.id)} broke`);
+        } else this.inv.set(this.hotbarIndex, held);
+      }
+    }
+    return true;
+  }
+
+  /** Let go of a drawn bow: shoot an arrow along the view direction (inside the slice). */
+  private releaseBow(): void {
+    const p = this.player;
+    const power = bowPower(this.bowDraw);
+    if (power < 0.1) return;
+    const arrow = IREG.id('arrow');
+    const survival = p.mode === 'survival' || p.mode === 'adventure';
+    if (survival) {
+      if (countIn(this.inv, arrow) <= 0) {
+        this.message?.('No arrows');
+        return;
+      }
+      removeFrom(this.inv, (s) => s.id === arrow, 1);
+    }
+    const e = this.eyePos, f = p.cam.fwd;
+    const from = this.tmp4;
+    for (let k = 0; k < 4; k++) from[k] = e[k]! + f[k]! * 0.4;
+    from[p.up] = from[p.up]! - 0.1;
+    const v = this.tmpMin;
+    for (let k = 0; k < 4; k++) v[k] = f[k]! * ARROW_SPEED * power;
+    this.projectiles.spawn(from, v, arrowDamage(power), arrow, true);
+    const held = this.held;
+    if (held && survival) {
+      held.damage += 1;
+      if (held.damage >= IREG.durability[held.id]!) {
+        this.inv.set(this.hotbarIndex, null);
+        this.message?.(`${IREG.displayName(held.id)} broke`);
+      } else this.inv.set(this.hotbarIndex, held);
+    }
+  }
+
+  /**
+   * Damage the player (survival/adventure only; creative and spectator are invulnerable).
+   * `from` (a 4D point) sets the knockback direction, which is kept inside the slice so a hit
+   * never shifts your view kata/ana.
+   */
+  hurtPlayer(amount: number, from: ArrayLike<number> | null, cause: string): boolean {
+    const p = this.player;
+    const vulnerable = this.loaded && (p.mode === 'survival' || p.mode === 'adventure');
+    if (this.vitals.damage(amount, cause, !vulnerable) <= 0) return false;
+    if (from) {
+      const H = p.cam.H;
+      const up = p.up;
+      const d = this.tmpMax;
+      let dh = 0;
+      for (let k = 0; k < 4; k++) {
+        d[k] = k === up ? 0 : p.pos[k]! - from[k]!;
+        dh += d[k]! * H[k]!;
+      }
+      // Which side of the slice the attacker was on (HUD damage indicator).
+      this.vitals.lastHitSide = dh < -0.3 ? 1 : dh > 0.3 ? -1 : 0;
+      let l = 0;
+      for (let k = 0; k < 4; k++) {
+        d[k] = d[k]! - dh * H[k]!;
+        l += d[k]! * d[k]!;
+      }
+      l = Math.sqrt(l);
+      if (l > 1e-3) for (let k = 0; k < 4; k++) if (k !== up) p.vel[k] = (d[k]! / l) * 6;
+      p.vel[up] = Math.max(p.vel[up]!, 5);
+    } else this.vitals.lastHitSide = 0;
+    return true;
+  }
+
+  /** Falls, lava, damaging blocks, the void, drowning; death and the death screen. */
+  private updateVitals(dt: number): void {
+    const p = this.player;
+    const v = this.vitals;
+    const vulnerable = this.loaded && (p.mode === 'survival' || p.mode === 'adventure');
+    if (p.lastFall > 0) {
+      const fall = p.lastFall;
+      p.lastFall = 0;
+      if (vulnerable && !p.inWater && !p.onClimbable && p.slow >= 1) {
+        const dmg = Vitals.fallDamage(fall);
+        if (dmg > 0) this.hurtPlayer(dmg, null, 'Fell from a high place');
+      }
+    }
+    const drown = v.update(dt, p.eyeInWater, !vulnerable);
+    if (drown > 0) this.hurtPlayer(drown, null, 'Drowned');
+    this.envDamageTimer -= dt;
+    if (this.envDamageTimer <= 0 && vulnerable && !p.frozen) {
+      this.envDamageTimer = 0.5;
+      if (p.inLava) this.hurtPlayer(4, null, 'Tried to swim in lava');
+      else {
+        const c = this.contactDamage();
+        if (c > 0) this.hurtPlayer(REG.damage[c]!, null, REG.blocks[c]!.displayName ?? REG.blocks[c]!.name);
+      }
+      if (p.pos[p.up]! < -32) this.hurtPlayer(4, null, 'Fell out of the world');
+    }
+    if (v.dead && !this.deathHandled) {
+      this.deathHandled = true;
+      this.bowDraw = 0;
+      this.resetMining();
+      // Spill the inventory where you fell.
+      const x = Math.floor(p.pos[0]!), y = Math.floor(p.pos[1]! + 0.5), z = Math.floor(p.pos[2]!), w = Math.floor(p.pos[3]!);
+      for (let i = 0; i < this.inv.size; i++) {
+        const s = this.inv.get(i);
+        if (!s) continue;
+        this.inv.set(i, null);
+        this.dropAtCell(x, y, z, w, s);
+      }
+      this.onDeath?.(v.deathCause);
+    }
+  }
+
+  /** Id of a damaging block (cactus, magma...) touching the player's body, or 0. */
+  private contactDamage(): number {
+    const p = this.player;
+    const up = p.up;
+    const mn = this.tmpMin, mx = this.tmpMax;
+    for (let k = 0; k < 4; k++) {
+      mn[k] = k === up ? p.pos[k]! - 0.05 : p.pos[k]! - 0.35;
+      mx[k] = k === up ? p.pos[k]! + p.height : p.pos[k]! + 0.35;
+    }
+    let best = 0;
+    for (let y = Math.floor(mn[1]!); y <= Math.floor(mx[1]!); y++)
+      for (let w = Math.floor(mn[3]!); w <= Math.floor(mx[3]!); w++)
+        for (let z = Math.floor(mn[2]!); z <= Math.floor(mx[2]!); z++)
+          for (let x = Math.floor(mn[0]!); x <= Math.floor(mx[0]!); x++) {
+            const id = this.world.getBlock(x, y, z, w) & 0xfff;
+            if (REG.damage[id]! > (best ? REG.damage[best]! : 0)) best = id;
+          }
+    return best;
+  }
+
+  /** Back to the spawn point with full health (hardcore worlds turn into spectator mode). */
+  respawn(): void {
+    const p = this.player;
+    this.vitals.respawn();
+    this.deathHandled = false;
+    if (this.info.hardcore) p.mode = 'spectator';
+    p.setPosition(...this.spawn);
+    p.lastFall = 0;
+    this.params.damage = 0;
+    // Wait for the spawn column again (checkLoaded also lifts us out of any terrain).
+    this.loaded = false;
+    p.frozen = true;
+    this.streamer.invalidate();
+  }
+
+  /**
+   * An explosion: removes blocks in a 4D ball (hardness-limited), drops some of them, and
+   * hurts the player and mobs nearby.
+   */
+  explode(x: number, y: number, z: number, w: number, radius: number): void {
+    const ri = Math.ceil(radius);
+    const cx = Math.floor(x), cy = Math.floor(y), cz = Math.floor(z), cw = Math.floor(w);
+    const counts = new Map<number, number>();
+    for (let dw = -ri; dw <= ri; dw++)
+      for (let dz = -ri; dz <= ri; dz++)
+        for (let dy = -ri; dy <= ri; dy++)
+          for (let dx = -ri; dx <= ri; dx++) {
+            const bx = cx + dx, by = cy + dy, bz = cz + dz, bw = cw + dw;
+            const d = Math.hypot(bx + 0.5 - x, by + 0.5 - y, bz + 0.5 - z, bw + 0.5 - w);
+            if (d > radius * (0.7 + 0.3 * Math.random())) continue;
+            const v = this.world.getBlock(bx, by, bz, bw);
+            if (v === 0 || v === VOID_VOXEL) continue;
+            const id = v & 0xfff;
+            const hard = REG.hardness[id]!;
+            if (hard < 0 || hard >= 30 || REG.fluid[id] !== 0) continue;
+            if (!this.world.setBlock(bx, by, bz, bw, 0)) continue;
+            if (Math.random() < 0.3) for (const st of rollDrops(id, -1, Math.random)) counts.set(st.id, (counts.get(st.id) ?? 0) + st.count);
+          }
+    for (const [id, n] of counts) {
+      let left = n;
+      while (left > 0) {
+        const c = Math.min(left, IREG.maxStack[id]!);
+        left -= c;
+        this.dropAtCell(cx, cy, cz, cw, { id, count: c, damage: 0 });
+      }
+    }
+    // Damage falls off over twice the radius (a gentler curve than Minecraft's: no armour yet).
+    const diff = DIFFICULTY[this.info.difficulty] ?? 2;
+    const mult = diff === 1 ? 0.5 : diff === 3 ? 1.5 : 1;
+    const p = this.player;
+    const reach = radius * 2;
+    const pc = this.tmp4;
+    for (let k = 0; k < 4; k++) pc[k] = p.pos[k]!;
+    pc[p.up] = pc[p.up]! + 0.9;
+    const dp = Math.hypot(pc[0]! - x, pc[1]! - y, pc[2]! - z, pc[3]! - w);
+    if (dp < reach) {
+      const impact = 1 - dp / reach;
+      const center = [x, y, z, w];
+      this.hurtPlayer(Math.round(((impact * impact + impact) / 2) * 3.5 * reach * mult + 1), center, 'Blown up');
+    }
+    for (const m of this.mobs.list) {
+      const dm = Math.hypot(m.pos[0]! - x, m.pos[1]! + m.height * 0.5 - y, m.pos[2]! - z, m.pos[3]! - w);
+      if (dm >= reach) continue;
+      const impact = 1 - dm / reach;
+      m.hurt = 0;
+      this.mobs.damage(m, ((impact * impact + impact) / 2) * 3.5 * reach + 1, [x, y, z, w]);
+    }
+    this.particles.burst(x, y, z, w, p.cam, 'smoke', '#6a6a6a', 40, 4, radius * 0.6);
+    this.particles.burst(x, y, z, w, p.cam, 'spark', '#ffb040', 24, 7, radius * 0.3, true);
+    this.params.damage = Math.max(this.params.damage, 0.3);
+    this.mobs.noise([x, y, z, w]);
+  }
+
+  /** Drop a stack at a 4D point, moved onto the view hyperplane when it is close to it. */
+  dropInSlice(x: number, y: number, z: number, w: number, st: ItemStack): void {
+    const H = this.player.cam.H, e = this.eyePos;
+    const d = (x - e[0]!) * H[0]! + (y - e[1]!) * H[1]! + (z - e[2]!) * H[2]! + (w - e[3]!) * H[3]!;
+    if (Math.abs(d) < 1.5) {
+      x -= d * H[0]!;
+      y -= d * H[1]!;
+      z -= d * H[2]!;
+      w -= d * H[3]!;
+    }
+    const a = Math.random() * Math.PI * 2;
+    const R = this.player.cam.R, F = this.player.cam.F;
+    const v = [0, 0, 0, 0];
+    for (let k = 0; k < 4; k++) v[k] = (Math.cos(a) * R[k]! + Math.sin(a) * F[k]!) * 1.5;
+    v[this.player.up] = 3;
+    this.items.spawn(x, y, z, w, st, v, 0.3);
+  }
+
+  /**
+   * R2 proximity warning: hostile mobs within 16 blocks that are (mostly) out of the slice
+   * light the screen edge of the side they are on, brighter when closer.
+   */
+  private scanThreats(): void {
+    const t = this.params.threat;
+    t[0] = 0;
+    t[1] = 0;
+    const p = this.player;
+    this.mobs.threats(p.pos, 16, this.threats);
+    if (p.mode === 'creative' || p.mode === 'spectator') return;
+    const e = this.eyePos, H = p.cam.H;
+    for (const m of this.threats) {
+      let dh = 0, d2 = 0;
+      for (let k = 0; k < 4; k++) {
+        const dk = m.pos[k]! - e[k]!;
+        dh += dk * H[k]!;
+        d2 += dk * dk;
+      }
+      if (Math.abs(dh) < 0.25) continue; // in your slice: you can see it
+      const s = Math.max(0, Math.min(1, 1.15 - Math.sqrt(d2) / 14));
+      const side = dh < 0 ? 0 : 1;
+      t[side] = Math.max(t[side]!, s);
+    }
   }
 
   // ------------------------------------------------------------------ items & mining
@@ -657,6 +1101,7 @@ export class Game {
     const drops = rollDrops(id, heldId, Math.random);
     if (!this.world.setBlock(t.x, t.y, t.z, t.w, 0)) return false;
     for (const d of drops) this.dropAtCell(t.x, t.y, t.z, t.w, d);
+    this.mobs.noise([t.x + 0.5, t.y + 0.5, t.z + 0.5, t.w + 0.5]); // Lurkers hear mining
     const wear = wearFor(id, heldId);
     if (held && wear > 0) {
       held.damage += wear;

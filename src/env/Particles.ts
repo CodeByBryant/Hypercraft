@@ -14,7 +14,9 @@ import type { SpriteBatch } from '../render/SpriteBatch';
 import { SPRITE_FLAKE, SPRITE_GLOW, SPRITE_SOFT, SPRITE_SQUARE } from '../render/SpriteBatch';
 import type { World } from '../world/World';
 
-type Kind = ParticleDef['kind'];
+/** Biome particle kinds plus effect kinds used by bursts (hits, deaths, explosions). */
+type Kind = ParticleDef['kind'] | 'smoke' | 'spark' | 'poof';
+export type BurstKind = 'smoke' | 'spark' | 'poof';
 
 interface KindCfg {
   shape: number;
@@ -36,6 +38,9 @@ interface KindCfg {
   water: boolean;
   /** Random-walk (fireflies). */
   wander: number;
+  /** Downward acceleration (effect particles) and velocity damping per second. */
+  gravity?: number;
+  drag?: number;
 }
 
 const K: Record<Kind, KindCfg> = {
@@ -49,6 +54,9 @@ const K: Record<Kind, KindCfg> = {
   ember: { shape: SPRITE_GLOW, size: 0.045, life: [3, 6], vy: [0.6, 1.3], drift: 0.35, sway: 0.2, spin: 0, y: [-3, 4], sky: false, water: false, wander: 0 },
   bubble: { shape: SPRITE_SOFT, size: 0.05, life: [3, 6], vy: [0.7, 1.2], drift: 0.1, sway: 0.2, spin: 0, y: [-4, 3], sky: false, water: true, wander: 0 },
   mote: { shape: SPRITE_GLOW, size: 0.05, life: [6, 11], vy: [-0.1, 0.15], drift: 0.2, sway: 0.2, spin: 0, y: [-2, 7], sky: false, water: false, wander: 0.4 },
+  smoke: { shape: SPRITE_SOFT, size: 0.22, life: [0.9, 1.6], vy: [0.6, 1.2], drift: 0, sway: 0.1, spin: 0, y: [0, 0], sky: false, water: false, wander: 0, drag: 1.8 },
+  spark: { shape: SPRITE_GLOW, size: 0.06, life: [0.4, 0.8], vy: [0, 0], drift: 0, sway: 0, spin: 0, y: [0, 0], sky: false, water: false, wander: 0, gravity: 14, drag: 1.2 },
+  poof: { shape: SPRITE_SOFT, size: 0.14, life: [0.5, 0.9], vy: [0.3, 0.8], drift: 0, sway: 0.05, spin: 0, y: [0, 0], sky: false, water: false, wander: 0, drag: 2.5 },
 };
 
 const MAX = 768;
@@ -103,6 +111,47 @@ export class Particles {
     this.emit(world, eye, cam, daylight, out);
   }
 
+  /**
+   * Effect burst at a 4D point (hits, deaths, explosions). Particles fly out within the
+   * current slice (R, up, F) with a tiny spread along the hidden axis, so a burst you see
+   * happen stays visible; `spread` scatters the start points (explosions).
+   */
+  burst(x: number, y: number, z: number, w: number, cam: Frame4, kind: BurstKind, color: string, n: number, speed: number, spread = 0.2, glow = false): void {
+    const cfg = K[kind];
+    const c = this.rgb(color);
+    const R = cam.R, F = cam.F, H = cam.hidden;
+    const up = cam.upAxis;
+    for (let j = 0; j < n && this.count < MAX; j++) {
+      const i = this.count++;
+      const o = i * 4;
+      // Random direction in the slice's 3-space (R, up, F).
+      let a = Math.random() * 2 - 1, b = Math.random() * 2 - 1, f = Math.random() * 2 - 1;
+      const l = Math.hypot(a, b, f) || 1;
+      a /= l;
+      b /= l;
+      f /= l;
+      const s = speed * (0.4 + Math.random() * 0.6);
+      const r0 = spread * Math.random();
+      const size = cfg.size * (0.7 + Math.random() * 0.6);
+      const dh = (Math.random() * 2 - 1) * size * 0.5;
+      for (let k = 0; k < 4; k++) {
+        const dir = a * R[k]! + f * F[k]! + (k === up ? b : 0);
+        this.pos[o + k] = (k === 0 ? x : k === 1 ? y : k === 2 ? z : w) + dir * r0 + dh * H[k]!;
+        this.vel[o + k] = dir * s;
+      }
+      this.vel[o + up] = this.vel[o + up]! + cfg.vy[0] + Math.random() * (cfg.vy[1] - cfg.vy[0]);
+      this.col[i * 3] = c[0];
+      this.col[i * 3 + 1] = c[1];
+      this.col[i * 3 + 2] = c[2];
+      this.age[i] = 0;
+      this.life[i] = cfg.life[0] + Math.random() * (cfg.life[1] - cfg.life[0]);
+      this.rad[i] = size;
+      this.kind[i] = this.kinds.indexOf(kind);
+      this.glow[i] = glow ? 1 : 0;
+      this.phase[i] = Math.random() * 6.28;
+    }
+  }
+
   private step(dt: number, world: World): void {
     let n = this.count;
     const P = this.pos, V = this.vel;
@@ -117,6 +166,11 @@ export class Particles {
             const j = a === 1 ? 0.3 : a === 3 ? 0.15 : 1;
             V[o + a] = V[o + a]! * (1 - dt * 0.8) + (Math.random() - 0.5) * cfg.wander * dt * 4 * j;
           }
+        }
+        if (cfg.gravity) V[o + 1] = V[o + 1]! - cfg.gravity * dt;
+        if (cfg.drag) {
+          const k = Math.max(0, 1 - cfg.drag * dt);
+          for (let a = 0; a < 4; a++) V[o + a] = V[o + a]! * k;
         }
         const ph = this.phase[i]! + this.age[i]! * 1.7;
         const sway = cfg.sway * Math.sin(ph);

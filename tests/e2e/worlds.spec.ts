@@ -26,12 +26,14 @@ test('create a seeded world, edit it, and the edit survives a reload', async ({ 
   const seed = await page.evaluate(() => (window.__hc as unknown as { game: { seed: number } }).game.seed);
   expect(seed).toBeGreaterThan(0);
 
-  // Hover (creative flight) and place glass on the ground below us.
+  // Hover (creative flight) above whatever is below us (ground or a tree canopy) and place
+  // glass on top of it.
   await page.evaluate(() => {
     window.__hc.setMode('creative');
     window.__hc.setFlying(true);
     const s = window.__hc.state();
-    window.__hc.teleport(s.pos[0]!, s.pos[1]! + 2.5, s.pos[2]!, s.pos[3]!);
+    const top = window.__hc.skyHeight(s.pos[0]!, s.pos[2]!, s.pos[3]!);
+    window.__hc.teleport(s.pos[0]!, Math.max(s.pos[1]!, top) + 2.5, s.pos[2]!, s.pos[3]!);
     window.__hc.setView({ pitch: -89 });
   });
   await page.evaluate(() => window.__hc.frames(3));

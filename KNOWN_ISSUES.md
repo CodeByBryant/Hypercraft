@@ -1,6 +1,6 @@
 # Known issues
 
-Honest list as of Phase 3 (items, inventory, mining, crafting). Items tagged with the phase expected to address them.
+Honest list as of Phase 4 (mobs, combat, health). Items tagged with the phase expected to address them.
 
 ## Unverified / performance
 - **R5 not measured on real GPUs.** Development ran in a GPU-less container (SwiftShader
@@ -44,8 +44,8 @@ Honest list as of Phase 3 (items, inventory, mining, crafting). Items tagged wit
 - The **engine test garden** only exists in test worlds (`?test=1`); it is a flat plateau
   on the nearest flat dry site (x −12..12, z −8..28, w −4..4 around it) used by the R6 views
   and the e2e walk test.
-- Worldgen: structures are Phase 5 (biomes already list their structure names); mob spawn
-  tables are data only until Phase 4. Underground biomes are chosen by two noise fields in
+- Worldgen: structures are Phase 5 (biomes already list their structure names).
+  Underground biomes are chosen by two noise fields in
   `caveBiome()`, so a new underground biome needs a selection rule there (its decoration is
   data-driven).
 - Lakes take their level from the direct climate sample rather than the column lattice, so a
@@ -66,8 +66,37 @@ Honest list as of Phase 3 (items, inventory, mining, crafting). Items tagged wit
   disturbed.
 - Light: seam propagation between columns and edit updates run on the main thread with a
   budget, so a large edit can take a few frames to settle. No coloured block light.
-- Lava is only a hazard visually (red flash, R2 warnings); there is no health system yet
-  (Phase 4). Fall distance is tracked but causes no damage.
+
+## Mobs and combat (Phase 4)
+- **Mobs are not saved.** Leaving or reloading a world clears them; they spawn again
+  naturally. Persistent mobs (named, tamed, bosses) come with husbandry (Phase 7).
+- **No audio cues yet** (Phase 12). R2 warnings are visual: the violet screen edge, the radar
+  dots and the warning line.
+- **Hitboxes.** Hitboxes are axis-aligned boxes: `width` along x, z and w. Picking and
+  rendering use the exact rotated primitives, but collision does not, so a long mob facing
+  diagonally collides like a smaller box. Mobs do not push each other or the player.
+- **Hits along the hidden axis.** A hostile can hit you from up to about one block kata/ana,
+  because its reach is measured in 4D. It is always announced, by the violet edge and the
+  warning line, and the red damage flash shows which side the hit came from. Hostiles chase
+  your position, which is in your slice, so in practice they converge into view.
+- **Explosions.** Explosions are a 4D ball, not ray-traced for exposure: blocks and players
+  behind walls are still hit. 30% of the broken blocks drop, merged into stacks.
+- **Pathfinding.** The budget is 2 searches per frame, 700 nodes each, refreshed about every
+  1.2 s per mob. Mobs at the budget limit steer directly and can get stuck on complex
+  terrain for a moment.
+- **Lighting.** Mobs take the light of the cell where the ray hits them. They cast no shadows
+  and have no textures, only flat colours with directional shading.
+- **The Ana Stalker** keeps its thin axis on your hidden axis. Rotating the slice very fast
+  can show it edge-on for a frame before it re-aligns.
+- **Not yet:**
+  - riding Dune Camels and Hyperhorses, and camel chests (mounts, Phase 10);
+  - breeding and taming (Phase 7);
+  - hunger, food and armour (Phase 7);
+  - mob sounds (Phase 12).
+
+  Hyperbats are passive, like Minecraft bats. Swarm attacks are planned for the Hollow Void.
+- **Difficulty.** Difficulty scales mob damage (easy ×0.5, hard ×1.5); peaceful removes
+  hostiles. There is no UI to change it after world creation yet (Phase 12 settings).
 
 ## Gameplay / UX
 - Items: armour slots exist but no armour until Phase 7; food items (apples) cannot be

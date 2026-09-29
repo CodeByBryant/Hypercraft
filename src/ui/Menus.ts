@@ -82,6 +82,7 @@ export class Menus {
         h('p', {}, h('b', {}, 'Z / X'), ' and ', h('b', {}, 'F / V'), ' rotate the slice through the 4th dimension · ', h('b', {}, 'Alt + mouse'), ' free slice rotation · ', h('b', {}, 'C'), ' snap back to an axis-aligned slice'),
         h('p', {}, h('b', {}, 'Left click'), ' mine (hold in survival) / attack · ', h('b', {}, 'Right click'), ' place, use, open crafting tables, chests and furnaces (Mac: two-finger click, or Ctrl/Cmd + click) · ', h('b', {}, 'Tab / I'), ' inventory and recipe book · ', h('b', {}, 'B'), ' drop item'),
         h('p', {}, 'Survival worlds start with an empty inventory: mine blocks (they drop as items you pick up), craft planks and a crafting table, then tools.'),
+        h('p', {}, 'Mobs are 4D too: a mob beside your slice is invisible. Hostiles that are kata or ana of you make that screen edge pulse violet, show up as red dots on the radar, and are named above the hotbar. Swords hit hardest; a full-strength swing while falling is a critical hit. Hold right click to draw a bow.'),
         h('p', {}, 'Tilted slices cut cubes into prisms. Press ', h('b', {}, 'P'), ' to see every cross-section edge coloured by axis, ', h('b', {}, 'F3'), ' for debug info.'),
         h('p', {}, h('b', {}, 'Touch:'), ' left thumb = move stick, right side = drag to look, tap = place, hold = break, two-finger twist / drag = rotate the slice.'),
       ),
@@ -285,6 +286,20 @@ export class Menus {
   }
 
   // ---------------------------------------------------------------- pause
+
+  /** Death screen: the cause, then respawn (or spectate, in hardcore) or quit. */
+  death(opts: { cause: string; hardcore: boolean; respawn(): void; quit(): void }): void {
+    this.show(
+      h('h2', { class: 'death-title' }, opts.hardcore ? 'Game over!' : 'You died!'),
+      h('p', { class: 'dim' }, opts.cause),
+      opts.hardcore ? h('p', { class: 'dim' }, 'Hardcore: this world continues in spectator mode.') : null,
+      h('div', { class: 'col' },
+        h('button', { class: 'primary', onclick: opts.respawn }, opts.hardcore ? 'Spectate world' : 'Respawn'),
+        h('button', { onclick: opts.quit }, 'Save & quit to title'),
+      ),
+    );
+    this.card.classList.add('death');
+  }
 
   pause(opts: { worldName: string; seedText: string; resume(): void; settings(): void; quit(): void; saveStatus(): string }): void {
     const status = h('p', { class: 'dim' }, opts.saveStatus());

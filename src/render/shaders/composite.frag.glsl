@@ -17,6 +17,7 @@ uniform float uStorm;
 uniform float uFlash;
 uniform vec2 uHazard;       // x = kata (-h) side, y = ana (+h) side
 uniform vec2 uBlocked;      // movement along -h / +h is blocked right next to you
+uniform vec2 uThreat;       // hostile mob hidden kata (x) / ana (y) of the slice, 0..1 by closeness
 uniform float uVignette;
 uniform vec2 uLook;         // yaw, pitch (radians) for precipitation parallax
 uniform float uDamage;
@@ -92,6 +93,13 @@ void main() {
   float pulse = 0.75 + 0.25 * sin(uTime * 6.0);
   c = mix(c, vec3(1.0, 0.25, 0.05), clamp(edgeL * uHazard.x * pulse, 0.0, 0.85));
   c = mix(c, vec3(1.0, 0.25, 0.05), clamp(edgeR * uHazard.y * pulse, 0.0, 0.85));
+  // Hostile mobs out of the slice (R2): a violet glow on the side they lurk on, with a slow
+  // heartbeat so it reads differently from the lava warning.
+  float beat = 0.7 + 0.3 * pow(0.5 + 0.5 * sin(uTime * 4.0), 4.0);
+  float tl = smoothstep(0.22, 0.0, uv.x) * (0.55 + 0.45 * smoothstep(0.0, 0.5, 1.0 - abs(uv.y - 0.5) * 2.0));
+  float tr = smoothstep(0.78, 1.0, uv.x) * (0.55 + 0.45 * smoothstep(0.0, 0.5, 1.0 - abs(uv.y - 0.5) * 2.0));
+  c = mix(c, vec3(0.72, 0.2, 1.0), clamp(tl * uThreat.x * beat, 0.0, 0.8));
+  c = mix(c, vec3(0.72, 0.2, 1.0), clamp(tr * uThreat.y * beat, 0.0, 0.8));
   c = mix(c, vec3(0.6, 0.75, 1.0), clamp(smoothstep(0.05, 0.0, uv.x) * uBlocked.x, 0.0, 0.5));
   c = mix(c, vec3(0.6, 0.75, 1.0), clamp(smoothstep(0.95, 1.0, uv.x) * uBlocked.y, 0.0, 0.5));
 

@@ -24,6 +24,10 @@ src/
     gen/                  worker entry, protocol, pool, generator registry, SurfaceGen
     light/                columnLight (worker), LightEngine (main-thread seams + edits)
     fluids/Fluids.ts      cellular 4D water/lava
+  game/items/             inventory, item entities, block entities, mining, crafting (Phase 3)
+  game/mobs/              MobManager (spawning, AI, physics, combat, GPU packing),
+                          Pathfinder (4D A*), Projectiles, ray-vs-primitive tests (Phase 4)
+  game/Vitals.ts          player health and air; game/combat.ts weapon/bow numbers
   physics/Player.ts       4D hyperbox player
   input/Input.ts          rebindable actions, mouse, pointer lock
   env/Environment.ts      day/night, moon phases, weather, biome-tinted sky/fog
@@ -52,16 +56,21 @@ No SharedArrayBuffer is used, so the game runs on any static host (no COOP/COEP 
 ## Frame loop (`Game.frame`)
 
 1. Input → camera rotations (yaw/pitch, slice tilts, snap) and the movement intent.
-2. Player physics (substepped, axis-separated collision).
+2. Player physics (substepped, slice-basis collision), then vitals (falls, lava, contact
+   blocks, drowning, void, death), item entities, mobs (spawn cycle, AI with a pathfinding
+   budget, physics, despawn) and projectiles.
 3. Fixed 20 Hz ticks: time of day, weather state machine, fluids (water every 5 ticks, lava
    every 30).
 4. Streamer: move the toroidal window when the player changes chunk; re-plan every 250 ms or
    on movement/rotation; submit jobs nearest-first; integrate finished columns.
 5. Light BFS (removals, then increases) within a node budget.
 6. GPU sync: dirty bricks every frame, fresh chunks within ~5 ms.
-7. Picking (CPU 4D DDA), selection outline, P-mode polytopes.
-8. Environment update (sky colours, precipitation masked by sky exposure) and a 5 Hz scan of
-   the hidden axis for hazards/obstacles (R2).
+7. Picking (CPU 4D DDA, then mob primitives: a mob nearer than the block wins), selection
+   outline, P-mode polytopes, and packing the mobs that cross the slice into the entity
+   texture.
+8. Environment update (sky colours, precipitation masked by sky exposure), particles and
+   sprites, and a 5 Hz scan of the hidden axis for hazards, obstacles and hidden hostile
+   mobs (R2).
 9. Render: ray march at internal resolution → composite → line overlay.
 10. Adaptive resolution update, HUD (10 Hz for the slow parts).
 

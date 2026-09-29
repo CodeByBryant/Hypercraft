@@ -1,0 +1,122 @@
+// Arrows and other projectiles: 4D points with gravity that stick into blocks, hit mobs (when
+// shot by the player) or the player (when shot by mobs). Drawn like dropped items: the slice
+// of a small 4-ball with the item's icon.
+
+import { REG, COLLISION_NONE } from '../../content/registry';
+import type { Frame4 } from '../../math/frame';
+import type { SpriteBatch } from '../../render/SpriteBatch';
+import type { World } from '../../world/World';
+import type { Mob, MobManager } from './MobManager';
+
+const R = 0.14;
+
+export interface Projectile {
+  pos: Float64Array;
+  vel: Float64Array;
+  damage: number;
+  item: number;
+  byPlayer: boolean;
+  age: number;
+  stuck: boolean;
+}
+
+export interface ProjectileHost {
+  playerPos: Float64Array;
+  playerHeight: number;
+  hurtPlayer(amount: number, from: Float64Array, cause: string): void;
+  /** A stuck player arrow was walked over; returns true if it was collected. */
+  collect(item: number): boolean;
+  eye: Float64Array;
+  hidden: Float64Array;
+}
+
+export class Projectiles {
+  readonly list: Projectile[] = [];
+  private readonly prev = new Float64Array(4);
+
+  spawn(from: ArrayLike<number>, vel: ArrayLike<number>, damage: number, item: number, byPlayer: boolean): void {
+    if (this.list.length > 128) this.list.shift();
+    this.list.push({ pos: Float64Array.from(from), vel: Float64Array.from(vel), damage, item, byPlayer, age: 0, stuck: false });
+  }
+
+  update(dt: number, world: World, mobs: MobManager, h: ProjectileHost): void {
+    dt = Math.min(dt, 0.1);
+    const p = h.playerPos;
+    for (let i = this.list.length - 1; i >= 0; i--) {
+      const a = this.list[i]!;
+      a.age += dt;
+      if (a.stuck) {
+        if (a.byPlayer && a.age > 0.5) {
+          let d2 = 0;
+          for (let k = 0; k < 4; k++) d2 += (a.pos[k]! - p[k]! - (k === 1 ? 0.8 : 0)) ** 2;
+          if (d2 < 1.6 && h.collect(a.item)) {
+            this.list.splice(i, 1);
+            continue;
+          }
+        }
+        if (a.age > 30) this.list.splice(i, 1);
+        continue;
+      }
+      if (a.age > 10) {
+        this.list.splice(i, 1);
+        continue;
+      }
+      a.vel[1] = a.vel[1]! - 20 * dt;
+      const speed = Math.hypot(a.vel[0]!, a.vel[1]!, a.vel[2]!, a.vel[3]!);
+      const steps = Math.max(1, Math.ceil((speed * dt) / 0.2));
+      let removed = false;
+      for (let s = 0; s < steps && !removed; s++) {
+        for (let k = 0; k < 4; k++) {
+          this.prev[k] = a.pos[k]!;
+          a.pos[k] = a.pos[k]! + (a.vel[k]! * dt) / steps;
+        }
+        const v = world.getBlock(Math.floor(a.pos[0]!), Math.floor(a.pos[1]!), Math.floor(a.pos[2]!), Math.floor(a.pos[3]!)) & 0xfff;
+        if (REG.collision[v] !== COLLISION_NONE) {
+          for (let k = 0; k < 4; k++) a.pos[k] = this.prev[k]!;
+          a.stuck = true;
+          a.age = 0;
+          break;
+        }
+        if (a.byPlayer) {
+          const m = this.hitMob(mobs, a.pos);
+          if (m) {
+            mobs.damage(m, a.damage, this.prev, h.eye, h.hidden);
+            this.list.splice(i, 1);
+            removed = true;
+          }
+        } else {
+          const dx = a.pos[0]! - p[0]!, dy = a.pos[1]! - p[1]!, dz = a.pos[2]! - p[2]!, dw = a.pos[3]! - p[3]!;
+          if (Math.abs(dx) < 0.4 && Math.abs(dz) < 0.4 && Math.abs(dw) < 0.4 && dy > 0 && dy < h.playerHeight) {
+            h.hurtPlayer(a.damage, this.prev, 'Arrow');
+            this.list.splice(i, 1);
+            removed = true;
+          }
+        }
+      }
+    }
+  }
+
+  private hitMob(mobs: MobManager, q: Float64Array): Mob | null {
+    for (const m of mobs.list) {
+      const hw = m.width + R, top = m.height;
+      const dx = q[0]! - m.pos[0]!, dy = q[1]! - m.pos[1]!, dz = q[2]! - m.pos[2]!, dw = q[3]! - m.pos[3]!;
+      if (Math.abs(dx) < hw && Math.abs(dz) < hw && Math.abs(dw) < hw && dy > -R && dy < top + R) return m;
+    }
+    return null;
+  }
+
+  draw(out: SpriteBatch, eye: Float64Array, cam: Frame4, iconU: Float32Array | null, iconV: Float32Array | null): void {
+    if (!iconU || !iconV) return;
+    const H = cam.hidden, Rt = cam.right, U = cam.up, F = cam.fwd;
+    for (const a of this.list) {
+      const rx = a.pos[0]! - eye[0]!, ry = a.pos[1]! - eye[1]!, rz = a.pos[2]! - eye[2]!, rw = a.pos[3]! - eye[3]!;
+      const d = rx * H[0]! + ry * H[1]! + rz * H[2]! + rw * H[3]!;
+      if (d >= R || d <= -R) continue;
+      const x = rx * Rt[0]! + ry * Rt[1]! + rz * Rt[2]! + rw * Rt[3]!;
+      const y = rx * U[0]! + ry * U[1]! + rz * U[2]! + rw * U[3]!;
+      const z = rx * F[0]! + ry * F[1]! + rz * F[2]! + rw * F[3]!;
+      if (z < 0.1) continue;
+      out.addItem(x, y, z, Math.sqrt(R * R - d * d) * 1.6, 1, iconU[a.item]!, iconV[a.item]!);
+    }
+  }
+}

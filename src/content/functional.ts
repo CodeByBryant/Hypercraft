@@ -31,7 +31,7 @@ export const FUNCTIONAL_BLOCKS: BlockDef[] = [
   { name: 'lit_smoker', displayName: 'Smoker', render: 'opaque', solid: true, textures: { top: 'furnace_top', bottom: 'furnace_top', side: 'smoker_front_lit' }, emission: 13, hardness: 3.5, tags: ['station', 'furnace'] },
   { name: 'chest', render: 'opaque', solid: true, shape: 'chest', opaque: false, textures: { top: 'chest_top', bottom: 'chest_top', side: 'chest_side' }, hardness: 2.5, tags: ['container'] },
   { name: 'wool', render: 'opaque', solid: true, textures: { all: 'wool' }, hardness: 0.8, tags: ['wool'] },
-  { name: 'cobweb', render: 'cutout', solid: false, shape: 'plant', opaque: false, textures: { all: 'cobweb' }, hardness: 4, tags: ['web'] },
+  { name: 'cobweb', render: 'cutout', solid: false, shape: 'plant', opaque: false, textures: { all: 'cobweb' }, hardness: 4, slows: 0.15, tags: ['web'] },
   { name: 'birch_planks', render: 'opaque', solid: true, textures: { all: 'birch_planks' }, hardness: 2, tags: ['planks'] },
   { name: 'spruce_planks', render: 'opaque', solid: true, textures: { all: 'spruce_planks' }, hardness: 2, tags: ['planks'] },
   { name: 'acacia_planks', render: 'opaque', solid: true, textures: { all: 'acacia_planks' }, hardness: 2, tags: ['planks'] },

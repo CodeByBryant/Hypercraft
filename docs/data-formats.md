@@ -165,6 +165,70 @@ Shaped recipes match anywhere in the grid and mirrored left-right; recipes of at
 takes `time` seconds (default 10) in a furnace and half that in a blast furnace or smoker.
 All names are validated at startup (`Crafting` constructor) and by unit tests.
 
+## Mobs (`src/content/mobs.ts`)
+
+```ts
+{ name: 'kata_sheep', displayName: 'Kata Sheep', hostile: false, ai: 'passive',
+  health: 8, speed: 1.6, width: 0.45, height: 1.25,
+  parts: [box([0, 0.78, 0, 0], [0.36, 0.3, 0.52, 0.36], '#eeeeea'), ...tetraLegs('#d8c8b0', 0.5, 0.24, 0.07)],
+  drops: [{ item: 'wool', count: [1, 1] }, { item: 'raw_mutton', count: [1, 2] }] }
+```
+
+**Body.**
+* `parts`: 1–16 analytic primitives in the mob's own frame (x right, y up, z forward, w
+  its own ana axis). The kinds are:
+  * `box`: centre `at` and half extents `size`;
+  * `ball`: centre `at` and radius `r`;
+  * `capsule`: ends `at` and `to`, and radius `r`.
+* Optional part fields:
+  * `anim`: `leg`, `head`, `wing`, `tail` or `pulse`;
+  * `phase`: an offset in radians;
+  * `glow`.
+* `width` (hitbox half-width in x, z and w) and `height`: collision and projectile hits.
+
+**Behaviour.**
+* `ai`: one of the behaviour profiles in `MobManager.think`. The how-to lists them.
+* `hostile` mobs need `damage`, except exploders.
+
+**Optional behaviour fields.**
+
+| field | meaning |
+| ----- | ------- |
+| `burnsInDay` | burns in daylight under open sky |
+| `fireproof` | immune to lava |
+| `splits` | splits into this many copies on death |
+| `scale: [min, max]` | random size per mob |
+| `sliceBound` | only damageable while crossing your slice |
+| `projectile: { item, cooldown, damage }` | ranged attack |
+| `blast: { radius, fuse }` | exploder |
+| `lays: { item, every: [min, max] }` | drops an item every so often |
+
+The compiled registry (`mobRegistry.ts`) precomputes a bounding radius per mob (the parts
+plus 0.35 blocks of animation slack) and linear part colours. It validates everything at
+startup:
+* part fields;
+* drops and projectile items;
+* the damage rule;
+* every biome spawn table entry.
+
+**Spawn tables** live on biomes: `mobs: { day, night, water, cave }`. Each is a list of
+`{ mob, weight, group?: [min, max] }`.
+
+**GPU record** (`MobManager.pack`, one RGBA32F texture of 256 × N texels):
+* **Per mob, 6 texels:**
+  * position relative to the window origin;
+  * R, F and H of its frame;
+  * `(bounding radius, first part, part count, hurt flash)`;
+  * `(scale, fuse flash, 0, 0)`.
+* **Per part, 4 texels, from texel 288:**
+  * `(kind, radius, glow, 0)`;
+  * `at`;
+  * `size` for boxes, or `to` for capsules;
+  * colour.
+
+At most 48 mobs are uploaded per frame: those whose bounding 4-ball crosses the view
+hyperplane.
+
 ## Realms (`src/content/realms.ts`)
 
 ```ts
@@ -182,6 +246,6 @@ All names are validated at startup (`Crafting` constructor) and by unit tests.
   (`bIdx: Int32Array(256)`, `bData: Uint16Array(n·256)`, `lIdx`, `lData: Uint8Array`) plus
   `heightmap: Uint8Array(4096)` and `surface: Uint8Array(4096·4)`; all buffers transferred.
 * **Dense column** (worker only): `index = x + 16z + 256w + 4096y`.
-* **Saves**: not implemented yet (edited columns persist in memory for the session). The
-  planned format is IndexedDB chunks with a name palette and RLE brick data; see
-  KNOWN_ISSUES.md.
+* **Saves** (IndexedDB, see `src/save/`): edited columns with a block-name palette, world
+  metadata and `SavedState.player.data` (`inventory`, and since Phase 4 `vitals: { health,
+  air }`). Mobs are not saved yet (they respawn naturally).

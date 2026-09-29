@@ -49,6 +49,7 @@ export class MobRegistry {
       }
       if (def.projectile && !IREG.has(def.projectile.item)) errors.push(`mob "${def.name}": unknown projectile "${def.projectile.item}"`);
       if (def.lays && !IREG.has(def.lays.item)) errors.push(`mob "${def.name}": unknown laid item "${def.lays.item}"`);
+      if (def.spins && !REG.has(def.spins.block)) errors.push(`mob "${def.name}": unknown spun block "${def.spins.block}"`);
       if (def.hostile && def.damage === undefined && def.ai !== 'exploder') errors.push(`mob "${def.name}": hostile mobs need damage`);
       this.mobs.push({ def, index, radius, colors, drops });
     });

@@ -17,6 +17,7 @@ export interface Hc {
   placeTarget(name: string): boolean;
   target(): null | { x: number; y: number; z: number; w: number; axis: number; sign: number; name: string };
   blockAt(x: number, y: number, z: number, w: number): string;
+  skyHeight(x: number, z: number, w: number): number;
   setTime(t: number): void;
   setWeather(w: string): void;
   setResolution(h: number | 'auto'): void;
@@ -37,6 +38,25 @@ export interface Hc {
   beSet(x: number, y: number, z: number, w: number, slot: number, name: string | null, count?: number): boolean;
   beGet(x: number, y: number, z: number, w: number, slot: number): [string, number] | null;
   tickWorld(seconds: number): void;
+  spawnMob(name: string, x: number, y: number, z: number, w: number, scale?: number): number;
+  spawnMobAhead(name: string, dist: number, side?: number, hidden?: number, worldAligned?: boolean): number;
+  placeMobAhead(id: number, dist: number, side?: number, hidden?: number): boolean;
+  mobs(): { id: number; name: string; health: number; pos: number[]; mode: string; awake: boolean }[];
+  freezeMobs(on: boolean): void;
+  clearMobs(): void;
+  setMobSpawning(on: boolean): void;
+  packedMobs(): number;
+  targetMob(): { id: number; name: string } | null;
+  attack(): Promise<void>;
+  bow(ms: number): Promise<void>;
+  arrows(): { pos: number[]; stuck: boolean; byPlayer: boolean }[];
+  vitals(): { health: number; air: number; dead: boolean; cause: string };
+  hurt(amount: number, cause?: string): boolean;
+  setHealth(hp: number): void;
+  respawn(): void;
+  explode(x: number, y: number, z: number, w: number, r: number): void;
+  threat(): { glow: number[]; text: string };
+  setDifficulty(d: 'peaceful' | 'easy' | 'normal' | 'hard'): void;
 }
 
 declare global {

@@ -42,6 +42,8 @@ export class Player {
   eyeInWater = false;
   eyeInLava = false;
   onClimbable = false;
+  /** Slowest movement multiplier of the blocks the body is in (cobwebs); 1 = free. */
+  slow = 1;
   sneaking = false;
   sprinting = false;
   frozen = true;
@@ -206,6 +208,7 @@ export class Player {
     this.inWater = false;
     this.inLava = false;
     this.onClimbable = false;
+    this.slow = 1;
     const p = this.pos;
     this.box(p, this.height);
     const bmin = this.bmin, bmax = this.bmax;
@@ -219,6 +222,7 @@ export class Player {
             if (f === FLUID_WATER) this.inWater = true;
             else if (f === FLUID_LAVA) this.inLava = true;
             if (REG.climbable[id]) this.onClimbable = true;
+            if (REG.slow[id]! < this.slow) this.slow = REG.slow[id]!;
           }
     // Also count a ladder right next to us (touching) as climbable.
     if (!this.onClimbable) {
@@ -273,6 +277,8 @@ export class Player {
     else if (this.sneaking) speed = 1.31;
     else if (this.sprinting) speed = 5.61;
     if (!this.flying && (this.inWater || this.inLava)) speed = this.inLava ? 1.2 : 2.2;
+    const webbed = this.slow < 1 && this.mode !== 'spectator';
+    if (webbed) speed *= this.slow;
 
     // Horizontal velocity: accelerate toward the wish velocity.
     const accel = this.flying ? 12 : this.onGround ? 22 : this.inWater || this.inLava ? 8 : 5;
@@ -312,6 +318,11 @@ export class Player {
       if (this.sneaking && vy < 0) vy = 0;
       if (input.jump || (this.hitWall && wl > 0.1)) vy = Math.max(vy, 2.8);
     }
+    if (webbed) {
+      // Stuck in a web: barely sink, barely climb, and the fall ends here.
+      vy = Math.max(-0.8, Math.min(vy, input.jump ? 0.9 : 0.3));
+      for (let i = 0; i < 4; i++) if (i !== up) this.vel[i] = this.vel[i]! * 0.6;
+    }
     this.vel[up] = vy;
 
     // Integrate with axis-separated collision in substeps (no tunnelling).
@@ -336,7 +347,7 @@ export class Player {
     }
     // Fall tracking (used by Phase 4 damage; exposed in F3).
     const yNow = this.pos[up]!;
-    const grounded = this.onGround || this.inWater || this.flying || this.onClimbable;
+    const grounded = this.onGround || this.inWater || this.flying || this.onClimbable || this.slow < 1;
     if (grounded) {
       if (!this.wasGrounded) this.lastFall = Math.max(0, this.fallStart - yNow); // landing
       this.fallStart = yNow;

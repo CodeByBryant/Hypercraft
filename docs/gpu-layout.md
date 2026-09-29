@@ -48,6 +48,7 @@ or enter the window touch the tables; everything else stays where it is. The sha
 | `uBlockInfo` | `RGBA32UI` 2D | 64 × 64 | Static per-block render info (4096 ids). |
 | `uShapes` | `RGBA32F` 2D | 16 × shapeVariants | Sub-voxel shape table (boxes). |
 | `uAtlas` | `RGBA8` 2D | 1024 × 64·rows | Procedural 16³ solid textures. |
+| `uEntities` | `RGBA32F` 2D | 256 × 14 | Mob records and their analytic parts (Phase 4, see below). |
 
 ### Chunk table (`R32UI`)
 
@@ -119,6 +120,43 @@ texture `t` at `((t mod 16)·64, ⌊t/16⌋·64)`, slice `s` at `((s mod 4)·16,
 on the facet with normal axis `a` samples the volume at the other three cell-relative
 coordinates `(u, v, s)` (v runs along world up on side facets), so the 2D face you see is a
 real slice through a 3D texture and changes as the slice moves along the hidden axis.
+
+### Entity texture (`RGBA32F`, Phase 4)
+
+It is rewritten each frame by `MobManager.pack` (only the rows in use are uploaded).
+`uEntityCount` says how many mob records are valid (at most 48).
+
+**Mob record `e`: 6 texels starting at texel `6e`.**
+
+| texel | contents |
+| ----- | -------- |
+| 0 | position relative to the window origin (`world.ox·16, 0, world.oz·16, world.ow·16`) |
+| 1–3 | the mob's orthonormal frame R, F and H (world-space columns; up is world Y) |
+| 4 | `(bounding radius, first part index, part count, hurt flash 0/1)` |
+| 5 | `(scale, fuse flash 0..1, 0, 0)` |
+
+**Part `p`: 4 texels starting at texel `288 + 4p`.** Positions are in the mob's local frame
+(x = R, y = up, z = F, w = H), unscaled.
+
+| texel | contents |
+| ----- | -------- |
+| 0 | `(kind 0 box / 1 ball / 2 capsule, radius, glow 0/1, 0)` |
+| 1 | centre (box, ball) or end A (capsule) |
+| 2 | half extents (box) or end B (capsule) |
+| 3 | linear RGB colour |
+
+`entityTrace` runs once per pixel:
+1. Test the ray against each mob's bounding 4-ball.
+2. Transform the ray into the mob's frame and divide by its scale.
+3. Test the exact primitives: slab test for boxes, quadratics for balls and capsules.
+
+The nearest hit (`tEnt`) is then compared with the terrain hit:
+* at the start of each step;
+* when an opaque surface is found;
+* after the march.
+
+That way mobs and terrain (including translucent media in front) occlude each other
+correctly. The CPU picker (`MobManager.pick`) runs the same tests.
 
 ## Render targets
 

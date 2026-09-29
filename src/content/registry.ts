@@ -125,6 +125,8 @@ export class Registry {
   readonly fluid = new Uint8Array(MAX_BLOCK_IDS);
   readonly replaceable = new Uint8Array(MAX_BLOCK_IDS);
   readonly damage = new Float32Array(MAX_BLOCK_IDS);
+  /** Movement speed multiplier inside the block (1 = none). */
+  readonly slow = new Float32Array(MAX_BLOCK_IDS).fill(1);
   readonly hardness = new Float32Array(MAX_BLOCK_IDS);
   readonly collision = new Uint8Array(MAX_BLOCK_IDS);
   readonly isFullShape = new Uint8Array(MAX_BLOCK_IDS);
@@ -220,6 +222,7 @@ export class Registry {
       this.fluid[id] = b.fluid === 'water' ? FLUID_WATER : b.fluid === 'lava' ? FLUID_LAVA : FLUID_NONE;
       this.replaceable[id] = b.replaceable ? 1 : 0;
       this.damage[id] = b.damage ?? 0;
+      this.slow[id] = Math.max(0.01, Math.min(1, b.slows ?? 1));
       this.hardness[id] = b.hardness ?? 1;
       const shapeCollision = sb ? this.shapes[sb.base]!.collision : COLLISION_FULL;
       this.collision[id] = !b.solid ? COLLISION_NONE : full ? COLLISION_FULL : shapeCollision;

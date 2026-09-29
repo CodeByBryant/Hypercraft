@@ -1,0 +1,23 @@
+[
+  {
+    "view": "1-axis-aligned",
+    "packed": 8,
+    "renderMs": 1597.2999999998137,
+    "renderMsNoMobs": 1585.9000000003725,
+    "mobCostPct": 0.7
+  },
+  {
+    "view": "2-xw-30",
+    "packed": 8,
+    "renderMs": 1832,
+    "renderMsNoMobs": 1631.0999999996275,
+    "mobCostPct": 12.3
+  },
+  {
+    "view": "3-xw45-zw45",
+    "packed": 8,
+    "renderMs": 1901,
+    "renderMsNoMobs": 1919.2999999998137,
+    "mobCostPct": -1
+  }
+]

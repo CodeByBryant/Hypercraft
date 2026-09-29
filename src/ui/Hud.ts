@@ -7,6 +7,14 @@ import type { Game } from '../game/Game';
 import { IREG } from '../content/itemRegistry';
 import { HOTBAR_SIZE } from '../game/items/Inventory';
 import { VOID_VOXEL } from '../world/constants';
+import { MAX_AIR, MAX_HEALTH } from '../game/Vitals';
+import { bowPower } from '../game/combat';
+
+// 9x8 pixel heart and bubble masks (1 = outline, 2 = fill, 3 = highlight).
+const HEART = ['011000110', '122101221', '123212221', '122222221', '012222210', '001222100', '000121000', '000010000'];
+const BUBBLE = ['001111100', '013322210', '132222221', '132222221', '122222221', '122222221', '012222210', '001111100'];
+const ICON_W = 9;
+const ICON_GAP = 1;
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, parent: HTMLElement, text?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -44,6 +52,17 @@ export class Hud {
   private readonly bars: HTMLDivElement[] = [];
   private readonly compassText: HTMLDivElement;
   private readonly mode: HTMLDivElement;
+  private readonly crosshair: HTMLDivElement;
+  private readonly bowBar: HTMLDivElement;
+  private readonly bowFill: HTMLDivElement;
+  private readonly vitalsBox: HTMLDivElement;
+  private readonly hearts: HTMLCanvasElement;
+  private readonly bubbles: HTMLCanvasElement;
+  private readonly threat: HTMLDivElement;
+  private readonly hitL: HTMLDivElement;
+  private readonly hitR: HTMLDivElement;
+  private lastHealth = -1;
+  private lastAir = -1;
   private toastTimer = 0;
   private slowTimer = 0;
   private lastHotbar = -1;
@@ -54,9 +73,21 @@ export class Hud {
   constructor(parent: HTMLElement, game: Game) {
     this.game = game;
     this.root = el('div', 'hud', parent);
-    el('div', 'crosshair', this.root);
+    this.crosshair = el('div', 'crosshair', this.root);
+    this.bowBar = el('div', 'bowbar', this.root);
+    this.bowFill = el('div', 'bowfill', this.bowBar);
+    this.hitL = el('div', 'hit-side left', this.root);
+    this.hitR = el('div', 'hit-side right', this.root);
     this.debug = el('pre', 'debug', this.root);
     this.debug.style.display = 'none';
+    this.threat = el('div', 'threat', this.root);
+    this.vitalsBox = el('div', 'vitals', this.root);
+    this.bubbles = el('canvas', 'bubbles', this.vitalsBox);
+    this.hearts = el('canvas', 'hearts', this.vitalsBox);
+    for (const c of [this.hearts, this.bubbles]) {
+      c.width = 10 * (ICON_W + ICON_GAP) - ICON_GAP;
+      c.height = 8;
+    }
     this.hotbar = el('div', 'hotbar', this.root);
     this.readout = el('div', 'readout', this.root);
     this.toast = el('div', 'toast', this.root);
@@ -174,9 +205,23 @@ export class Hud {
     if (!g.loaded) {
       this.loadingText.textContent = `Generating 4D terrain… ${g.world.columns.size} columns`;
     }
+    // Per-frame combat feedback.
+    const onMob = g.targetMob !== null;
+    if (this.crosshair.classList.contains('mob') !== onMob) this.crosshair.classList.toggle('mob', onMob);
+    if (g.bowDraw > 0) {
+      this.bowBar.style.display = 'block';
+      const pw = bowPower(g.bowDraw);
+      this.bowFill.style.width = `${Math.round(pw * 100)}%`;
+      this.bowFill.style.background = pw >= 1 ? '#fff27a' : '#e8e8e8';
+    } else if (this.bowBar.style.display !== 'none') this.bowBar.style.display = 'none';
+    const v = g.vitals;
+    this.hitL.style.opacity = v.lastHitSide < 0 ? String(v.flash) : '0';
+    this.hitR.style.opacity = v.lastHitSide > 0 ? String(v.flash) : '0';
     this.slowTimer -= dt;
     if (this.slowTimer > 0) return;
     this.slowTimer = 0.1;
+    this.updateVitals();
+    this.updateThreat();
     this.updateCompass();
     this.updateRadar();
     const p = g.player;
@@ -184,6 +229,83 @@ export class Hud {
     this.updateReadout();
     this.debug.style.display = g.showDebug ? 'block' : 'none';
     if (g.showDebug) this.debug.textContent = this.debugText();
+  }
+
+  /** Hearts and air bubbles (survival / adventure). */
+  private updateVitals(): void {
+    const g = this.game;
+    const m = g.player.mode;
+    const show = m === 'survival' || m === 'adventure';
+    this.vitalsBox.style.display = show ? 'flex' : 'none';
+    if (!show) return;
+    const v = g.vitals;
+    const hp = Math.ceil(v.health);
+    if (hp !== this.lastHealth) {
+      this.lastHealth = hp;
+      this.paintRow(this.hearts, HEART, hp, MAX_HEALTH / 10, ['#1a0606', '#e0202a', '#ff9a9a'], ['#1a0606', '#3a1a1a', '#4a2a2a']);
+      this.hearts.classList.toggle('low', hp <= 4);
+    }
+    const air = v.air >= MAX_AIR ? -1 : Math.ceil((v.air / MAX_AIR) * 10);
+    if (air !== this.lastAir) {
+      this.lastAir = air;
+      this.bubbles.style.visibility = air < 0 ? 'hidden' : 'visible';
+      if (air >= 0) this.paintRow(this.bubbles, BUBBLE, air * 2, 2, ['#10305a', '#5aa8ff', '#e8f4ff'], null);
+    }
+  }
+
+  /**
+   * Paint 10 icons from a mask; `value / per` icons are full (halves allowed). Empty icons use
+   * the `empty` palette (with the full outline), or are skipped when it is null.
+   */
+  private paintRow(c: HTMLCanvasElement, mask: string[], value: number, per: number, full: string[], empty: string[] | null): void {
+    const ctx = c.getContext('2d')!;
+    ctx.clearRect(0, 0, c.width, c.height);
+    const halves = Math.round((value / per) * 2);
+    for (let i = 0; i < 10; i++) {
+      const x0 = i * (ICON_W + ICON_GAP);
+      for (let y = 0; y < mask.length; y++) {
+        const row = mask[y]!;
+        for (let x = 0; x < ICON_W; x++) {
+          const k = row.charCodeAt(x) - 48;
+          if (k === 0) continue;
+          // Filled if this icon (or its left half) is covered by the value.
+          const filled = halves >= i * 2 + 2 || (halves === i * 2 + 1 && x < ICON_W / 2);
+          if (!filled && !empty) continue;
+          const pal = filled ? full : empty!;
+          ctx.fillStyle = k === 1 ? full[0]! : pal[k === 2 ? 1 : 2]!;
+          ctx.fillRect(x0 + x, y, 1, 1);
+        }
+      }
+    }
+  }
+
+  /** R2: name the nearest hostile mob that is out of your slice, and which way it is. */
+  private updateThreat(): void {
+    const g = this.game;
+    const m = g.player.mode;
+    let text = '';
+    if (m === 'survival' || m === 'adventure') {
+      const e = g.eye(), H = g.player.cam.H;
+      for (const mob of g.threats) {
+        let dh = 0, d2 = 0;
+        for (let k = 0; k < 4; k++) {
+          const dk = mob.pos[k]! - e[k]!;
+          dh += dk * H[k]!;
+          d2 += dk * dk;
+        }
+        const dist = Math.sqrt(d2);
+        if (dist > 12) break;
+        if (Math.abs(dh) < 0.25) continue;
+        const side = dh > 0 ? 'ana' : 'kata';
+        const off = Math.abs(dh) < 0.5 ? `slightly ${side}` : `${Math.abs(dh).toFixed(0)} m ${side}`;
+        text = `⚠ ${mob.def.displayName} · ${dist.toFixed(0)} m away, ${off}`;
+        break;
+      }
+    }
+    if (this.threat.textContent !== text) {
+      this.threat.textContent = text;
+      this.threat.style.display = text ? 'block' : 'none';
+    }
   }
 
   /** Held compass / clock readouts. */
@@ -251,7 +373,7 @@ export class Hud {
       for (let i = 0; i < 25; i++) {
         const a = i - 12, b = 12 - j;
         let solid = 0;
-        let lava = false, water = false;
+        let lava = false, water = false, web = false;
         let r = 0, gg = 0, bb = 0;
         const x = pos[0]! + R[0]! * a + H[0]! * b;
         const z = pos[2]! + R[2]! * a + H[2]! * b;
@@ -265,6 +387,7 @@ export class Hud {
           const id = voxelId(v);
           if (REG.fluid[id] === FLUID_LAVA) lava = true;
           else if (REG.fluid[id] === FLUID_WATER) water = true;
+          else if (REG.slow[id]! < 1) web = true;
           else if (REG.solid[id]) {
             solid++;
             r += this.rgb[id * 3]!;
@@ -288,6 +411,12 @@ export class Hud {
           d[o + 1] = lava ? 90 : 120;
           d[o + 2] = 20;
           d[o + 3] = 255;
+        } else if (web && solid === 0) {
+          // Cobwebs (slow you down): pale grey-violet.
+          d[o] = 225;
+          d[o + 1] = 220;
+          d[o + 2] = 240;
+          d[o + 3] = 220;
         } else if (solid > 0) {
           const k = solid === 2 ? 255 : 170;
           d[o] = Math.min(255, (r / solid) * k);
@@ -320,6 +449,34 @@ export class Hud {
         // The visible slice is the horizontal line through the centre.
         if (j === 12 && i !== 12) d[o + 3] = Math.max(d[o + 3]!, 200);
       }
+    }
+    // Mobs near the (right, ana) plane: red = hostile, green = passive. A dot off the centre
+    // line is kata/ana of you, out of sight.
+    const F = p.cam.F;
+    for (const m of g.mobs.list) {
+      let a = 0, b = 0, f = 0;
+      for (let k = 0; k < 4; k++) {
+        if (k === up) continue;
+        const dk = m.pos[k]! - pos[k]!;
+        a += dk * R[k]!;
+        b += dk * H[k]!;
+        f += dk * F[k]!;
+      }
+      if (Math.abs(f) > 8 || Math.abs(a) > 12.5 || Math.abs(b) > 12.5 || Math.abs(m.pos[up]! - pos[up]!) > 6) continue;
+      const i = 12 + Math.round(a), j = 12 - Math.round(b);
+      if (i === 12 && j === 12) continue;
+      const o = (j * 25 + i) * 4;
+      const k = 1 - Math.abs(f) / 10;
+      if (m.def.hostile) {
+        d[o] = 255;
+        d[o + 1] = Math.round(40 * k);
+        d[o + 2] = Math.round(90 * k);
+      } else {
+        d[o] = Math.round(120 * k);
+        d[o + 1] = 255;
+        d[o + 2] = Math.round(120 * k);
+      }
+      d[o + 3] = 255;
     }
     this.radarCtx.putImageData(this.radarImg, 0, 0);
   }
@@ -363,7 +520,13 @@ export class Hud {
       `light queue ${g.light.pending()} (${g.lightMsFrame.toFixed(1)} ms)  fluids ${g.fluids.stats.pendingWater}/${g.fluids.stats.pendingLava}`,
       `time ${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}  day ${g.env.day}  moon ${g.env.moonPhase}/8  weather ${g.env.weather} ${(g.env.intensity * 100).toFixed(0)}%`,
     ];
-    if (g.hasTarget) {
+    let hostile = 0;
+    for (const m of g.mobs.list) if (m.def.hostile) hostile++;
+    lines.push(`mobs ${g.mobs.list.length} (${hostile} hostile)  in slice ${g.mobs.packed}  arrows ${g.projectiles.list.length}  health ${g.vitals.health.toFixed(1)}  air ${g.vitals.air.toFixed(1)}`);
+    if (g.targetMob) {
+      const m = g.targetMob;
+      lines.push(`target mob ${m.def.displayName} #${m.id}  hp ${m.health.toFixed(1)}/${m.def.health}  ai ${m.def.ai}/${m.mode}`);
+    } else if (g.hasTarget) {
       const t = g.target;
       lines.push(`target ${REG.name(t.voxel)} @ ${t.x} ${t.y} ${t.z} ${t.w}  facet ${t.sign > 0 ? '+' : '-'}${AXIS[t.axis]}  dist ${t.t.toFixed(2)}`);
     }

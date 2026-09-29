@@ -3,14 +3,17 @@
 A 4D voxel survival sandbox for the browser. The world is made of tesseracts; you see a true
 3D cross-section of it, and every system is built around a fourth spatial axis.
 
-**Status: Phase 3 (items, inventory, mining, crafting) complete.** Phase reports (what
-works, what's broken, what's next): [Phase 1 — engine](docs/phases/phase-1.md) ·
-[Phase 2 — surface terrain](docs/phases/phase-2.md) · [Phase 3 — items](docs/phases/phase-3.md).
+**Status: Phase 4 (mobs, combat, health) complete.** Phase reports (what works, what's
+broken, what's next): [Phase 1 — engine](docs/phases/phase-1.md) ·
+[Phase 2 — surface terrain](docs/phases/phase-2.md) · [Phase 3 — items](docs/phases/phase-3.md) ·
+[Phase 4 — mobs](docs/phases/phase-4.md).
 
 | Axis-aligned slice | 30° XW tilt | 45° XW + 45° ZW tilt |
 |---|---|---|
 | ![](docs/screenshots/phase-2/1-axis-aligned.png) | ![](docs/screenshots/phase-2/2-xw-30.png) | ![](docs/screenshots/phase-2/3-xw45-zw45.png) |
 | cubes | stretched/split boxes | triangular & hexagonal prisms |
+| ![](docs/screenshots/phase-4/mobs-1-axis-aligned.png) | ![](docs/screenshots/phase-4/mobs-2-xw-30.png) | ![](docs/screenshots/phase-4/mobs-3-xw45-zw45.png) |
+| mobs: their own 3D sections | oblique cuts: bodies stretch, legs slip out of the slice | other legs cross it (sheep: two, chicken: one) |
 
 ## Run it
 
@@ -37,7 +40,7 @@ particles unless `&particles=1`; used by tests).
 | **F / V** | rotate the slice: forward ↔ hidden |
 | **Alt + mouse** | rotate the slice freely |
 | **C** | snap back to the nearest axis-aligned slice |
-| LMB (hold in survival) / RMB / MMB | mine / place, use, open stations / pick block |
+| LMB (hold in survival) / RMB / MMB | attack or mine / place, use, open stations, draw a bow (hold) / pick block |
 | **Tab** or **I** | inventory, crafting and recipe book |
 | **B** (Ctrl+B) | drop the held item (the whole stack) |
 | 1–9, wheel | hotbar |
@@ -57,8 +60,13 @@ files from the world list.
 
 The **hidden-axis panel** (bottom right) shows the hidden axis `h` as X/Z/W bars, and a radar of
 the plane spanned by *right* (→) and *ana* (↑) around you: walls, water, lava and drop-offs you
-can't see in the slice. Lava along ±h also makes the matching screen edge glow (left = kata,
-right = ana).
+can't see in the slice, plus mobs as dots (red hostile, green passive). Lava along ±h makes the
+matching screen edge glow orange (left = kata, right = ana); a hostile mob hidden kata/ana of you
+makes it pulse violet and is named at the top of the screen.
+
+**Survival**: 10 hearts (natural regeneration), air underwater, fall/lava/cactus/drowning/void
+damage, death drops your inventory and shows a respawn screen (hardcore: spectator). Mobs spawn
+from each biome's tables all around you in 4D, not only in your slice.
 
 ## Develop
 
@@ -77,7 +85,7 @@ node scripts/alloc-profile.mjs      # sample per-frame allocations (needs `npm r
 - [Rendering a 4D world through a 3D slice](docs/rendering-4d.md)
 - [Data formats](docs/data-formats.md)
 - How to add a [block](docs/how-to/add-a-block.md), [item / recipe / tool tier](docs/how-to/add-an-item.md), [biome](docs/how-to/add-a-biome.md),
-  [realm](docs/how-to/add-a-realm.md), [mob](docs/how-to/add-a-mob.md) (planned),
+  [realm](docs/how-to/add-a-realm.md), [mob](docs/how-to/add-a-mob.md),
   [structure](docs/how-to/add-a-structure.md) (planned)
 - Benchmarks: [Phase 1](docs/benchmarks/phase-1.md), [Phase 2](docs/benchmarks/phase-2.md) ·
   [Changelog](CHANGELOG.md) · [Known issues](KNOWN_ISSUES.md)

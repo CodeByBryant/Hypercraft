@@ -107,7 +107,7 @@ function startGame(info: WorldInfo, persistence: Persistence | null, settings: S
   const usingTouch = () => touchWanted(settings);
   // Inventory / crafting / chest / furnace screens: the world keeps running, player input stops.
   game.onOpenScreen = (r) => {
-    if (game.paused || invScreen.isOpen) return;
+    if (game.paused || invScreen.isOpen || game.vitals.dead) return;
     game.input.enabled = false;
     touch.setVisible(false);
     invScreen.open(r);
@@ -115,7 +115,7 @@ function startGame(info: WorldInfo, persistence: Persistence | null, settings: S
   };
   invScreen.onClose = () => {
     game.input.clearPressed();
-    if (game.paused) return;
+    if (game.paused || game.vitals.dead) return;
     game.input.enabled = true;
     touch.setVisible(usingTouch() && !test);
     if (!usingTouch() && !test) game.input.requestLock();
@@ -135,6 +135,30 @@ function startGame(info: WorldInfo, persistence: Persistence | null, settings: S
     setPaused(true);
     if (document.pointerLockElement) document.exitPointerLock();
     showPause();
+  };
+  // Death: the world keeps running behind the death screen; input stops until respawn.
+  game.onDeath = (cause) => {
+    if (invScreen.isOpen) invScreen.close();
+    game.input.enabled = false;
+    touch.setVisible(false);
+    if (document.pointerLockElement) document.exitPointerLock();
+    menus.death({
+      cause,
+      hardcore: info.hardcore,
+      respawn: () => {
+        game.respawn();
+        game.input.clearPressed();
+        menus.hide();
+        if (game.paused) return;
+        game.input.enabled = true;
+        touch.setVisible(usingTouch() && !test);
+        if (!usingTouch() && !test) game.input.requestLock();
+      },
+      quit: async () => {
+        await game.saveAll();
+        location.search = '';
+      },
+    });
   };
   const showPause = () =>
     menus.pause({
@@ -168,11 +192,11 @@ function startGame(info: WorldInfo, persistence: Persistence | null, settings: S
       saveStatus: () => (usingTouch() ? 'Tap Resume to start' : 'Click Resume to capture the mouse'),
     });
     document.addEventListener('pointerlockchange', () => {
-      if (document.pointerLockElement !== canvas && !usingTouch() && !game.paused && !invScreen.isOpen) pause();
+      if (document.pointerLockElement !== canvas && !usingTouch() && !game.paused && !invScreen.isOpen && !game.vitals.dead) pause();
     });
   }
   window.addEventListener('keydown', (e) => {
-    if (e.code === 'Escape' && usingTouch() && !game.paused && !invScreen.isOpen) pause();
+    if (e.code === 'Escape' && usingTouch() && !game.paused && !invScreen.isOpen && !game.vitals.dead) pause();
   });
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') void game.saveAll();

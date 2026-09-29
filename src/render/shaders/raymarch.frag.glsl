@@ -71,6 +71,8 @@ uniform int uWire;
 uniform ivec4 uSelect;
 uniform int uSelectOn;
 uniform float uBreak;   // mining progress 0..1 on the selected cell
+uniform highp sampler2D uEntities; // mob records + analytic parts (see MobManager.pack)
+uniform int uEntityCount;
 
 const uint NONUNI = 0x80000000u;
 const uint ID_MASK = 0xFFFu;
@@ -689,6 +691,159 @@ void addMedium(inout vec3 acc, inout float accA, uint medium, float dist) {
 
 // ---------------------------------------------------------------------------------------
 
+
+// ---------------------------------------------------------------------------------------
+// Mobs: unions of analytic 4D primitives (boxes, balls, capsules) in each mob's own frame
+// (R, up, F, H). The ray stays in the view hyperplane, so what we see is the exact 3D
+// cross-section of the 4D body, which morphs as the slice moves.
+
+const int ENT_W = 256;
+const int MOB_TEXELS = 6;
+const int PART_TEXELS = 4;
+const int PART_BASE = 48 * 6;
+
+vec4 entTexel(int i) {
+  return texelFetch(uEntities, ivec2(i % ENT_W, i / ENT_W), 0);
+}
+
+struct EntHit {
+  float t;
+  vec4 n;
+  vec3 col;
+  float glow;
+  float hurt;
+  float fuse;
+};
+
+bool entBox(vec4 o, vec4 d, vec4 c, vec4 hs, out float t, out vec4 n) {
+  vec4 dd = mix(d, vec4(1e-7), lessThan(abs(d), vec4(1e-7)));
+  vec4 inv = 1.0 / dd;
+  vec4 t1 = (c - hs - o) * inv, t2 = (c + hs - o) * inv;
+  vec4 tmn = min(t1, t2), tmx = max(t1, t2);
+  float tn = max(max(tmn.x, tmn.y), max(tmn.z, tmn.w));
+  float tf = min(min(tmx.x, tmx.y), min(tmx.z, tmx.w));
+  if (tn > tf || tf < 0.0) return false;
+  t = max(tn, 0.0);
+  n = vec4(0.0);
+  if (tn == tmn.x) n.x = -sign(dd.x);
+  else if (tn == tmn.y) n.y = -sign(dd.y);
+  else if (tn == tmn.z) n.z = -sign(dd.z);
+  else n.w = -sign(dd.w);
+  return true;
+}
+
+bool entBall(vec4 o, vec4 d, vec4 c, float r, out float t, out vec4 n) {
+  vec4 oc = o - c;
+  float b = dot(oc, d);
+  float cc = dot(oc, oc) - r * r;
+  float h = b * b - cc;
+  if (h < 0.0) return false;
+  t = -b - sqrt(h);
+  if (t < 0.0) return false;
+  n = (oc + d * t) / r;
+  return true;
+}
+
+bool entCapsule(vec4 ro, vec4 rd, vec4 pa, vec4 pb, float r, out float t, out vec4 n) {
+  vec4 ba = pb - pa;
+  vec4 oa = ro - pa;
+  float baba = dot(ba, ba), bard = dot(ba, rd), baoa = dot(ba, oa), rdoa = dot(rd, oa), oaoa = dot(oa, oa);
+  float a = baba - bard * bard;
+  float b = baba * rdoa - baoa * bard;
+  float c = baba * oaoa - baoa * baoa - r * r * baba;
+  float h = b * b - a * c;
+  if (h < 0.0) return false;
+  float tt = (-b - sqrt(h)) / a;
+  float y = baoa + tt * bard;
+  if (y > 0.0 && y < baba && tt > 0.0) {
+    t = tt;
+    n = (oa + rd * t - ba * (y / baba)) / r;
+    return true;
+  }
+  vec4 cap = y <= 0.0 ? pa : pb;
+  vec4 oc = ro - cap;
+  b = dot(rd, oc);
+  c = dot(oc, oc) - r * r;
+  h = b * b - c;
+  if (h <= 0.0) return false;
+  tt = -b - sqrt(h);
+  if (tt <= 0.0) return false;
+  t = tt;
+  n = (oc + rd * t) / r;
+  return true;
+}
+
+bool entityTrace(vec4 o, vec4 d, float tMax, out EntHit h) {
+  h.t = tMax;
+  h.n = vec4(0.0, 1.0, 0.0, 0.0);
+  h.col = vec3(1.0);
+  h.glow = 0.0;
+  h.hurt = 0.0;
+  h.fuse = 0.0;
+  bool hit = false;
+  for (int e = 0; e < 48; e++) {
+    if (e >= uEntityCount) break;
+    int b = e * MOB_TEXELS;
+    vec4 pos = entTexel(b);
+    vec4 info = entTexel(b + 4);
+    vec4 oc = o - pos;
+    float bb = dot(oc, d);
+    float cc = dot(oc, oc) - info.x * info.x;
+    float disc = bb * bb - cc;
+    if (disc < 0.0) continue;
+    float sq = sqrt(disc);
+    if (-bb + sq < 0.0 || -bb - sq > h.t) continue;
+    vec4 R = entTexel(b + 1), F = entTexel(b + 2), Hh = entTexel(b + 3), extra = entTexel(b + 5);
+    float sc = extra.x;
+    vec4 U = uUpVec;
+    vec4 lo = vec4(dot(oc, R), dot(oc, U), dot(oc, F), dot(oc, Hh)) / sc;
+    vec4 ld = vec4(dot(d, R), dot(d, U), dot(d, F), dot(d, Hh));
+    int ps = int(info.y), pc = int(info.z);
+    for (int p = 0; p < 16; p++) {
+      if (p >= pc) break;
+      int pb = PART_BASE + (ps + p) * PART_TEXELS;
+      vec4 p0 = entTexel(pb), p1 = entTexel(pb + 1), p2 = entTexel(pb + 2);
+      float tl;
+      vec4 nl;
+      bool ok;
+      if (p0.x < 0.5) ok = entBox(lo, ld, p1, p2, tl, nl);
+      else if (p0.x < 1.5) ok = entBall(lo, ld, p1, p0.y, tl, nl);
+      else ok = entCapsule(lo, ld, p1, p2, p0.y, tl, nl);
+      if (!ok) continue;
+      float tw = tl * sc;
+      if (tw <= 0.0 || tw >= h.t) continue;
+      h.t = tw;
+      h.n = normalize(nl.x * R + nl.y * U + nl.z * F + nl.w * Hh);
+      h.col = entTexel(pb + 3).rgb;
+      h.glow = p0.z;
+      h.hurt = info.w;
+      h.fuse = extra.y;
+      hit = true;
+    }
+  }
+  return hit;
+}
+
+vec3 shadeEntity(EntHit h, vec4 o, vec4 d, inout Cache k) {
+  vec4 p = o + d * h.t;
+  ivec4 c = ivec4(floor(p + h.n * 0.35));
+  float sky = 1.0, blk = 0.0;
+  if (c.y >= 0 && c.y < uWin.y * 16 && inWindow(c)) {
+    uint vox, light;
+    sampleCell(c, k, vox, light);
+    sky = float(light >> 4u) / 15.0;
+    blk = float(light & 15u) / 15.0;
+  }
+  float facet = 0.62 + 0.38 * max(0.0, dot(h.n, uUpVec)) + 0.12 * abs(dot(h.n, uHidden));
+  float sunTerm = 0.78 + 0.22 * max(0.0, dot(h.n, uSunDir));
+  vec3 light = uSkyLight * lightCurve(sky) * sunTerm + uBlockLight * lightCurve(blk) + vec3(uAmbient);
+  vec3 col = h.col * light * facet;
+  if (h.glow > 0.5) col = h.col * 1.15;
+  if (h.hurt > 0.5) col = mix(col, vec3(0.95, 0.12, 0.08), 0.5);
+  col = mix(col, vec3(1.0), h.fuse * 0.55);
+  return col;
+}
+
 void main() {
   vec4 d = normalize(uFwd + vNdc.x * uTan.x * uRight + vNdc.y * uTan.y * uUp);
   vec4 o = uEye;
@@ -704,6 +859,10 @@ void main() {
 
   Cache k;
   initCache(k);
+
+  EntHit eh;
+  bool entHit = uEntityCount > 0 && entityTrace(o, d, uMaxDist, eh);
+  float tEnt = entHit ? eh.t : 1e30;
 
   vec3 acc = vec3(0.0);
   float accA = 0.0;
@@ -735,6 +894,15 @@ void main() {
 
   for (int i = 0; i < 1024; i++) {
     steps = i;
+    if (tEnt <= t) {
+      // A mob in front of this cell.
+      if (medium != 0u) addMedium(acc, accA, medium, tEnt - mediumT);
+      result = shadeEntity(eh, o, d, k);
+      hitT = tEnt;
+      hitAxis = -1;
+      finished = true;
+      break;
+    }
     if (i >= uMaxSteps || t > uMaxDist) {
       isFog = true;
       break;
@@ -782,6 +950,14 @@ void main() {
         if (r == R_OPAQUE || r == R_CUTOUT) {
           Surf s;
           if (surfaceHit(o, d, invD, cell, axis, t, tExit, exitAxis, vox, bi, r, sgn, s)) {
+            if (tEnt < s.t) {
+              if (medium != 0u) addMedium(acc, accA, medium, tEnt - mediumT);
+              result = shadeEntity(eh, o, d, k);
+              hitT = tEnt;
+              hitAxis = -1;
+              finished = true;
+              break;
+            }
             float a;
             vec3 c = shade(s, d, vox, bi, s.t, a);
             if (medium != 0u) addMedium(acc, accA, medium, s.t - mediumT);
@@ -885,6 +1061,14 @@ void main() {
     axis = ax;
   }
 
+  if (!finished && tEnt < (isFog ? min(t, uMaxDist) : uMaxDist)) {
+    // A mob in front of the sky / fog.
+    if (medium != 0u) addMedium(acc, accA, medium, tEnt - mediumT);
+    medium = 0u;
+    result = shadeEntity(eh, o, d, k);
+    hitT = tEnt;
+    finished = true;
+  }
   if (!finished) {
     float tEnd = isFog ? min(t, uMaxDist) : uMaxDist;
     if (medium != 0u) addMedium(acc, accA, medium, tEnd - mediumT);

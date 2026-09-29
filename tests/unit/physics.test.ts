@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { B, makeVoxel } from '../../src/content/registry';
+import { B, REG, makeVoxel } from '../../src/content/registry';
 import { Player, type MoveInput } from '../../src/physics/Player';
 import { makeWorld } from './helpers';
 
@@ -137,5 +137,24 @@ describe('player physics (4D hyperbox)', () => {
     const h1 = p.pos[0]! * H[0]! + p.pos[2]! * H[2]! + p.pos[3]! * H[3]!;
     expect(p.pos[0]).toBeGreaterThan(11); // really reached the wall
     expect(Math.abs(h1 - h0)).toBeLessThan(1e-6);
+  });
+
+  it('cobwebs slow you to a crawl and break falls', () => {
+    const web = (x: number, y: number) => (y < 40 ? B.stone : x >= 10 && x < 14 && y < 44 ? REG.id('cobweb') : B.air);
+    const world = makeWorld(web);
+    const free = newPlayer(4.5, 40, 8.5, 8.5);
+    const stuck = newPlayer(11.5, 40, 8.5, 8.5);
+    const fwdX = { ...still(), strafe: 1 }; // right = +X
+    sim(free, world, still(), 0.1);
+    sim(stuck, world, still(), 0.1);
+    const x0 = free.pos[0]!, x1 = stuck.pos[0]!;
+    sim(free, world, fwdX, 0.5);
+    sim(stuck, world, fwdX, 0.5);
+    expect(stuck.slow).toBeLessThan(1);
+    expect(stuck.pos[0]! - x1).toBeLessThan((free.pos[0]! - x0) * 0.25);
+    // Dropping into a web from 3.5 blocks up: no fall is recorded on landing.
+    const faller = newPlayer(12.5, 43.5, 8.5, 8.5);
+    sim(faller, world, still(), 3);
+    expect(faller.lastFall).toBeLessThan(1);
   });
 });

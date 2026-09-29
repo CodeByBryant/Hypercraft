@@ -1,5 +1,64 @@
 # Changelog
 
+## 0.4.0 — Phase 4: Mobs, combat, health (2026-09-29)
+
+### Added
+- **Mobs in the ray marcher.** Each mob is a union of analytic 4D primitives (boxes, balls
+  and capsules) in its own rotated 4D frame. Up to 48 per frame are uploaded to an RGBA32F
+  entity texture and intersected exactly, per pixel, in the same pass as the terrain. Their
+  cross-sections change with the slice, and they are lit by the cell they stand in.
+- **28 Surface mobs** spawned from biome tables on a 4D shell around you (day, night, water
+  and cave tables; hostile and passive caps).
+  - Passive: Kata Sheep, Ana Cows, egg-laying Hyperchickens, light-seeking Glass Moths,
+    splitting Kata Slimes, Tesseract Rabbits, Bog Frogs, Frost Foxes, Dune Camels,
+    Hyperhorses, Reef Squid, Lantern Fish, Hyperbats.
+  - Hostile: Shamblers (burn by day), Bone Archers (arrows), the **Ana Stalker** (a thin
+    hyperbox that lurks along your hidden axis and is invisible until it steps into your
+    slice), **Phase Creepers** (the fuse pulses through W, then a 4D explosion), **Web
+    Weavers** (climb walls and spin cobwebs, often kata or ana of you), Hollow Husks,
+    Frostbite Wraiths, Marsh Leeches, Slime Hordes, Drowned Sentinels, Lava Slimes, the
+    **Phase Golem** (only hurt while its cross-section is in your slice), Crystal Crawlers,
+    the blind **Lurker** (hunts noise: mining, sprinting, fights, explosions) and **Ore
+    Mimics**.
+- **4D AI**: a budgeted A* over the 4D voxel grid (routes around walls through W) and 12
+  behaviour profiles (passive, melee, climber, golem, ranged, exploder, stalker, hopper,
+  flyer, swimmer, mimic, lurker). Procedural limb animation.
+- **Combat**:
+  - weapon damage by tool kind and tier;
+  - Minecraft-style swing cooldown, and critical hits while falling;
+  - knockback kept inside the slice;
+  - weapon wear, drops and death puffs.
+- **Bow**: hold right click to draw (1 s for full power), arrows use ammo, stick in blocks
+  and can be picked up.
+- **Health and air**:
+  - 10 hearts with natural regeneration, and air bubbles underwater;
+  - damage from mobs, arrows, explosions, falls (1 per block beyond 3), lava, cactus and
+    magma, drowning and the void;
+  - the damage flash shows which side (kata or ana) a hit came from.
+- **Death and respawn**: the inventory spills where you died, and a death screen offers
+  respawn (hardcore: spectator mode). Health and air are saved with the world.
+- **R2 proximity warning** for hostile mobs out of your slice:
+  - a violet pulse on the kata (left) or ana (right) screen edge, stronger when closer;
+  - red dots on the hidden-axis radar;
+  - a line at the top of the screen, for example "⚠ Ana Stalker · 6 m away, 5 m ana".
+- **Cobwebs** slow movement to 15% and stop falls; they show on the radar.
+- Particle bursts for hits, crits, deaths and explosions (4-balls launched inside the slice).
+- Tests:
+  - unit: mob registry, GPU packing and culling, ray picking in rotated frames, the stalker
+    frame, slice-bound damage, knockback, drops and slime splitting, mob physics, web
+    spinning, combat maths, vitals, cobweb physics;
+  - e2e: mobs in the three R6 views, sword kill with drops and wear, stalker warning,
+    bow, explosion crater and damage, death screen and respawn.
+
+### Changed
+- Help screen and README describe mobs, combat and the violet warnings. The toast and held
+  item readout moved up to make room for hearts.
+- Quadrupeds stand on six legs: four in their own w = 0 plane plus one toward each of ±w.
+  Humanoids and birds stand on a tripod (two legs plus a heel toward +w).
+
+### Fixed
+- Paused, dead or inside a screen: the last movement keys no longer keep the player walking.
+
 ## 0.3.1 — Mac placing fix (2026-09-29)
 
 ### Fixed
