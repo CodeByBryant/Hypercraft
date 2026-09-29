@@ -5,6 +5,8 @@ import { makeTiltedFrame } from '../math/frame';
 import { REG } from '../content/registry';
 import type { Game } from '../game/Game';
 import type { WeatherKind } from '../content/types';
+import { IREG } from '../content/itemRegistry';
+import type { InventoryScreen } from '../ui/InventoryScreen';
 
 export interface ViewSpec {
   yaw?: number;
@@ -13,7 +15,7 @@ export interface ViewSpec {
   zw?: number;
 }
 
-export function installTestApi(game: Game): void {
+export function installTestApi(game: Game, screen?: InventoryScreen): void {
   const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
   const px = new Uint8Array(4);
   /** gl.finish() does not block on Chrome's GPU process; a 1-pixel read does. */
@@ -120,6 +122,68 @@ export function installTestApi(game: Game): void {
       game.input.setKey(code, down);
     },
     breakTarget: () => game.breakTarget(),
+    /** Give items to the player (Phase 3). */
+    give(name: string, count = 1): number {
+      return game.inv.add({ id: IREG.id(name), count, damage: 0 });
+    },
+    inventory(): [number, string, number, number][] {
+      const out: [number, string, number, number][] = [];
+      for (let i = 0; i < game.inv.size; i++) {
+        const s = game.inv.get(i);
+        if (s) out.push([i, IREG.name(s.id), s.count, s.damage]);
+      }
+      return out;
+    },
+    clearInventory(): void {
+      game.inv.clear();
+    },
+    select(i: number): void {
+      game.hotbarIndex = i;
+    },
+    /**
+     * Hold the break button until the targeted block is gone (survival mining takes time);
+     * returns the seconds it took, or -1 on timeout.
+     */
+    async mine(timeoutMs = 20000): Promise<number> {
+      const t = game.hasTarget ? { ...game.target } : null;
+      if (!t) return -1;
+      const t0 = performance.now();
+      game.input.setButton(0, true);
+      try {
+        while (performance.now() - t0 < timeoutMs) {
+          await nextFrame();
+          if ((game.world.getBlock(t.x, t.y, t.z, t.w) & 0xfff) !== (t.voxel & 0xfff)) return (performance.now() - t0) / 1000;
+        }
+        return -1;
+      } finally {
+        game.input.setButton(0, false);
+      }
+    },
+    /** Dropped item entities: [name, count, x, y, z, w]. */
+    dropped: () => game.items.list.map((e) => [IREG.name(e.stack.id), e.stack.count, ...Array.from(e.pos)] as [string, number, ...number[]]),
+    /** Right-click the target (open stations, use items, place). */
+    use(): void {
+      game.input.setButton(2, true);
+      requestAnimationFrame(() => game.input.setButton(2, false));
+    },
+    screenOpen: () => screen?.isOpen ?? false,
+    closeScreen: () => screen?.close(),
+    openInventory: () => game.onOpenScreen?.({ kind: 'inventory' }),
+    blockEntity: (x: number, y: number, z: number, w: number) => game.blockEntities.get(x, y, z, w),
+    /** Put a stack into a chest/furnace slot. */
+    beSet(x: number, y: number, z: number, w: number, slot: number, name: string | null, count = 1): boolean {
+      const c = game.blockEntities.container(x, y, z, w);
+      if (!c) return false;
+      c.set(slot, name ? { id: IREG.id(name), count, damage: 0 } : null);
+      return true;
+    },
+    beGet(x: number, y: number, z: number, w: number, slot: number): [string, number] | null {
+      const s = game.blockEntities.container(x, y, z, w)?.get(slot);
+      return s ? [IREG.name(s.id), s.count] : null;
+    },
+    tickWorld(seconds: number): void {
+      for (let t = 0; t < seconds; t += 0.05) game.blockEntities.tick(0.05);
+    },
     placeTarget: (name: string) => game.placeAtTarget(REG.id(name)),
     target: () => (game.hasTarget ? { ...game.target, p: Array.from(game.target.p), name: REG.name(game.target.voxel) } : null),
     blockAt: (x: number, y: number, z: number, w: number) => REG.name(game.world.getBlock(x, y, z, w)),

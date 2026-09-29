@@ -134,6 +134,8 @@ export class GpuWorld {
   readonly shapeTex: WebGLTexture;
   readonly atlasTex: WebGLTexture;
   readonly atlasSize: [number, number];
+  /** CPU copy of the texture atlas (item icons are built from it). */
+  readonly atlasData: Uint8Array;
   private readonly maxLayers: number;
   /** Bumped when the pools are recreated: every chunk must re-upload. */
   private generation = 0;
@@ -176,6 +178,7 @@ export class GpuWorld {
     const atlas = buildAtlas(REG.textures);
     this.atlasTex = createTexture2D(gl, gl.RGBA8, atlas.width, atlas.height, gl.RGBA, gl.UNSIGNED_BYTE, atlas.data);
     this.atlasSize = [atlas.width, atlas.height];
+    this.atlasData = atlas.data;
   }
 
   private estimateLayers(N: number): number {

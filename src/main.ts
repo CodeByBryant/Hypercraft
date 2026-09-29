@@ -5,6 +5,8 @@
 import { Game } from './game/Game';
 import { loadSettings, type Settings } from './game/Settings';
 import { Hud } from './ui/Hud';
+import { InventoryScreen } from './ui/InventoryScreen';
+import { IREG } from './content/itemRegistry';
 import { Menus } from './ui/Menus';
 import { installTestApi } from './debug/testApi';
 import { runBenchmark } from './debug/bench';
@@ -58,20 +60,40 @@ function startGame(info: WorldInfo, persistence: Persistence | null, settings: S
   }
   const hud = new Hud(uiRoot, game);
   const menus = new Menus(uiRoot);
+  const invScreen = new InventoryScreen(uiRoot, game);
   game.message = (t) => hud.showMessage(t);
+  game.onPickup = (id, n) => hud.showMessage(`+${n} ${IREG.displayName(id)}`);
   let lastHud = performance.now();
   game.onFrame = () => {
     const now = performance.now();
-    hud.update((now - lastHud) / 1000);
+    const dt = (now - lastHud) / 1000;
+    hud.update(dt);
+    invScreen.update(dt);
     lastHud = now;
   };
   const touch = new TouchControls(uiRoot, game.input, {
     onPause: () => pause(),
+    onInventory: () => game.onOpenScreen?.({ kind: 'inventory' }),
     onToggleFly: () => {
       if (game.player.mode === 'creative' || game.player.mode === 'spectator') game.player.flying = !game.player.flying;
     },
   });
   const usingTouch = () => touchWanted(settings);
+  // Inventory / crafting / chest / furnace screens: the world keeps running, player input stops.
+  game.onOpenScreen = (r) => {
+    if (game.paused || invScreen.isOpen) return;
+    game.input.enabled = false;
+    touch.setVisible(false);
+    invScreen.open(r);
+    if (document.pointerLockElement) document.exitPointerLock();
+  };
+  invScreen.onClose = () => {
+    game.input.clearPressed();
+    if (game.paused) return;
+    game.input.enabled = true;
+    touch.setVisible(usingTouch() && !test);
+    if (!usingTouch() && !test) game.input.requestLock();
+  };
   const setPaused = (p: boolean) => {
     game.paused = p;
     game.input.enabled = !p;
@@ -120,17 +142,17 @@ function startGame(info: WorldInfo, persistence: Persistence | null, settings: S
       saveStatus: () => (usingTouch() ? 'Tap Resume to start' : 'Click Resume to capture the mouse'),
     });
     document.addEventListener('pointerlockchange', () => {
-      if (document.pointerLockElement !== canvas && !usingTouch() && !game.paused) pause();
+      if (document.pointerLockElement !== canvas && !usingTouch() && !game.paused && !invScreen.isOpen) pause();
     });
   }
   window.addEventListener('keydown', (e) => {
-    if (e.code === 'Escape' && usingTouch() && !game.paused) pause();
+    if (e.code === 'Escape' && usingTouch() && !game.paused && !invScreen.isOpen) pause();
   });
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') void game.saveAll();
   });
   window.addEventListener('beforeunload', () => void game.saveAll());
-  installTestApi(game);
+  installTestApi(game, invScreen);
   game.start();
   return game;
 }

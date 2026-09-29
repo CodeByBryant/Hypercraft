@@ -37,6 +37,8 @@ export const ACTIONS = [
   'hotbar8',
   'hotbar9',
   'resolution',
+  'inventory',
+  'drop',
 ] as const;
 export type Action = (typeof ACTIONS)[number];
 
@@ -76,6 +78,8 @@ export const DEFAULT_BINDINGS: Record<Action, string[]> = {
   hotbar8: ['Digit8'],
   hotbar9: ['Digit9'],
   resolution: ['KeyO'],
+  inventory: ['Tab', 'KeyI'],
+  drop: ['KeyB'],
 };
 
 export class Input {
@@ -207,6 +211,12 @@ export class Input {
   }
 
   /** Call once at the end of every frame. */
+  /** Forget key/button press edges (after a UI screen consumed them). */
+  clearPressed(): void {
+    this.pressedKeys.clear();
+    this.pressedButtons = 0;
+  }
+
   endFrame(): void {
     this.pressedKeys.clear();
     this.pressedButtons = 0;

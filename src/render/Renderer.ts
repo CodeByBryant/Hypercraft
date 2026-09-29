@@ -46,6 +46,8 @@ export interface RenderParams {
   wire: boolean;
   selectOn: boolean;
   select: Int32Array;
+  /** Mining progress 0..1 on the selected cell (crack overlay). */
+  breakProgress: number;
   underwater: number;
   hazard: Float32Array;
   blocked: Float32Array;
@@ -233,6 +235,7 @@ export class Renderer {
     gl.uniform1i(m.loc('uWire'), p.wire ? 1 : 0);
     gl.uniform4i(m.loc('uSelect'), p.select[0]! - ox, p.select[1]!, p.select[2]! - oz, p.select[3]! - ow);
     gl.uniform1i(m.loc('uSelectOn'), p.selectOn ? 1 : 0);
+    gl.uniform1f(m.loc('uBreak'), p.breakProgress);
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, gw.chunkTable);

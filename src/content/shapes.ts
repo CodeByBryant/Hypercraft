@@ -43,6 +43,13 @@ export const SHAPES: ShapeDef[] = [
     boxes: [[[0.375, 0, 0.375, 0.375], [0.625, 1, 0.625, 0.625]]],
     collision: 'shape',
   },
+  {
+    // Chests are a little smaller than a full cell in every horizontal axis (x, z and w).
+    name: 'chest',
+    kind: 'boxes',
+    boxes: [[[0.0625, 0, 0.0625, 0.0625], [0.9375, 0.875, 0.9375, 0.9375]]],
+    collision: 'shape',
+  },
   { name: 'plant', kind: 'plant', collision: 'none' },
   { name: 'fluid', kind: 'fluid', collision: 'none' },
 ];

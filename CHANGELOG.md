@@ -1,5 +1,55 @@
 # Changelog
 
+## 0.3.0 — Phase 3: Items, inventory, mining, crafting, furnaces (2026-09-29)
+
+### Added
+- **Items**: 282 items (every block gets an item, plus materials, buckets, shears, flint and
+  steel, a hypercompass and a clock) with procedural pixel-art icons and isometric block
+  icons built from the world textures.
+- **Tool tiers**: wood, stone, copper, gold, iron, azurite, verdant, hyperite (pickaxe, axe,
+  shovel, hoe, sword each), with harvest levels, mining speed and durability.
+- **Survival mining**: Minecraft-style break times (tool kind and tier, in air and under
+  water penalties), crack overlay on the targeted block in the ray marcher, harvest levels
+  (ores need the right pickaxe), data-driven drops (`mining.ts`: raw ores, gems, flint from
+  gravel, apples and sticks from leaves, shears for grass and leaves), tool wear.
+- **Dropped items** as 4D bodies: they fall, rest, merge, get pulled to you and despawn after
+  five minutes. Each is drawn as the slice of a small 4-ball (an icon sprite that shows only
+  while your slice passes through it). Drops appear where your slice crossed the mined
+  block. B drops the held item (Ctrl+B the stack).
+- **Inventory** (36 slots + armour + off-hand) with a 2x2 crafting grid; **crafting table**
+  (3x3); **recipe book** with search and "craftable only"; click/right-click/shift-click
+  slot handling, 1-9 hotbar swaps, throw by clicking outside; creative "All items" tab.
+  Tab or I opens it; touch has an Inv button.
+- **Recipes**: ~90 shaped/shapeless recipes (planks, sticks, stations, tools for every
+  tier, storage blocks, buckets, compass, clock, building blocks) and smelting. Shaped recipes
+  match anywhere in the grid and mirrored.
+- **Furnace, blast furnace, smoker** and **chest** block entities stored in the column save
+  data; furnaces smelt while their column is loaded and light up (lit block variant).
+- Buckets pick up and place water/lava sources; hotbar shows icons, counts and durability;
+  hypercompass shows the direction to spawn in your slice plus how far kata/ana it is; clock.
+- New blocks: crafting table, furnaces (+ lit), chest, birch/spruce/acacia planks, seven
+  storage blocks.
+- **Nine new land biomes**: Hyperplains, Prism Flower Forest, Umbral Forest, Tangle Jungle,
+  Amber Woods, Dry Scrubland, Lavender Downs, Stony Peaks, Salt Flats (37 biomes in total),
+  with 40 new blocks, plants and five new trees (dark oak, jungle, maple, amber oak,
+  juniper).
+- Tests: items/crafting/mining/inventory unit tests, slice-drift physics regression test,
+  terrain continuity test, e2e survival mining + recipe-book crafting + furnace smelting.
+
+### Changed
+- **Terrain rebalanced** (feedback: too high, no deserts, same few biomes): median land
+  height is now sea level + 10 (was + 32), mountain ranges only follow ridge lines in
+  low-erosion zones, temperature/humidity use the full range so deserts, salt flats and
+  scrubland are common, biomes are smaller, and biome choice uses a new relief axis
+  (lowland / hills / mountains). Worlds from 0.2 regenerate different terrain.
+- Coastlines and rivers are continuous: no more 50-70 block walls at the shore or where a
+  river used to stop at a mountain threshold.
+- Walking into a wall in a tilted slice no longer drifts the view along the hidden axis:
+  horizontal collision is resolved in the slice basis (forward/right/hidden) instead of per
+  world axis, and hidden-axis velocity is dropped unless you press kata/ana.
+- Creative worlds start with a starter kit instead of the fixed block palette; survival
+  worlds start empty. Old palettes load as stacks of 64.
+
 ## 0.2.0 — Phase 2: Surface terrain (2026-09-28)
 
 ### Added

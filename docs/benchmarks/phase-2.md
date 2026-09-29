@@ -34,7 +34,9 @@ start allocates the right size once.
   124 ms per column in Node. Profiling found:
   * a per-voxel hash for the dithered deepstone boundary (24% of the time);
   * cave-field interpolation (20%);
-  * slow property lookups on the dictionary-mode block-id table `B` inside voxel loops.
+  * block-id property loads (`B.stone`, imported constants) inside voxel loops. These are
+    especially slow under Vitest's module transform, but hoisting them helps the worker
+    build too.
   Segmented vertical fills, row-shared cave-field interpolation, per-column cave biomes and
   hoisted ids brought it to about 44 ms in Node and **33 ms in the worker build**.
 * **Ray steps went down slightly.** Surface terrain is mostly solid below the surface and

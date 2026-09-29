@@ -7,7 +7,7 @@ precision highp float;
 layout(location = 0) in vec2 aCorner;   // -1..1
 layout(location = 1) in vec4 aCenter;   // xyz camera space, w = cross-section radius
 layout(location = 2) in vec4 aColor;
-layout(location = 3) in vec2 aShape;    // x: shape (0 soft disc, 1 square, 2 glow, 3 flake), y: spin
+layout(location = 3) in vec4 aShape;    // x: shape (0 soft disc, 1 square, 2 glow, 3 flake, 4 item icon), y: spin, zw: icon cell origin (UV)
 
 uniform vec2 uTan;
 
@@ -15,6 +15,7 @@ out vec2 vUv;
 out vec3 vPos;
 out vec4 vColor;
 flat out float vShape;
+flat out vec2 vIcon;
 
 void main() {
   float c = cos(aShape.y), s = sin(aShape.y);
@@ -25,4 +26,5 @@ void main() {
   vPos = p;
   vColor = aColor;
   vShape = aShape.x;
+  vIcon = aShape.zw;
 }

@@ -105,7 +105,11 @@ export type TexturePattern =
   | 'dripstone'
   | 'flower'
   | 'mushroom'
-  | 'bud';
+  | 'bud'
+  | 'furnace'
+  | 'table_top'
+  | 'chest'
+  | 'metal';
 
 /** Procedural 16x16x16 solid texture (sampled on the 3D facets of tesseracts). */
 export interface TextureDef {
@@ -134,7 +138,7 @@ export interface TreeDef {
   radius: [number, number];
 }
 
-export type TerrainStyle = 'normal' | 'dunes' | 'mesa' | 'spires' | 'floating' | 'volcanic' | 'marsh' | 'steppe' | 'hills';
+export type TerrainStyle = 'normal' | 'dunes' | 'mesa' | 'spires' | 'floating' | 'volcanic' | 'marsh' | 'steppe' | 'hills' | 'flat';
 
 export type PlantPlacement = 'surface' | 'underwater' | 'floor' | 'ceiling';
 
@@ -192,6 +196,137 @@ export interface BiomeDef {
   /** Structure names that may generate here (Phase 5). */
   structures?: string[];
 }
+
+// ------------------------------------------------------------------ items (Phase 3)
+
+export type ToolKind = 'pickaxe' | 'axe' | 'shovel' | 'hoe' | 'sword' | 'shears';
+
+/** A tool material tier (wood, stone, copper, iron, ...). */
+export interface ToolTierDef {
+  name: string;
+  displayName: string;
+  /** Harvest level: blocks with `tier <= level` drop their items. */
+  level: number;
+  /** Mining speed multiplier on blocks of the tool's kind. */
+  speed: number;
+  durability: number;
+  /** Attack damage bonus (swords add 4, axes 5, other tools 1-2). */
+  damage: number;
+  enchantability: number;
+  /** Item or #tag the tools are crafted and repaired from. */
+  material: string;
+  /** Icon colours: head, head shade. */
+  color: Hex;
+  shade: Hex;
+}
+
+export type IconShape =
+  | 'pickaxe'
+  | 'axe'
+  | 'shovel'
+  | 'hoe'
+  | 'sword'
+  | 'shears'
+  | 'ingot'
+  | 'gem'
+  | 'nugget'
+  | 'raw'
+  | 'dust'
+  | 'lump'
+  | 'stick'
+  | 'bucket'
+  | 'flint_steel'
+  | 'compass'
+  | 'clock'
+  | 'ball'
+  | 'brick'
+  | 'shard'
+  | 'flint'
+  | 'apple'
+  | 'bone';
+
+/** Procedural 16x16 pixel icon: a shape painted with a small palette (main, shade, accent). */
+export interface IconDef {
+  shape: IconShape;
+  colors: Hex[];
+}
+
+export type ItemGroup = 'building' | 'natural' | 'functional' | 'tools' | 'combat' | 'materials' | 'food' | 'misc';
+
+export interface ItemDef {
+  name: string;
+  displayName?: string;
+  /** Block placed when used. Block items are generated for every block automatically. */
+  block?: string;
+  /** Default 64; tools 1. */
+  maxStack?: number;
+  icon?: IconDef;
+  tool?: { kind: ToolKind; tier: string };
+  /** Uses before breaking, for tools without a tier (shears, flint and steel). */
+  durability?: number;
+  /** Furnace burn time in seconds. */
+  fuel?: number;
+  /** Item left behind in the fuel slot after burning (lava bucket -> bucket). */
+  fuelRemainder?: string;
+  tags?: string[];
+  group?: ItemGroup;
+  /** Right-click behaviour implemented in the engine. */
+  use?: 'bucket' | 'water_bucket' | 'lava_bucket' | 'flint_and_steel';
+  /** Held-item HUD readout. */
+  readout?: 'compass' | 'clock';
+}
+
+export interface DropDef {
+  item: string;
+  count?: [number, number];
+  chance?: number;
+}
+
+/** How a block is mined and what it drops (blocks without an entry drop themselves). */
+export interface MiningDef {
+  /** Tool kind that mines it fast. */
+  tool?: ToolKind;
+  /** Minimum harvest level of that tool for drops (a tool is required when set). */
+  tier?: number;
+  /** Drops (default: the block's own item); 'none' drops nothing. */
+  drops?: DropDef[] | 'none';
+  /** Mined with shears, the block drops itself (leaves, grass). */
+  shears?: boolean;
+}
+
+/** Item name or '#tag'. */
+export type Ingredient = string;
+
+export interface ShapedRecipe {
+  type: 'shaped';
+  /** Rows of single-character keys; ' ' is empty. Up to 3x3; 2x2-sized recipes work in the inventory grid. */
+  pattern: string[];
+  key: Record<string, Ingredient>;
+  result: string;
+  count?: number;
+}
+
+export interface ShapelessRecipe {
+  type: 'shapeless';
+  ingredients: Ingredient[];
+  result: string;
+  count?: number;
+}
+
+export type FurnaceKind = 'furnace' | 'blast_furnace' | 'smoker';
+
+export interface SmeltingRecipe {
+  type: 'smelting';
+  input: Ingredient;
+  result: string;
+  count?: number;
+  /** Seconds in a furnace (blast furnaces and smokers take half). */
+  time?: number;
+  /** Which furnaces accept it (default: furnace only; ores add blast_furnace, food adds smoker). */
+  furnaces?: FurnaceKind[];
+}
+
+export type RecipeDef = ShapedRecipe | ShapelessRecipe | SmeltingRecipe;
 
 export type WeatherKind = 'clear' | 'rain' | 'snow' | 'thunder' | 'phase_storm';
 

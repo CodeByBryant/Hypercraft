@@ -112,7 +112,7 @@ export class SurfaceGenerator {
   private readonly sMount = new Float32Array(COLUMN_LAYER);
   private readonly sCrater = new Int16Array(COLUMN_LAYER);
   private readonly sHas = new Set<number>();
-  private readonly cs: ClimateSample = { cont: 0, temp: 0, hum: 0, weird: 0, mountains: 0, erosion: 0 };
+  private readonly cs: ClimateSample = { cont: 0, temp: 0, hum: 0, weird: 0, mountains: 0, erosion: 0, relief: 0 };
   private readonly bp: BiomePick = { biome: 0, share: 1, heightBias: 0, heightScale: 1, grass: [0, 0, 0], ocean: false, depth: 0 };
 
   constructor(seed: number, realm: RealmDef, options: GenOptions = {}) {
@@ -223,19 +223,30 @@ export class SurfaceGenerator {
   }
 
   private readonly rvOut = { h: 0, river: false };
+  /**
+   * Rivers: the near-zero set of a 3D noise over (x, z, w), i.e. a 2D surface in the
+   * horizontal 3-space (a 3D hypersurface in 4D), so a slice shows it as a winding channel
+   * that shifts as you move kata/ana. The bed sits below sea level; banks rise smoothly; the
+   * whole cut fades out in high mountains instead of stopping at a wall.
+   */
   private applyRiver(h: number, x: number, z: number, w: number, p: BiomePick, c: ClimateSample): { h: number; river: boolean } {
     const o = this.rvOut;
     o.h = h;
     o.river = false;
-    if (p.ocean || c.mountains > 0.65) return o;
+    if (p.ocean) return o;
+    const strength = Math.min(1, Math.max(0, (0.8 - c.mountains) / 0.3));
+    if (strength <= 0) return o;
     const r = this.riverMask(x, z, w);
+    if (r >= 0.065) return o;
+    let target: number;
     if (r < 0.02) {
-      o.h = Math.min(h, this.sea - 2 - Math.floor(3 * (1 - r / 0.02)));
-      o.river = true;
-    } else if (r < 0.065) {
+      target = this.sea - 2 - 3 * (1 - r / 0.02);
+    } else {
       const t = (r - 0.02) / 0.045;
-      o.h = Math.min(h, Math.floor(this.sea + t * t * Math.max(0, h - this.sea)));
+      target = this.sea + t * t * Math.max(0, h - this.sea);
     }
+    o.h = Math.min(h, Math.floor(h + (target - h) * strength));
+    o.river = r < 0.02 && o.h < this.sea;
     return o;
   }
 
@@ -375,7 +386,7 @@ export class SurfaceGenerator {
     const L = COLUMN_LAYER;
     const seed = this.seed;
     const deepstone = I.deepstone!;
-    // Hoisted ids: B is a large dictionary-mode object, too slow to read in the voxel loops.
+    // Hoisted ids: property loads (through module bindings) are measurable in the voxel loops.
     const STONE = B.stone, BEDROCK = B.bedrock, WATER = B.water, LAVA = B.lava, ICE = B.ice, SAND = B.sand, SMOOTH = B.smooth_stone;
     const nf = NF;
     const sheetCell = 96;

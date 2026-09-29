@@ -3,9 +3,9 @@
 A 4D voxel survival sandbox for the browser. The world is made of tesseracts; you see a true
 3D cross-section of it, and every system is built around a fourth spatial axis.
 
-**Status: Phase 2 (surface terrain) complete.** Phase reports (what works, what's broken,
-what's next): [Phase 1 — engine](docs/phases/phase-1.md) ·
-[Phase 2 — surface terrain](docs/phases/phase-2.md).
+**Status: Phase 3 (items, inventory, mining, crafting) complete.** Phase reports (what
+works, what's broken, what's next): [Phase 1 — engine](docs/phases/phase-1.md) ·
+[Phase 2 — surface terrain](docs/phases/phase-2.md) · [Phase 3 — items](docs/phases/phase-3.md).
 
 | Axis-aligned slice | 30° XW tilt | 45° XW + 45° ZW tilt |
 |---|---|---|
@@ -37,11 +37,13 @@ particles unless `&particles=1`; used by tests).
 | **F / V** | rotate the slice: forward ↔ hidden |
 | **Alt + mouse** | rotate the slice freely |
 | **C** | snap back to the nearest axis-aligned slice |
-| LMB / RMB / MMB | break / place / pick block |
+| LMB (hold in survival) / RMB / MMB | mine / place, use, open stations / pick block |
+| **Tab** or **I** | inventory, crafting and recipe book |
+| **B** (Ctrl+B) | drop the held item (the whole stack) |
 | 1–9, wheel | hotbar |
 | F3 (or `) | debug overlay |
 | **P** | cross-section wireframe overlay |
-| G / T / Y / O | game mode / time +3 h / weather / internal resolution |
+| G / T / Y / O | game mode / time +3 h / weather / internal resolution (cheats/creative) |
 
 **Touch screens** (auto-detected, or Settings → Touch controls): left thumb = floating move
 stick (push to the rim to sprint), right side = drag to look, tap = place, long-press = break,
@@ -74,7 +76,7 @@ node scripts/alloc-profile.mjs      # sample per-frame allocations (needs `npm r
 - [GPU layout](docs/gpu-layout.md)
 - [Rendering a 4D world through a 3D slice](docs/rendering-4d.md)
 - [Data formats](docs/data-formats.md)
-- How to add a [block](docs/how-to/add-a-block.md), [biome](docs/how-to/add-a-biome.md),
+- How to add a [block](docs/how-to/add-a-block.md), [item / recipe / tool tier](docs/how-to/add-an-item.md), [biome](docs/how-to/add-a-biome.md),
   [realm](docs/how-to/add-a-realm.md), [mob](docs/how-to/add-a-mob.md) (planned),
   [structure](docs/how-to/add-a-structure.md) (planned)
 - Benchmarks: [Phase 1](docs/benchmarks/phase-1.md), [Phase 2](docs/benchmarks/phase-2.md) ·

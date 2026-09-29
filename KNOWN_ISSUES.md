@@ -1,6 +1,6 @@
 # Known issues
 
-Honest list as of Phase 2 (surface terrain). Items tagged with the phase expected to address them.
+Honest list as of Phase 3 (items, inventory, mining, crafting). Items tagged with the phase expected to address them.
 
 ## Unverified / performance
 - **R5 not measured on real GPUs.** Development ran in a GPU-less container (SwiftShader
@@ -50,8 +50,14 @@ Honest list as of Phase 2 (surface terrain). Items tagged with the phase expecte
   data-driven).
 - Lakes take their level from the direct climate sample rather than the column lattice, so a
   rim can be off by a block; trees rooted in a neighbouring column can overhang a lake.
-- Worlds saved with 0.1.x regenerate unedited columns with the Phase 2 generator; their
-  edited columns keep old terrain, so seams can appear at those columns.
+- Worlds saved with 0.1.x/0.2.x regenerate unedited columns with the current generator
+  (terrain was rebalanced in 0.3); their edited columns keep old terrain, so seams can
+  appear at those columns.
+- Mountain flanks can still be steep (up to ~15 blocks per step at ridge crests); coasts and
+  rivers are smooth.
+- Your body is 0.6 wide along the hidden axis too, so a block just off your slice (within
+  0.3 of it) can stop you although it is not visible. The hidden-axis radar and the blocked
+  indicators show it (R2).
 - Trees and features crossing column borders are generated with a 4-block margin; a very
   wide canopy (radius > 4) or a volcano/spire straddling several columns is consistent, but
   giant structures will need the Phase 5 structure pipeline.
@@ -64,8 +70,16 @@ Honest list as of Phase 2 (surface terrain). Items tagged with the phase expecte
   (Phase 4). Fall distance is tracked but causes no damage.
 
 ## Gameplay / UX
-- Mining is instant (creative-style) even in survival; no drops, inventory or crafting
-  (Phase 3).
+- Items: armour slots exist but no armour until Phase 7; food items (apples) cannot be
+  eaten until hunger exists (Phase 7); flint and steel has nothing to light until portals
+  (Phase 6). Enchanting, anvils, smithing are Phase 7.
+- Dropped items are only visible while your slice passes through them (by design: they are
+  4D objects). They can still be picked up from up to 1.6 blocks away in 4D, and the
+  hypercompass-style indicator for items is not implemented.
+- Furnaces only run while their column is loaded (no offline catch-up), like Minecraft.
+- The inventory screen does not support drag-to-distribute, double-click collect or
+  keyboard-only navigation yet (Phase 12 accessibility).
+- The recipe book fills the grid from the inventory but does not show ingredient ghosts.
 - No audio (Phase 12).
 - No key-rebinding UI yet (bindings are data in `src/input/Input.ts`); gamepad support is
   Phase 12. Touch controls exist but have only been tested in emulation.

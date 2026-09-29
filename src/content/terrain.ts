@@ -80,7 +80,7 @@ function deepOre(name: string, fleck: Hex, o: Opt = {}): void {
 
 // --- stones & soils -----------------------------------------------------------------------
 cube('deepstone', 'noise', ['#4a4a52', '#3e3e46'], { amount: 0.1, hardness: 3 });
-cube('cobbled_deepstone', 'cells', ['#4a4a52', '#2e2e34', '#5e5e68'], { hardness: 3.5 });
+cube('cobbled_deepstone', 'cells', ['#4a4a52', '#2e2e34', '#5e5e68'], { hardness: 3.5, tags: ['stone_crafting'] });
 cube('limestone', 'noise', ['#c9c3a8', '#b8b196'], { amount: 0.06, hardness: 1.2 });
 cube('mossy_cobblestone', 'cells', ['#6f7d5a', '#4f5a3c', '#8a9a6a'], { hardness: 2 });
 cube('loam', 'noise', ['#6d4c33', '#5a3e29'], { amount: 0.14, hardness: 0.5 });
@@ -88,9 +88,9 @@ cube('coarse_dirt', 'speckle', ['#7a5a40', '#694b34', '#9a8266'], { density: 0.1
 cube('podzol_dirt', 'noise', ['#5f4228', '#4d3520'], { hardness: 0.5 });
 cube('mud', 'noise', ['#3f3a33', '#352f29'], { amount: 0.08, hardness: 0.5 });
 cube('peat', 'noise', ['#2f261d', '#3a2f24'], { amount: 0.1, hardness: 0.5 });
-cube('red_sand', 'noise', ['#be6a30', '#a95b27'], { amount: 0.07, hardness: 0.5 });
-cube('dune_sand', 'noise', ['#e6cf8f', '#d4b978'], { amount: 0.05, hardness: 0.5 });
-cube('bleached_sand', 'speckle', ['#eee6d0', '#e0d6bb', '#ffffff'], { density: 0.05, hardness: 0.5 });
+cube('red_sand', 'noise', ['#be6a30', '#a95b27'], { amount: 0.07, hardness: 0.5, tags: ['sand'] });
+cube('dune_sand', 'noise', ['#e6cf8f', '#d4b978'], { amount: 0.05, hardness: 0.5, tags: ['sand'] });
+cube('bleached_sand', 'speckle', ['#eee6d0', '#e0d6bb', '#ffffff'], { density: 0.05, hardness: 0.5, tags: ['sand'] });
 cube('cut_sandstone', 'bands', ['#dccf9a', '#cfbf86', '#e4d8a8'], { amount: 0.03, hardness: 0.8 });
 cube('permafrost', 'speckle', ['#6b5a4c', '#5c4c40', '#dfeeff'], { density: 0.1, hardness: 0.8 });
 cube('packed_snow', 'noise', ['#e8eef4', '#d8e2ea'], { amount: 0.04, hardness: 0.3 });
@@ -120,7 +120,7 @@ cube('calcite', 'speckle', ['#e8e6e0', '#dcdad2', '#ffffff'], { density: 0.06, h
 cube('hush_stone', 'speckle', ['#1d2530', '#16202a', '#2fd3c8'], { density: 0.04, hardness: 3 });
 cube('echo_moss', 'speckle', ['#0f2a33', '#0b212a', '#35f0e0'], { density: 0.1, emission: 2, hardness: 0.3 });
 cube('silent_shale', 'bands', ['#272c36', '#1f242d', '#313745'], { amount: 0.04, hardness: 3 });
-cube('sea_sand', 'noise', ['#d9cfa4', '#c9be91'], { amount: 0.06, hardness: 0.5 });
+cube('sea_sand', 'noise', ['#d9cfa4', '#c9be91'], { amount: 0.06, hardness: 0.5, tags: ['sand'] });
 cube('tidestone', 'cells', ['#4f9a92', '#3b7c75', '#6fc0b5'], { hardness: 1.5 });
 cube('dark_gravel', 'cells', ['#4c4a48', '#35332f', '#666360'], { hardness: 0.6 });
 cube('bone_block', 'bands', ['#e7e2cf', '#d8d2bc', '#efe9d8'], { amount: 0.03, hardness: 2 });
@@ -128,7 +128,7 @@ cube('fossil_stone', 'speckle', ['#b9ad90', '#a89c80', '#efe8d4'], { density: 0.
 cube('weathered_stone', 'cells', ['#8e8a80', '#6f6b62', '#a7a399'], { hardness: 1.5 });
 cube('geode_shell', 'noise', ['#3d3b44', '#2f2d36'], { amount: 0.08, hardness: 1.25 });
 cube('amethyst', 'crystal', ['#9a5cd6', '#8448c2', '#e2b8ff'], { hardness: 1.5, emission: 2 });
-cube('cherry_planks', 'planks', ['#e8b4b8', '#d8a0a6', '#b9848a'], { hardness: 2 });
+cube('cherry_planks', 'planks', ['#e8b4b8', '#d8a0a6', '#b9848a'], { hardness: 2, tags: ['planks'] });
 cube('petal_turf_under', 'noise', ['#6d4c33', '#5a3e29'], { hardness: 0.5 });
 for (const [n, c] of [
   ['white', '#d1b3a1'],
@@ -250,6 +250,49 @@ plant('bladderwrack', 'plant', ['#6a6a2a', '#585820'], { density: 0.6, tags: ['p
 plant('sea_grape', 'flower', ['#3a6a2a', '#3a6a2a', '#8ad84a'], { tags: ['plant', 'underwater'] });
 plant('cave_lichen', 'plant', ['#a8a070', '#8a8458'], { density: 0.3 });
 plant('echo_vine', 'plant', ['#0f3a44', '#1a5a64'], { density: 0.45, emission: 3 });
+
+// --- Biome pass 2 (Phase 3): nine more land biomes ------------------------------------------
+turf('plains_turf', ['#c4c4c4', '#a8a8a8'], ['#7a5a3a', '#684b30'], { bt: 1 });
+plant('oxeye_daisy', 'flower', ['#3f7a2a', '#3f7a2a', '#f8f8f0']);
+plant('azure_bluet', 'flower', ['#3f7a2a', '#3f7a2a', '#b8d8ff']);
+turf('bloom_turf', ['#c4c4c4', '#a8a8a8'], ['#6d4c33', '#5a3e29'], { bt: 1 });
+plant('prism_tulip', 'flower', ['#3f7a2a', '#3f7a2a', '#ff6ad8'], { emission: 2 });
+plant('allium', 'flower', ['#3f7a2a', '#3f7a2a', '#b86ae8']);
+plant('peony', 'flower', ['#3f7a2a', '#3f7a2a', '#f8b8d8']);
+turf('umbral_turf', ['#6a8a5a', '#58784a'], ['#4a3a2a', '#3a2c1f'], { bt: 1 });
+log('dark_oak_log', ['#3c2a1a', '#2e2014'], ['#5a4028', '#4a3420', '#3c2a1a']);
+leaves('dark_oak_leaves', ['#c8c8c8', '#9c9c9c'], { bt: 2, density: 0.22 });
+plant('shadow_fern', 'plant', ['#3a5a3a', '#2a4a2a'], { density: 0.65 });
+plant('nightcap', 'mushroom', ['#c8c0d8', '#5a3aa8'], { emission: 6 });
+turf('jungle_turf', ['#c4c4c4', '#a8a8a8'], ['#4b3a24', '#3d2f1d'], { bt: 1 });
+log('jungle_log', ['#6a5a30', '#58482a'], ['#b8904a', '#a07c3c', '#6a5a30']);
+leaves('jungle_leaves', ['#c8c8c8', '#9c9c9c'], { bt: 2, density: 0.2 });
+plant('jungle_bloom', 'flower', ['#2f6a2a', '#2f6a2a', '#ff5a2a']);
+plant('monstera', 'plant', ['#2f8a3a', '#1f6a2a'], { density: 0.75 });
+turf('leaf_litter', ['#b8743a', '#a0602c'], ['#6d4c33', '#5a3e29']);
+log('maple_log', ['#6b4a3a', '#56392c'], ['#c89a6a', '#b0845a', '#6b4a3a']);
+leaves('maple_leaves', ['#d8401a', '#b8301a'], { density: 0.26 });
+leaves('amber_leaves', ['#f0a020', '#d8841a'], { density: 0.26 });
+plant('amber_fern', 'plant', ['#d8901a', '#b8701a'], { density: 0.55 });
+plant('toadstool', 'mushroom', ['#e8e0d0', '#e04a2a']);
+cube('scrub_sand', 'speckle', ['#c8a878', '#b8966a', '#8a7050'], { density: 0.12, hardness: 0.5, tags: ['sand'] });
+cube('caliche', 'cells', ['#d0bc98', '#b8a47e', '#e4d4b4'], { hardness: 1.2 });
+log('juniper_log', ['#7a5a48', '#644838'], ['#b89a78', '#a0846a', '#7a5a48']);
+leaves('juniper_leaves', ['#5a7a5a', '#48684a'], { density: 0.3 });
+plant('sagebrush', 'plant', ['#a8b098', '#8a9280'], { density: 0.5 });
+plant('desert_marigold', 'flower', ['#8a8a4a', '#8a8a4a', '#ffd21a']);
+turf('downs_turf', ['#c4c4c4', '#a8a8a8'], ['#8a7058', '#766048'], { bt: 1 });
+cube('chalk', 'noise', ['#f0ede4', '#e2ddd0'], { amount: 0.04, hardness: 1 });
+plant('lavender', 'flower', ['#5a7a4a', '#5a7a4a', '#9a6ae0']);
+plant('heather', 'plant', ['#a86a98', '#8a5a80'], { density: 0.45 });
+cube('peak_stone', 'cells', ['#8c8c90', '#6c6c72', '#a8a8ae'], { hardness: 1.6 });
+cube('granite', 'speckle', ['#a8786a', '#96685a', '#d8b0a0'], { density: 0.16, hardness: 1.6 });
+plant('edelweiss', 'flower', ['#8a9a8a', '#8a9a8a', '#f4f4ec']);
+plant('alpine_moss', 'plant', ['#6a8a5a', '#587a4a'], { density: 0.3 });
+cube('salt_crust', 'speckle', ['#f0ece6', '#e4ded6', '#ffffff'], { density: 0.1, hardness: 0.6 });
+cube('salt_block', 'crystal', ['#e8e2dc', '#d8d0c8', '#ffffff'], { hardness: 1.2 });
+plant('saltbush', 'plant', ['#9aa8a0', '#808e86'], { density: 0.45 });
+plant('salt_bloom', 'bud', ['#e8f0f8', '#e8f0f8', '#ffffff'], { emission: 2 });
 
 // --- ores -----------------------------------------------------------------------------------
 ore('copper_ore', '#d8804a');

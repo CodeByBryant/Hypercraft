@@ -90,7 +90,7 @@ None of the tilted views shows cubes.
   *Particles* setting (all/reduced/off).
 * **Performance**: column generation was optimised from 124 ms to about 44 ms in Node (the
   worker build is faster still) with segmented fills, shared cave-field interpolation,
-  per-column cave biomes and hoisted block ids (`B` is a dictionary-mode object).
+  per-column cave biomes and block ids hoisted out of the voxel loops.
 * F3 shows the seed, the cave biome when you are underground, and particle counts.
 * Test worlds (`?test=1`) search for a flat dry garden site and put spawn on it. The e2e
   walk test and the R6 views are spawn-relative.

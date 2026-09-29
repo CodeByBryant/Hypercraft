@@ -283,6 +283,14 @@ export class Player {
       this.vel[i] = this.vel[i]! + (target - this.vel[i]!) * k;
     }
 
+    // No kata/ana input: no motion along the hidden axis (leftover velocity from before a
+    // slice rotation must not drift the view hyperplane).
+    if (input.ana === 0) {
+      let c = 0;
+      for (let i = 0; i < 4; i++) if (i !== up) c += this.vel[i]! * cam.H[i]!;
+      for (let i = 0; i < 4; i++) if (i !== up) this.vel[i] = this.vel[i]! - c * cam.H[i]!;
+    }
+
     // Vertical.
     let vy = this.vel[up]!;
     if (this.flying) {
@@ -321,37 +329,10 @@ export class Player {
         if (dy < 0) this.onGround = true;
         this.vel[up] = 0;
       }
-      for (let a = 0; a < 4; a++) {
-        if (a === up) continue;
-        let d = this.vel[a]! * sdt;
-        if (d === 0) continue;
-        // Sneaking: never walk off an edge.
-        if (this.sneaking && (this.onGround || wasGround) && this.mode !== 'spectator') {
-          const p = this.pos;
-          const orig = p[a]!;
-          let tries = 0;
-          while (tries < 8) {
-            p[a] = orig + d;
-            const ok = this.hasSupport(world, p);
-            p[a] = orig;
-            if (ok) break;
-            d *= 0.5;
-            tries++;
-          }
-          if (tries >= 8) {
-            d = 0;
-            this.vel[a] = 0;
-          }
-        }
-        const pre = this.pre;
-        for (let i = 0; i < 4; i++) pre[i] = this.pos[i]!;
-        if (this.moveAxis(world, a, d)) {
-          // Step up small ledges (slabs/stairs) when grounded.
-          if ((this.onGround || wasGround) && !this.flying && this.mode !== 'spectator' && this.tryStep(world, a, d, pre)) continue;
-          this.vel[a] = 0;
-          this.hitWall = true;
-        }
-      }
+      // Horizontal: move in the slice basis (forward, right, hidden), not per world axis.
+      // Sliding along world axes when one axis is blocked would move the player along the
+      // hidden axis in tilted slices (the view would drift kata/ana on its own).
+      this.moveHorizontal(world, sdt, wasGround);
     }
     // Fall tracking (used by Phase 4 damage; exposed in F3).
     const yNow = this.pos[up]!;
@@ -363,24 +344,87 @@ export class Player {
     this.wasGrounded = grounded;
   }
 
-  /** Blocked horizontally: retry the move raised by STEP (slabs/stairs), then settle down. */
-  private tryStep(world: World, axis: number, d: number, pre: Float64Array): boolean {
-    const p = this.pos;
+  private readonly delta = new Float64Array(4);
+
+  private moveHorizontal(world: World, sdt: number, wasGround: boolean): void {
     const up = this.up;
-    const clamped = this.saved;
-    for (let i = 0; i < 4; i++) clamped[i] = p[i]!;
-    for (let i = 0; i < 4; i++) p[i] = pre[i]!;
-    p[up] = p[up]! + STEP;
-    if (this.overlaps(world, p, this.height)) {
-      for (let i = 0; i < 4; i++) p[i] = clamped[i]!;
+    const v = this.vel;
+    const d = this.delta;
+    let any = false;
+    for (let i = 0; i < 4; i++) {
+      d[i] = i === up ? 0 : v[i]! * sdt;
+      if (d[i] !== 0) any = true;
+    }
+    if (!any || this.tryMove(world, d, wasGround)) return;
+    // Blocked: try each slice direction on its own; drop the components that stay blocked.
+    const cam = this.cam;
+    const basis = [cam.F, cam.R, cam.H];
+    for (let b = 0; b < 3; b++) {
+      const dir = basis[b]!;
+      let c = 0;
+      for (let i = 0; i < 4; i++) if (i !== up) c += v[i]! * dir[i]!;
+      if (Math.abs(c) < 1e-9) continue;
+      for (let i = 0; i < 4; i++) d[i] = i === up ? 0 : dir[i]! * c * sdt;
+      if (this.tryMove(world, d, wasGround)) continue;
+      const grounded = (this.onGround || wasGround) && !this.flying && this.mode !== 'spectator';
+      if (grounded && this.tryStepDir(world, d)) continue;
+      this.partialMove(world, d, wasGround);
+      for (let i = 0; i < 4; i++) if (i !== up) v[i] = v[i]! - dir[i]! * c;
+      this.hitWall = true;
+    }
+  }
+
+  /** Move by `d` if the body stays free (and, sneaking, keeps support under it). */
+  private tryMove(world: World, d: Float64Array, wasGround: boolean): boolean {
+    const p = this.pos;
+    const pre = this.pre;
+    for (let i = 0; i < 4; i++) {
+      pre[i] = p[i]!;
+      p[i] = p[i]! + d[i]!;
+    }
+    if (this.mode === 'spectator') return true;
+    const sneakGuard = this.sneaking && (this.onGround || wasGround);
+    if (this.overlaps(world, p, this.height) || (sneakGuard && !this.hasSupport(world, p))) {
+      for (let i = 0; i < 4; i++) p[i] = pre[i]!;
       return false;
     }
-    this.moveAxis(world, axis, d);
-    if (Math.abs(p[axis]! - pre[axis]!) <= Math.abs(clamped[axis]! - pre[axis]!) + 1e-4) {
-      for (let i = 0; i < 4; i++) p[i] = clamped[i]!;
+    return true;
+  }
+
+  /** Move as far along `d` as possible (binary search), to rest against the obstacle. */
+  private partialMove(world: World, d: Float64Array, wasGround: boolean): void {
+    let lo = 0, hi = 1;
+    const step = this.saved;
+    for (let it = 0; it < 6; it++) {
+      const mid = (lo + hi) / 2;
+      for (let i = 0; i < 4; i++) step[i] = d[i]! * (mid - lo);
+      if (this.tryMove(world, step, wasGround)) lo = mid;
+      else hi = mid;
+    }
+  }
+
+  /** Blocked while walking: retry `d` raised by STEP (slabs, stairs), then settle down. */
+  private tryStepDir(world: World, d: Float64Array): boolean {
+    const p = this.pos;
+    const up = this.up;
+    const pre = this.pre;
+    for (let i = 0; i < 4; i++) pre[i] = p[i]!;
+    p[up] = p[up]! + STEP;
+    if (this.overlaps(world, p, this.height)) {
+      for (let i = 0; i < 4; i++) p[i] = pre[i]!;
+      return false;
+    }
+    for (let i = 0; i < 4; i++) p[i] = p[i]! + d[i]!;
+    if (this.overlaps(world, p, this.height)) {
+      for (let i = 0; i < 4; i++) p[i] = pre[i]!;
       return false;
     }
     this.moveAxis(world, up, -(STEP + 0.01));
+    // Sneaking never steps off an edge either.
+    if (this.sneaking && !this.hasSupport(world, p)) {
+      for (let i = 0; i < 4; i++) p[i] = pre[i]!;
+      return false;
+    }
     return true;
   }
 }

@@ -163,6 +163,27 @@ describe('Surface generator (Phase 2)', () => {
     expect(rivers).toBe(5);
   });
 
+  it('has no sheer walls: coasts and river valleys are continuous', () => {
+    // Regression: coastlines used to jump up to 70 blocks in one step (mountains applied at
+    // full height right at the shore) and rivers stopped at a wall above a mountain threshold.
+    const g = gen(0x5eed);
+    const a = sample(), b = sample();
+    let worst = 0;
+    for (let k = 0; k < 150; k++) {
+      const x0 = ((k * 7919) % 20000) - 10000, z0 = ((k * 104729) % 20000) - 10000, w0 = ((k * 1299709) % 20000) - 10000;
+      for (let axis = 0; axis < 3; axis++)
+        for (let t = 0; t < 40; t++) {
+          const p = [x0, z0, w0];
+          p[axis] = p[axis]! + t;
+          g.sample(p[0]!, p[1]!, p[2]!, a);
+          p[axis] = p[axis]! + 1;
+          g.sample(p[0]!, p[1]!, p[2]!, b);
+          worst = Math.max(worst, Math.abs(a.height - b.height));
+        }
+    }
+    expect(worst).toBeLessThanOrEqual(16);
+  });
+
   it('fills contained 4D lakes above sea level', () => {
     const g = gen(8);
     let lake: ReturnType<SurfaceGenerator['lakeAt']> = null;

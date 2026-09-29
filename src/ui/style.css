@@ -70,8 +70,8 @@ body {
 }
 .slot {
   position: relative;
-  width: 30px;
-  height: 30px;
+  width: 38px;
+  height: 38px;
   border: 2px solid rgba(255, 255, 255, 0.25);
   border-radius: 4px;
   display: flex;
@@ -82,11 +82,42 @@ body {
   border-color: #fff;
   box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
 }
-.swatch {
-  width: 18px;
-  height: 18px;
-  border-radius: 2px;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+.icon {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+.slot .count {
+  position: absolute;
+  right: 2px;
+  bottom: 0;
+  font-size: 11px;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000, -1px 0 0 #000;
+  pointer-events: none;
+}
+.slot .dura {
+  position: absolute;
+  left: 3px;
+  bottom: 2px;
+  height: 2px;
+  display: none;
+  pointer-events: none;
+}
+.readout {
+  position: absolute;
+  left: 50%;
+  bottom: 92px;
+  transform: translateX(-50%);
+  padding: 3px 10px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  display: none;
 }
 .slot .key {
   position: absolute;
@@ -99,7 +130,7 @@ body {
 .toast {
   position: absolute;
   left: 50%;
-  bottom: 64px;
+  bottom: 66px;
   transform: translateX(-50%);
   padding: 4px 10px;
   background: rgba(0, 0, 0, 0.55);
@@ -578,8 +609,8 @@ body.touch-active .hotbar {
 }
 body.touch-active .slot {
   flex: none;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
 }
 body.touch-active .mode {
   top: auto;
@@ -590,4 +621,198 @@ body.touch-active .mode {
 body.touch-active .debug {
   top: 170px;
   font-size: 9px;
+}
+
+
+/* ---------------- inventory / containers ---------------- */
+.inv-screen {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 10, 18, 0.55);
+  z-index: 30;
+  pointer-events: auto;
+  user-select: none;
+}
+.inv-screen.open {
+  display: flex;
+}
+.inv-panel {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 24px);
+}
+.inv-main,
+.inv-book {
+  background: rgba(24, 28, 40, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+.inv-book {
+  width: 250px;
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.inv-book input[type='search'] {
+  width: 100%;
+  box-sizing: border-box;
+}
+.inv-book .book-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  overflow-y: auto;
+  align-content: flex-start;
+}
+.inv-title {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: #aab4cc;
+  margin: 6px 0 4px;
+}
+.inv-grid {
+  display: grid;
+  gap: 3px;
+}
+.inv-row {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.islot {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.islot:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+.islot.result {
+  width: 46px;
+  height: 46px;
+  border-color: rgba(255, 220, 120, 0.5);
+}
+.islot.missing {
+  opacity: 0.35;
+}
+.islot.craftable {
+  border-color: rgba(120, 255, 160, 0.55);
+}
+.islot .count {
+  position: absolute;
+  right: 2px;
+  bottom: 0;
+  font-size: 11px;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000, -1px 0 0 #000;
+  pointer-events: none;
+}
+.islot .dura {
+  position: absolute;
+  left: 3px;
+  bottom: 2px;
+  height: 2px;
+  pointer-events: none;
+}
+.islot .ghost {
+  opacity: 0.25;
+}
+.inv-arrow {
+  font-size: 22px;
+  color: #aab4cc;
+}
+.inv-cursor {
+  position: fixed;
+  width: 32px;
+  height: 32px;
+  pointer-events: none;
+  z-index: 40;
+  image-rendering: pixelated;
+}
+.inv-cursor .count {
+  position: absolute;
+  right: -2px;
+  bottom: -4px;
+  font-size: 11px;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000, -1px 0 0 #000;
+}
+.inv-tip {
+  position: fixed;
+  padding: 3px 7px;
+  background: rgba(10, 8, 24, 0.95);
+  border: 1px solid #5a3fa0;
+  border-radius: 3px;
+  font-size: 12px;
+  pointer-events: none;
+  z-index: 41;
+  display: none;
+  white-space: nowrap;
+}
+.inv-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.inv-tabs button {
+  padding: 3px 10px;
+  font-size: 12px;
+}
+.inv-tabs button.on {
+  background: #3c5bd6;
+}
+.flame,
+.progress {
+  width: 26px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+.flame > div {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: linear-gradient(0deg, #ff5a1a, #ffd24a);
+}
+.progress > div {
+  height: 100%;
+  background: #cfd6e6;
+}
+.inv-hint {
+  font-size: 11px;
+  color: #8c96ad;
+  margin-top: 8px;
+}
+@media (max-width: 720px), (max-height: 520px) {
+  .inv-book {
+    display: none;
+  }
+  .islot {
+    width: 32px;
+    height: 32px;
+  }
+  .islot .icon {
+    transform: scale(0.85);
+  }
 }

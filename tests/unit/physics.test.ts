@@ -121,4 +121,21 @@ describe('player physics (4D hyperbox)', () => {
     sim(p, world, still(), 1);
     expect(p.pos[1]).toBeCloseTo(45, 1);
   });
+
+  it('walking into a wall in a tilted slice never drifts the slice along the hidden axis', () => {
+    // Regression: collision was resolved per world axis, so when a wall stopped the X part of
+    // a tilted "right" step, the W part kept going and the view hyperplane slid kata/ana.
+    const wall = (x: number, y: number) => (y < 40 || (x >= 12 && y < 45) ? B.stone : B.air);
+    const world = makeWorld(wall, [[0, 0, 0], [0, 0, 1], [0, 0, -1]]);
+    const p = newPlayer(8.5, 40, 8.5, 8.5);
+    p.cam.rotateWorldPlane(0, 3, Math.PI / 6); // XW 30°: right = (cos30, 0, 0, sin30)
+    p.cam.yaw(0.3);
+    const H = p.cam.hidden;
+    const h0 = p.pos[0]! * H[0]! + p.pos[2]! * H[2]! + p.pos[3]! * H[3]!;
+    sim(p, world, { ...still(), strafe: 1 }, 3); // walk right into the wall at x = 12 and keep pushing
+    sim(p, world, { ...still(), strafe: 1, forward: 0.5 }, 2); // slide along it
+    const h1 = p.pos[0]! * H[0]! + p.pos[2]! * H[2]! + p.pos[3]! * H[3]!;
+    expect(p.pos[0]).toBeGreaterThan(11); // really reached the wall
+    expect(Math.abs(h1 - h0)).toBeLessThan(1e-6);
+  });
 });

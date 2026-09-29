@@ -1,0 +1,97 @@
+// How blocks are mined and what they drop. Blocks without an entry break by hand at their
+// hardness and drop themselves. `tier` is the minimum tool harvest level (see tiers.ts):
+// 0 = wood/gold, 1 = stone/copper, 2 = iron/azurite, 3 = verdant/hyperite.
+
+import type { DropDef, MiningDef } from './types';
+
+export const MINING: Record<string, MiningDef> = {};
+
+const set = (names: string[], def: MiningDef) => {
+  for (const n of names) MINING[n] = { ...MINING[n], ...def };
+};
+const one = (item: string, count: [number, number] = [1, 1]): DropDef[] => [{ item, count }];
+
+// Stone-like: pickaxe required.
+set(
+  [
+    'stone', 'cobblestone', 'smooth_stone', 'sandstone', 'cut_sandstone', 'bricks', 'stone_slab', 'stone_stairs', 'cobbled_deepstone',
+    'limestone', 'mossy_cobblestone', 'frost_stone', 'savanna_stone', 'basalt', 'scoria', 'magma_block', 'skystone', 'hollow_stone',
+    'dripstone_block', 'calcite', 'hush_stone', 'silent_shale', 'tidestone', 'bone_block', 'fossil_stone', 'weathered_stone',
+    'geode_shell', 'terracotta_white', 'terracotta_orange', 'terracotta_yellow', 'terracotta_red', 'terracotta_brown', 'terracotta_tan',
+    'coral_red', 'coral_yellow', 'coral_blue', 'coral_pink', 'blue_ice', 'packed_ice', 'furnace', 'lit_furnace', 'blast_furnace',
+    'lit_blast_furnace', 'smoker', 'lit_smoker', 'coal_block', 'pointed_dripstone',
+  ],
+  { tool: 'pickaxe', tier: 0 },
+);
+set(['stone'], { drops: one('cobblestone') });
+set(['deepstone'], { tool: 'pickaxe', tier: 0, drops: one('cobbled_deepstone') });
+set(['lit_furnace'], { drops: one('furnace') });
+set(['lit_blast_furnace'], { drops: one('blast_furnace') });
+set(['lit_smoker'], { drops: one('smoker') });
+set(['copper_block', 'iron_block'], { tool: 'pickaxe', tier: 1 });
+set(['gold_block', 'azurite_block', 'verdant_block', 'hyperite_block'], { tool: 'pickaxe', tier: 2 });
+set(['obsidian'], { tool: 'pickaxe', tier: 3 });
+set(['amethyst'], { tool: 'pickaxe', tier: 0, drops: one('amethyst_shard', [2, 4]) });
+set(['amethyst_cluster'], { tool: 'pickaxe', tier: 0, drops: one('amethyst_shard', [1, 2]) });
+
+// Ores.
+set(['coal_ore'], { tool: 'pickaxe', tier: 0, drops: one('coal') });
+set(['copper_ore'], { tool: 'pickaxe', tier: 1, drops: one('raw_copper', [2, 4]) });
+set(['iron_ore', 'deep_iron_ore'], { tool: 'pickaxe', tier: 1, drops: one('raw_iron') });
+set(['gold_ore', 'deep_gold_ore'], { tool: 'pickaxe', tier: 2, drops: one('raw_gold') });
+set(['azurite_ore', 'deep_azurite_ore'], { tool: 'pickaxe', tier: 1, drops: one('azurite', [3, 6]) });
+set(['fluxite_ore', 'deep_fluxite_ore'], { tool: 'pickaxe', tier: 2, drops: one('fluxite_dust', [3, 5]) });
+set(['verdant_ore'], { tool: 'pickaxe', tier: 2, drops: one('verdant') });
+set(['hyperite_ore', 'deep_hyperite_ore'], { tool: 'pickaxe', tier: 2, drops: one('hyperite') });
+
+// Soils: shovel.
+set(
+  [
+    'dirt', 'sand', 'gravel', 'snow', 'clay', 'loam', 'coarse_dirt', 'podzol_dirt', 'mud', 'peat', 'red_sand', 'dune_sand', 'bleached_sand',
+    'permafrost', 'packed_snow', 'gravelly_loam', 'marsh_mud', 'jungle_soil', 'mycelium_dirt', 'fen_mud', 'ash_soil', 'sea_sand',
+    'dark_gravel', 'petal_turf_under', 'forest_loam', 'ocean_silt', 'abyssal_mud', 'rime_gravel', 'cloud_moss', 'moss_block',
+    'echo_moss', 'luminous_moss', 'grass', 'podzol', 'snowy_turf', 'dry_turf', 'mycelium', 'steppe_turf', 'petal_turf', 'glass_turf',
+    'orchard_turf', 'forest_turf', 'glade_turf',
+  ],
+  { tool: 'shovel' },
+);
+set(['grass', 'snowy_turf', 'dry_turf', 'steppe_turf', 'glass_turf', 'orchard_turf', 'forest_turf', 'glade_turf'], { drops: one('dirt') });
+set(['podzol'], { drops: one('podzol_dirt') });
+set(['mycelium'], { drops: one('mycelium_dirt') });
+set(['petal_turf'], { drops: one('petal_turf_under') });
+set(['clay'], { drops: one('clay_ball', [4, 4]) });
+set(['gravel', 'dark_gravel'], { drops: [{ item: 'flint', chance: 0.12 }, { item: 'gravel', chance: 0.88 }] });
+
+// Wood: axe.
+set(
+  [
+    'log', 'birch_log', 'spruce_log', 'acacia_log', 'cherry_log', 'dead_log', 'planks', 'birch_planks', 'spruce_planks', 'acacia_planks',
+    'cherry_planks', 'bamboo_block', 'mushroom_stem', 'red_mushroom_cap', 'brown_mushroom_cap', 'ladder', 'crafting_table', 'chest',
+  ],
+  { tool: 'axe' },
+);
+set(['red_mushroom_cap'], { drops: [{ item: 'red_mushroom', count: [0, 2] }] });
+set(['brown_mushroom_cap'], { drops: [{ item: 'brown_mushroom', count: [0, 2] }] });
+
+// Leaves: shears keep them; otherwise sticks and (from fruit trees) apples.
+set(
+  ['leaves', 'birch_leaves', 'spruce_leaves', 'frosted_spruce_leaves', 'acacia_leaves', 'cherry_leaves', 'apple_leaves', 'azalea_leaves'],
+  { tool: 'hoe', shears: true, drops: [{ item: 'stick', count: [1, 2], chance: 0.04 }] },
+);
+set(['leaves'], { drops: [{ item: 'stick', count: [1, 2], chance: 0.04 }, { item: 'apple', chance: 0.01 }] });
+set(['apple_leaves'], { drops: [{ item: 'stick', count: [1, 2], chance: 0.04 }, { item: 'apple', chance: 0.12 }] });
+
+// Grass-like plants only drop with shears.
+set(
+  [
+    'tall_grass', 'fern', 'tall_fern', 'snow_grass', 'dune_grass', 'tall_dry_grass', 'feather_grass', 'jungle_fern', 'cave_fern',
+    'lattice_fern', 'frost_fern', 'seagrass', 'kelp', 'frost_kelp', 'hanging_vine', 'echo_vine', 'reeds', 'bladderwrack', 'brine_weed',
+    'sea_lettuce',
+  ],
+  { shears: true, drops: 'none' },
+);
+set(['dead_bush'], { shears: true, drops: one('stick', [0, 2]) });
+set(['bone_shrub', 'rib_weed'], { shears: true, drops: [{ item: 'bone', chance: 0.5 }] });
+
+// Glass and ice shatter.
+set(['glass', 'ice'], { drops: 'none' });

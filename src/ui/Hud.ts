@@ -4,6 +4,8 @@
 import { REG, hexToRgb, voxelId, FLUID_LAVA, FLUID_WATER } from '../content/registry';
 import { TICKS_PER_DAY } from '../env/Environment';
 import type { Game } from '../game/Game';
+import { IREG } from '../content/itemRegistry';
+import { HOTBAR_SIZE } from '../game/items/Inventory';
 import { VOID_VOXEL } from '../world/constants';
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, parent: HTMLElement, text?: string): HTMLElementTagNameMap[K] {
@@ -21,12 +23,6 @@ function fmt(v: number, d = 2): string {
   return (v >= 0 ? ' ' : '') + v.toFixed(d);
 }
 
-function blockColor(id: number): string {
-  const t = REG.textures[REG.texSide[id]!];
-  if (!t) return '#888';
-  const [r, g, b] = hexToRgb(t.colors[0]!);
-  return `rgb(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)})`;
-}
 
 export class Hud {
   readonly root: HTMLElement;
@@ -34,6 +30,10 @@ export class Hud {
   private readonly debug: HTMLPreElement;
   private readonly hotbar: HTMLDivElement;
   private readonly slots: HTMLDivElement[] = [];
+  private readonly slotIcons: HTMLDivElement[] = [];
+  private readonly slotCounts: HTMLSpanElement[] = [];
+  private readonly slotBars: HTMLDivElement[] = [];
+  private readonly readout: HTMLDivElement;
   private readonly toast: HTMLDivElement;
   private readonly loading: HTMLDivElement;
   private readonly loadingText: HTMLDivElement;
@@ -58,6 +58,7 @@ export class Hud {
     this.debug = el('pre', 'debug', this.root);
     this.debug.style.display = 'none';
     this.hotbar = el('div', 'hotbar', this.root);
+    this.readout = el('div', 'readout', this.root);
     this.toast = el('div', 'toast', this.root);
     this.mode = el('div', 'mode', this.root);
 
@@ -94,6 +95,7 @@ export class Hud {
       this.rgb[id * 3 + 1] = c[1]!;
       this.rgb[id * 3 + 2] = c[2]!;
     }
+    this.buildHotbar();
     this.renderHotbar();
   }
 
@@ -107,23 +109,52 @@ export class Hud {
     this.root.style.display = v ? 'block' : 'none';
   }
 
-  private renderHotbar(): void {
+  private buildHotbar(): void {
     const g = this.game;
-    this.hotbar.innerHTML = '';
-    this.slots.length = 0;
-    g.hotbar.forEach((id, i) => {
+    for (let i = 0; i < HOTBAR_SIZE; i++) {
       const s = el('div', 'slot', this.hotbar);
-      const sw = el('div', 'swatch', s);
-      sw.style.background = blockColor(id);
-      if (i < 9) el('span', 'key', s, String(i + 1));
-      s.title = REG.blocks[id]?.displayName ?? REG.blocks[id]?.name ?? '';
+      const icon = el('div', 'icon', s);
+      el('span', 'key', s, String(i + 1));
+      const count = el('span', 'count', s);
+      const bar = el('div', 'dura', s);
       s.addEventListener('pointerdown', (e) => {
         e.stopPropagation();
         g.hotbarIndex = i;
       });
       this.slots.push(s);
-    });
-    this.lastHotbarVersion = g.hotbarVersion;
+      this.slotIcons.push(icon);
+      this.slotCounts.push(count);
+      this.slotBars.push(bar);
+    }
+  }
+
+  private renderHotbar(): void {
+    const g = this.game;
+    const icons = g.icons;
+    for (let i = 0; i < HOTBAR_SIZE; i++) {
+      const st = g.inv.get(i);
+      const icon = this.slotIcons[i]!;
+      if (st) {
+        icons.apply(icon, st.id, 32);
+        icon.style.display = 'block';
+        this.slots[i]!.title = IREG.displayName(st.id);
+        this.slotCounts[i]!.textContent = st.count > 1 ? String(st.count) : '';
+        const max = IREG.durability[st.id]!;
+        const bar = this.slotBars[i]!;
+        if (max > 0 && st.damage > 0) {
+          const f = 1 - st.damage / max;
+          bar.style.display = 'block';
+          bar.style.width = `${Math.round(f * 30)}px`;
+          bar.style.background = `hsl(${Math.round(f * 120)}, 90%, 50%)`;
+        } else bar.style.display = 'none';
+      } else {
+        icon.style.display = 'none';
+        this.slots[i]!.title = '';
+        this.slotCounts[i]!.textContent = '';
+        this.slotBars[i]!.style.display = 'none';
+      }
+    }
+    this.lastHotbarVersion = g.inv.version;
   }
 
   update(dt: number): void {
@@ -132,12 +163,12 @@ export class Hud {
       this.toastTimer -= dt;
       if (this.toastTimer <= 0) this.toast.style.opacity = '0';
     }
-    if (g.hotbarVersion !== this.lastHotbarVersion) this.renderHotbar();
+    if (g.inv.version !== this.lastHotbarVersion) this.renderHotbar();
     if (g.hotbarIndex !== this.lastHotbar) {
       this.slots.forEach((s, i) => s.classList.toggle('active', i === g.hotbarIndex));
       this.lastHotbar = g.hotbarIndex;
-      const id = g.hotbar[g.hotbarIndex]!;
-      this.showMessage(REG.blocks[id]?.displayName ?? REG.blocks[id]!.name);
+      const st = g.held;
+      if (st) this.showMessage(IREG.displayName(st.id));
     }
     this.loading.style.display = g.loaded ? 'none' : 'flex';
     if (!g.loaded) {
@@ -150,8 +181,42 @@ export class Hud {
     this.updateRadar();
     const p = g.player;
     this.mode.textContent = `${p.mode.toUpperCase()}${p.flying ? ' · FLYING' : ''}${g.params.wire ? ' · WIREFRAME' : ''}`;
+    this.updateReadout();
     this.debug.style.display = g.showDebug ? 'block' : 'none';
     if (g.showDebug) this.debug.textContent = this.debugText();
+  }
+
+  /** Held compass / clock readouts. */
+  private updateReadout(): void {
+    const g = this.game;
+    const st = g.held;
+    const kind = st ? IREG.def(st.id).readout : undefined;
+    if (!kind) {
+      this.readout.style.display = 'none';
+      return;
+    }
+    this.readout.style.display = 'block';
+    if (kind === 'clock') {
+      const tod = g.env.timeOfDay;
+      const hours = Math.floor(((tod / TICKS_PER_DAY) * 24 + 6) % 24);
+      const mins = Math.floor((((tod / TICKS_PER_DAY) * 24 + 6) % 1) * 60);
+      this.readout.textContent = `${g.env.sky.daylight > 0.3 ? '☀' : '☾'} ${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}  day ${g.env.day}`;
+      return;
+    }
+    // Hypercompass: spawn direction within the slice, plus the kata/ana offset.
+    const e = g.eye(), cam = g.player.cam, sp = g.spawn;
+    const d = [sp[0] - e[0]!, 0, sp[2] - e[2]!, sp[3] - e[3]!];
+    let f = 0, r = 0, h = 0, dist = 0;
+    for (let i = 0; i < 4; i++) {
+      f += d[i]! * cam.F[i]!;
+      r += d[i]! * cam.R[i]!;
+      h += d[i]! * cam.H[i]!;
+      dist += d[i]! * d[i]!;
+    }
+    const ang = Math.round((Math.atan2(r, f) * 180) / Math.PI);
+    const arrows = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'];
+    const arrow = arrows[((Math.round(ang / 45) % 8) + 8) % 8]!;
+    this.readout.textContent = `Spawn ${arrow} ${Math.round(Math.sqrt(dist))} m  (${Math.abs(h) < 0.5 ? 'in this slice' : `${Math.round(Math.abs(h))} m ${h > 0 ? 'ana' : 'kata'}`})`;
   }
 
   private updateCompass(): void {

@@ -105,6 +105,66 @@ cuts them differently): `ball`, `birch`, `wide`, `cone`, `acacia` (trunk bends t
 ±X/±Z/±W), `bamboo`, `mushroom` (hollow cap), `dead`, `cactus`, `kelp` (grows up to the
 water surface). Biomes reference trees by name; the registry rejects unknown names.
 
+## Items (`src/content/items.ts`)
+
+Every block gets a block item with the same name automatically (except fluids, portals and
+"lit" state blocks listed in `NO_ITEM_BLOCKS`; `BLOCK_ITEM_EXTRAS` adds fuel values and
+groups). Other items are data:
+
+```ts
+{ name: 'iron_ingot', displayName: 'Iron Ingot', group: 'materials',
+  icon: { shape: 'ingot', colors: ['#dcdcdc', '#9a9a9a', '#ffffff'] } }   // main, shade, accent
+{ name: 'lava_bucket', maxStack: 1, use: 'lava_bucket', fuel: 1000, fuelRemainder: 'bucket',
+  icon: { shape: 'bucket', colors: ['#c8c8c8', '#7a7a7a', '#ff7a1a'] } }
+```
+
+* `icon.shape` is one of the procedural pixel-art shapes in `src/content/itemIcons.ts`
+  (pickaxe, axe, shovel, hoe, sword, shears, ingot, gem, nugget, raw, dust, lump, stick,
+  bucket, flint_steel, compass, clock, ball, brick, shard, flint, apple, bone).
+* `tool: { kind, tier }` makes a tool; durability, speed and harvest level come from the
+  tier. Tools for every tier are generated in `items.ts`.
+* `fuel` is furnace burn time in seconds; blocks tagged `log` / `planks` burn 15 s
+  (`TAG_FUEL`).
+* `use` (bucket, water_bucket, lava_bucket, flint_and_steel) and `readout` (compass, clock)
+  select engine behaviours.
+* Item tags = the item's own `tags` plus the tags of the block it places, so recipes can use
+  `#planks`, `#log`, `#sand`, `#coal`, `#stone_crafting`.
+
+## Tool tiers (`src/content/tiers.ts`)
+
+```ts
+{ name: 'iron', displayName: 'Iron', level: 2, speed: 6, durability: 250, damage: 2,
+  enchantability: 14, material: 'iron_ingot', color: '#e0e0e0', shade: '#9a9a9a' }
+```
+
+Levels: 0 wood/gold, 1 stone/copper, 2 iron/azurite, 3 verdant/hyperite.
+
+## Mining (`src/content/mining.ts`)
+
+Per block name: `{ tool?: ToolKind, tier?: number, drops?: DropDef[] | 'none', shears?: true }`.
+Blocks without an entry break by hand and drop themselves. `tier` means "needs a `tool` of at
+least this harvest level to drop anything". Break time follows Minecraft's formula (see
+`src/game/items/Mining.ts`): `speed / hardness / (canHarvest ? 30 : 100)` progress per tick,
+with speed = tier speed for the right tool, /5 in the air and /5 under water.
+
+```ts
+MINING.iron_ore = { tool: 'pickaxe', tier: 1, drops: [{ item: 'raw_iron' }] };
+MINING.gravel = { tool: 'shovel', drops: [{ item: 'flint', chance: 0.12 }, { item: 'gravel', chance: 0.88 }] };
+```
+
+## Recipes (`src/content/recipes.ts`)
+
+```ts
+{ type: 'shaped', pattern: ['MMM', ' s ', ' s '], key: { M: 'iron_ingot', s: 'stick' }, result: 'iron_pickaxe' }
+{ type: 'shapeless', ingredients: ['iron_ingot', 'flint'], result: 'flint_and_steel' }
+{ type: 'smelting', input: 'raw_iron', result: 'iron_ingot', furnaces: ['furnace', 'blast_furnace'] }
+```
+
+Shaped recipes match anywhere in the grid and mirrored left-right; recipes of at most 2x2
+(or at most four shapeless ingredients) also work in the inventory's crafting grid. Smelting
+takes `time` seconds (default 10) in a furnace and half that in a blast furnace or smoker.
+All names are validated at startup (`Crafting` constructor) and by unit tests.
+
 ## Realms (`src/content/realms.ts`)
 
 ```ts

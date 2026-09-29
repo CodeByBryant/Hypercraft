@@ -23,6 +23,20 @@ export interface Hc {
   setWire(on: boolean): void;
   setDebug(on: boolean): void;
   state(): Record<string, unknown> & { pos: number[]; eye: number[]; hidden: number[]; columns: number };
+  give(name: string, count?: number): number;
+  inventory(): [number, string, number, number][];
+  clearInventory(): void;
+  select(i: number): void;
+  mine(timeoutMs?: number): Promise<number>;
+  dropped(): [string, number, ...number[]][];
+  use(): void;
+  screenOpen(): boolean;
+  closeScreen(): void;
+  openInventory(): void;
+  blockEntity(x: number, y: number, z: number, w: number): unknown;
+  beSet(x: number, y: number, z: number, w: number, slot: number, name: string | null, count?: number): boolean;
+  beGet(x: number, y: number, z: number, w: number, slot: number): [string, number] | null;
+  tickWorld(seconds: number): void;
 }
 
 declare global {

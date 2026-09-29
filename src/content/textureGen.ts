@@ -258,6 +258,36 @@ export function generateTexture(def: TextureDef, index: number): Uint8Array {
             col = mix(c0, c2, v / 16);
             break;
           }
+          case 'furnace': {
+            // Stone casing with a mouth (u 4..11, v 3..8); lit furnaces glow inside (c2).
+            col = scale(mix(c0, c1, 0.5 + 0.5 * lo), 1 + (j - 0.5) * 0.16);
+            const mouth = u >= 4 && u <= 11 && v >= 3 && v <= 8;
+            if (mouth) col = cols.length >= 3 ? scale(mix(c2, [0.25, 0.08, 0.02], (8 - v) / 8), 0.8 + j * 0.4) : scale(c1, 0.35);
+            else if (u >= 3 && u <= 12 && v >= 2 && v <= 9) col = scale(c1, 0.7);
+            break;
+          }
+          case 'table_top': {
+            // Planks with a crafting grid (horizontal coords u, s).
+            const line = u % 5 === 0 || s % 5 === 0;
+            col = line ? scale(c2, 0.9 + j * 0.1) : scale(mix(c0, c1, hash4f(u >> 2, 0, s >> 2, 23, seed)), 1 + (j - 0.5) * 0.12);
+            break;
+          }
+          case 'chest': {
+            // Boards with a lid seam at v 9..10 and a latch.
+            const board = hash4f(u >> 3, v >> 2, s >> 3, 24, seed);
+            col = scale(mix(c0, c1, board), 1 + (j - 0.5) * 0.1);
+            if (v === 9 || v === 10) col = scale(c1, 0.6);
+            if (u >= 7 && u <= 8 && v >= 7 && v <= 11) col = c2;
+            if (u === 0 || u === 15 || s === 0 || s === 15 || v === 0 || v === 15) col = scale(c1, 0.75);
+            break;
+          }
+          case 'metal': {
+            // Storage block: bevelled bright metal/gem.
+            const edge = u === 0 || u === 15 || v === 0 || v === 15 || s === 0 || s === 15;
+            const inner = u === 1 || u === 14 || v === 1 || v === 14 || s === 1 || s === 14;
+            col = edge ? scale(c1, 0.8) : inner ? scale(c2, 1) : scale(mix(c0, c2, 0.15 + 0.15 * lo), 1 + (j - 0.5) * 0.06);
+            break;
+          }
           case 'marker': {
             const frame = u === 0 || u === 15 || v === 0 || v === 15 || s === 0 || s === 15;
             col = frame ? c1 : scale(c0, 1 + (j - 0.5) * 0.08);

@@ -70,6 +70,7 @@ uniform float uOutline;
 uniform int uWire;
 uniform ivec4 uSelect;
 uniform int uSelectOn;
+uniform float uBreak;   // mining progress 0..1 on the selected cell
 
 const uint NONUNI = 0x80000000u;
 const uint ID_MASK = 0xFFFu;
@@ -598,6 +599,23 @@ vec3 axisColor(int a) {
   return a == 0 ? vec3(1.0, 0.25, 0.2) : a == 1 ? vec3(0.3, 1.0, 0.35) : a == 2 ? vec3(0.25, 0.5, 1.0) : vec3(1.0, 0.3, 1.0);
 }
 
+// Mining cracks: planes through the cell centre in texel space (seen as jagged lines on any
+// facet slice) reaching outward with progress, plus crumbling speckle.
+float crackMask(vec3 uvs, float prog) {
+  vec3 cell = floor(uvs * 16.0);
+  vec3 q = cell / 16.0 - 0.5 + 1.0 / 32.0;
+  float m = 0.0;
+  for (int k = 0; k < 6; k++) {
+    if (float(k) > prog * 6.0) break;
+    float fk = float(k);
+    vec3 dir = normalize(vec3(sin(fk * 2.4 + 1.0), cos(fk * 1.7 + 0.3), sin(fk * 3.1 + 2.0)));
+    float wob = 0.045 * sin(dot(cell, vec3(1.9, 2.3, 1.3)) + fk * 5.0);
+    m = max(m, step(abs(dot(q, dir) + wob), 0.034) * step(length(q), 0.12 + 0.55 * prog));
+  }
+  float h = fract(sin(dot(cell, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+  return max(m, step(h, prog * 0.22));
+}
+
 vec3 shade(Surf s, vec4 d, uint vox, uvec4 bi, float t, out float alpha) {
   int tex = facetTexture(bi, s.axis, s.ns);
   vec3 uvs = s.uvs;
@@ -644,7 +662,10 @@ vec3 shade(Surf s, vec4 d, uint vox, uvec4 bi, float t, out float alpha) {
       c *= 1.0 - uOutline * m;
     }
   }
-  if (uSelectOn != 0 && s.cell == uSelect) c = mix(c, vec3(1.0), 0.12);
+  if (uSelectOn != 0 && s.cell == uSelect) {
+    if (uBreak > 0.0) c *= 1.0 - 0.6 * crackMask(s.uvs, uBreak);
+    c = mix(c, vec3(1.0), 0.12);
+  }
   return c;
 }
 

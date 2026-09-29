@@ -20,30 +20,54 @@ import { makeRayHit, raycast, type RayHit } from '../world/raycast';
 import { createGenerator, type WorldGenerator } from '../world/gen/generators';
 import { VOID_VOXEL } from '../world/constants';
 import { COLLISION_NONE } from '../content/registry';
+import { IREG } from '../content/itemRegistry';
+import { Inventory, HOTBAR_SIZE } from './items/Inventory';
+import { ItemEntities } from './items/ItemEntities';
+import { BlockEntities } from './items/BlockEntities';
+import { breakInfo, rollDrops, wearFor } from './items/Mining';
+import type { ItemStack } from './items/ItemStack';
+import type { FurnaceKind } from '../content/types';
+import { IconAtlas, SHEET } from '../ui/IconAtlas';
 import { particleDensity, type Settings } from './Settings';
 import type { WeatherKind } from '../content/types';
 import type { Persistence } from '../save/Persistence';
 import type { SavedState, WorldInfo } from '../save/WorldInfo';
 import type { GameMode } from '../physics/Player';
 
-export const HOTBAR = [
-  'stone',
-  'dirt',
-  'grass',
-  'planks',
-  'glass',
-  'lumen',
-  'water',
-  'lava',
-  'stone_slab',
-  'stone_stairs',
-  'ladder',
-  'torch',
-  'leaves',
-  'bricks',
-  'ice',
-  'marker_w',
+/** Creative starter inventory (hotbar first). Survival worlds start empty. */
+export const CREATIVE_KIT: [string, number][] = [
+  ['stone', 64],
+  ['dirt', 64],
+  ['grass', 64],
+  ['planks', 64],
+  ['glass', 64],
+  ['torch', 64],
+  ['water_bucket', 1],
+  ['lava_bucket', 1],
+  ['stone_slab', 64],
+  ['lumen', 64],
+  ['stone_stairs', 64],
+  ['ladder', 64],
+  ['leaves', 64],
+  ['bricks', 64],
+  ['ice', 64],
+  ['marker_w', 64],
+  ['crafting_table', 64],
+  ['furnace', 64],
+  ['chest', 64],
+  ['hyperite_pickaxe', 1],
+  ['hyperite_axe', 1],
+  ['hyperite_shovel', 1],
+  ['shears', 1],
+  ['bucket', 16],
 ];
+
+/** A UI screen the game wants opened (handled by main.ts / the inventory screen). */
+export type ScreenRequest =
+  | { kind: 'inventory' }
+  | { kind: 'crafting'; pos: [number, number, number, number] }
+  | { kind: 'chest'; pos: [number, number, number, number] }
+  | { kind: 'furnace'; pos: [number, number, number, number]; furnace: FurnaceKind };
 
 const WEATHER_CYCLE: WeatherKind[] = ['clear', 'rain', 'snow', 'thunder', 'phase_storm'];
 const HOTBAR_ACTIONS = ['hotbar1', 'hotbar2', 'hotbar3', 'hotbar4', 'hotbar5', 'hotbar6', 'hotbar7', 'hotbar8', 'hotbar9'] as const;
@@ -117,7 +141,45 @@ export class Game {
   renderMode: 'continuous' | 'manual' = 'continuous';
   renderRequested = false;
   message: ((text: string) => void) | null = null;
-  readonly hotbar: number[];
+  /** Player inventory (hotbar = slots 0..8). */
+  readonly inv = new Inventory();
+  readonly items = new ItemEntities();
+  readonly blockEntities: BlockEntities;
+  /** Called when the game wants a UI screen (inventory, crafting table, chest, furnace). */
+  onOpenScreen: ((r: ScreenRequest) => void) | null = null;
+  /** Called when items are picked up (HUD toast). */
+  onPickup: ((id: number, count: number) => void) | null = null;
+  private mineCell = new Int32Array(4).fill(-2147483648);
+  private mineProgress = 0;
+  private mineSeconds = 0;
+  private mineDelay = 0;
+  private readonly fluidHit: RayHit = makeRayHit();
+  private iconAtlas: IconAtlas | null = null;
+
+  /** Item icon sheet (built on first use; also feeds dropped-item sprites). */
+  get icons(): IconAtlas {
+    if (!this.iconAtlas) {
+      const gw = this.renderer.gpu;
+      const a = new IconAtlas(gw.atlasData, gw.atlasSize[0]);
+      this.iconAtlas = a;
+      this.renderer.sprites.setIcons(a.canvas);
+      const u = new Float32Array(IREG.count), v = new Float32Array(IREG.count);
+      for (let i = 0; i < IREG.count; i++) {
+        const [x, y] = a.cell(i);
+        u[i] = x / SHEET;
+        v[i] = y / SHEET;
+      }
+      this.items.iconU = u;
+      this.items.iconV = v;
+    }
+    return this.iconAtlas;
+  }
+  private readonly collect = (s: ItemStack): number => {
+    const before = s.count;
+    const left = this.inv.add(s);
+    if (left < before) this.onPickup?.(s.id, before - left);
+    return left;
+  };
 
   constructor(canvas: HTMLCanvasElement, opts: GameOptions) {
     this.canvas = canvas;
@@ -145,15 +207,22 @@ export class Game {
       this.scaler.mode = 'fixed';
       this.scaler.fixedHeight = opts.settings.resolution;
     }
-    this.hotbar = HOTBAR.map((n) => REG.id(n));
+    this.blockEntities = new BlockEntities(this.world);
 
     this.world.onBlockChange((x, y, z, w, o, n) => {
       this.light.onBlockChanged(x, y, z, w, o, n);
       this.fluids.onBlockChanged(x, y, z, w, o, n);
+      // Breaking a chest or furnace spills its contents.
+      const spill = this.blockEntities.onBlockChanged(x, y, z, w, o, n);
+      for (const st of spill) this.dropAtCell(x, y, z, w, st);
     });
-    this.world.columnAdded = (c) => this.renderer.gpu.onColumnAdded(c);
+    this.world.columnAdded = (c) => {
+      this.renderer.gpu.onColumnAdded(c);
+      this.blockEntities.onColumnAdded(c);
+    };
     this.world.columnRemoved = (c) => {
       this.renderer.gpu.onColumnRemoved(c);
+      this.blockEntities.onColumnRemoved(c);
       if (this.persistence && c.dirty) void this.persistence.saveColumn(c);
     };
     this.world.retainEdited = !this.persistence;
@@ -175,6 +244,7 @@ export class Game {
       wire: false,
       selectOn: false,
       select: new Int32Array(4),
+      breakProgress: 0,
       underwater: 0,
       hazard: new Float32Array(2),
       blocked: new Float32Array(2),
@@ -187,6 +257,7 @@ export class Game {
     this.particles.density = particleDensity(opts.settings);
     this.env.setTime(1500);
     if (opts.world.state) this.restore(opts.world.state);
+    else if (this.player.mode === 'creative') this.giveKit();
     if (this.demo) {
       this.player.mode = 'spectator';
       this.player.flying = true;
@@ -212,13 +283,21 @@ export class Game {
     this.env.ticks = st.ticks;
     if (st.weather && st.weather !== 'clear') this.env.setWeather(st.weather as WeatherKind, false);
     this.env.weatherLeft = st.weatherLeft;
-    if (st.hotbar) {
+    const inv = sp.data?.inventory;
+    if (inv) this.inv.load(inv);
+    else if (st.hotbar) {
+      // 0.1.x saves had a creative block palette instead of an inventory.
       st.hotbar.forEach((n, i) => {
-        if (i < this.hotbar.length && REG.has(n)) this.hotbar[i] = REG.id(n);
+        if (i < HOTBAR_SIZE && IREG.has(n)) this.inv.set(i, { id: IREG.id(n), count: 64, damage: 0 });
       });
-      this.hotbarVersion++;
     }
-    if (st.hotbarIndex !== undefined) this.hotbarIndex = st.hotbarIndex;
+    if (st.hotbarIndex !== undefined) this.hotbarIndex = Math.max(0, Math.min(HOTBAR_SIZE - 1, st.hotbarIndex));
+  }
+
+  /** Fill the inventory with the creative starter kit. */
+  giveKit(): void {
+    this.inv.clear();
+    for (const [name, n] of CREATIVE_KIT) this.inv.add({ id: IREG.id(name), count: n, damage: 0 });
   }
 
   /** Snapshot of the player/world state for saving. */
@@ -234,11 +313,11 @@ export class Game {
         pitch: p.cam.pitch,
         mode: p.mode,
         flying: p.flying,
+        data: { inventory: this.inv.save() },
       },
       ticks: this.env.ticks,
       weather: this.env.weather,
       weatherLeft: this.env.weatherLeft,
-      hotbar: this.hotbar.map((id) => REG.blocks[id]!.name),
       hotbarIndex: this.hotbarIndex,
     };
   }
@@ -285,9 +364,9 @@ export class Game {
     }
   }
 
-  /** Selected hotbar voxel. */
-  get selectedBlock(): number {
-    return this.hotbar[this.hotbarIndex]!;
+  /** The stack in the selected hotbar slot. */
+  get held(): ItemStack | null {
+    return this.inv.get(this.hotbarIndex);
   }
 
   frame(now: number): void {
@@ -322,6 +401,7 @@ export class Game {
     // Physics.
     if (!this.loaded) this.checkLoaded();
     p.update(this.world, this.move, dt);
+    this.items.update(dt, this.world, p.up, this.world.realm.gravity, this.loaded && p.mode !== 'spectator' ? p.pos : null, p.height, this.collect);
 
     // Fixed-rate world ticks.
     this.tickAcc += dt;
@@ -330,6 +410,7 @@ export class Game {
       this.tickAcc -= 0.05;
       this.env.tick();
       this.fluids.tick();
+      this.blockEntities.tick(0.05);
       ticks++;
     }
     if (ticks >= 5) this.tickAcc = 0;
@@ -370,6 +451,7 @@ export class Game {
     }
     this.renderer.sprites.clear();
     this.particles.update(dt, this.world, this.eyePos, p.cam, pb, this.env.sky.daylight, p.eyeInWater, this.renderer.sprites);
+    this.items.draw(this.renderer.sprites, this.eyePos, p.cam, this.world);
     this.hazardTimer -= dt;
     if (this.hazardTimer <= 0) {
       this.hazardTimer = 0.2;
@@ -483,7 +565,9 @@ export class Game {
     for (let i = 0; i < 9; i++) {
       if (input.pressed(HOTBAR_ACTIONS[i]!)) this.hotbarIndex = i;
     }
-    if (input.wheel !== 0) this.hotbarIndex = (this.hotbarIndex + input.wheel + this.hotbar.length) % this.hotbar.length;
+    if (input.wheel !== 0) this.hotbarIndex = (((this.hotbarIndex + input.wheel) % HOTBAR_SIZE) + HOTBAR_SIZE) % HOTBAR_SIZE;
+    if (input.pressed('inventory')) this.onOpenScreen?.({ kind: 'inventory' });
+    if (input.pressed('drop')) this.dropHeld(input.held('sprint'));
 
     if (input.pressed('debug')) this.showDebug = !this.showDebug;
     if (input.pressed('wireframe')) {
@@ -506,22 +590,211 @@ export class Game {
     // Break / place / pick.
     this.breakCooldown -= dt;
     this.placeCooldown -= dt;
-    if (input.buttonPressed(0) || (input.buttonHeld(0) && this.breakCooldown <= 0)) {
-      this.breakTarget();
-      this.breakCooldown = 0.25;
-    }
-    if (input.buttonPressed(2) || (input.buttonHeld(2) && this.placeCooldown <= 0)) {
-      this.placeAtTarget(this.selectedBlock);
+    const mode = p.mode;
+    if (mode === 'creative') {
+      this.params.breakProgress = 0;
+      if (input.buttonPressed(0) || (input.buttonHeld(0) && this.breakCooldown <= 0)) {
+        this.breakTarget();
+        this.breakCooldown = 0.25;
+      }
+    } else if (mode === 'survival' && input.buttonHeld(0) && this.hasTarget) {
+      this.mineStep(dt);
+    } else this.resetMining();
+    if (mode !== 'spectator' && (input.buttonPressed(2) || (input.buttonHeld(2) && this.placeCooldown <= 0))) {
+      this.useHeld(input.held('sneak'));
       this.placeCooldown = 0.25;
     }
-    if (input.buttonPressed(1) && this.hasTarget) {
-      const id = voxelId(this.target.voxel);
-      const idx = this.hotbar.indexOf(id);
-      if (idx >= 0) this.hotbarIndex = idx;
-      else {
-        this.hotbar[this.hotbarIndex] = id;
-        this.hotbarVersion++;
+    if (input.buttonPressed(1) && this.hasTarget) this.pickBlock();
+  }
+
+  // ------------------------------------------------------------------ items & mining
+
+  private resetMining(): void {
+    this.mineProgress = 0;
+    this.mineCell[0] = -2147483648;
+    this.params.breakProgress = 0;
+  }
+
+  /** Survival mining: accumulate progress on the targeted block while the button is held. */
+  private mineStep(dt: number): void {
+    const t = this.target;
+    const c = this.mineCell;
+    const held = this.held;
+    const heldId = held ? held.id : -1;
+    if (c[0] !== t.x || c[1] !== t.y || c[2] !== t.z || c[3] !== t.w) {
+      c[0] = t.x;
+      c[1] = t.y;
+      c[2] = t.z;
+      c[3] = t.w;
+      this.mineProgress = 0;
+    }
+    // Break time depends on the held tool, whether we stand on the ground and are underwater.
+    this.mineSeconds = breakInfo(voxelId(t.voxel), heldId, this.player.onGround || this.player.flying, this.player.eyeInWater).seconds;
+    if (this.mineDelay > 0) {
+      this.mineDelay -= dt;
+      return;
+    }
+    if (!Number.isFinite(this.mineSeconds)) {
+      this.params.breakProgress = 0;
+      return;
+    }
+    this.mineProgress += this.mineSeconds <= 0 ? 1 : dt / this.mineSeconds;
+    this.params.breakProgress = Math.min(1, this.mineProgress);
+    if (this.mineProgress >= 1) {
+      this.harvestTarget();
+      this.resetMining();
+      this.mineDelay = 0.2;
+    }
+  }
+
+  /** Break the targeted block as a survival player: drops, tool wear. */
+  harvestTarget(): boolean {
+    if (!this.hasTarget) return false;
+    const t = this.target;
+    const id = voxelId(t.voxel);
+    const held = this.held;
+    const heldId = held ? held.id : -1;
+    const drops = rollDrops(id, heldId, Math.random);
+    if (!this.world.setBlock(t.x, t.y, t.z, t.w, 0)) return false;
+    for (const d of drops) this.dropAtCell(t.x, t.y, t.z, t.w, d);
+    const wear = wearFor(id, heldId);
+    if (held && wear > 0) {
+      held.damage += wear;
+      if (held.damage >= IREG.durability[held.id]!) {
+        this.inv.set(this.hotbarIndex, null);
+        this.message?.(`${IREG.displayName(held.id)} broke`);
+      } else this.inv.set(this.hotbarIndex, held);
+    }
+    return true;
+  }
+
+  /**
+   * Spawn a dropped stack at a block cell. The drop is placed where the view hyperplane
+   * crosses the cell (the part of the block you saw), so it is visible in your slice.
+   */
+  dropAtCell(x: number, y: number, z: number, w: number, st: ItemStack): void {
+    const H = this.player.cam.hidden;
+    const e = this.eyePos;
+    const c = this.tmp4;
+    c[0] = x + 0.5;
+    c[1] = y + 0.3;
+    c[2] = z + 0.5;
+    c[3] = w + 0.5;
+    let d = 0;
+    for (let i = 0; i < 4; i++) d += (c[i]! - e[i]!) * H[i]!;
+    const cell = [x, y, z, w];
+    for (let i = 0; i < 4; i++) c[i] = Math.max(cell[i]! + 0.08, Math.min(cell[i]! + 0.92, c[i]! - d * H[i]!));
+    const R = this.player.cam.R, F = this.player.cam.F;
+    const a = Math.random() * Math.PI * 2, sp = 1.2;
+    const v = [0, 0, 0, 0];
+    for (let i = 0; i < 4; i++) v[i] = (Math.cos(a) * R[i]! + Math.sin(a) * F[i]!) * sp;
+    v[this.player.up] = 3.5;
+    this.items.spawn(c[0]!, c[1]!, c[2]!, c[3]!, st, v, 0.4);
+  }
+
+  /** Throw the held item (one, or the whole stack) forward, in the slice. */
+  dropHeld(all: boolean): void {
+    const held = this.held;
+    if (!held || this.player.mode === 'spectator') return;
+    const n = all ? held.count : 1;
+    const out: ItemStack = { id: held.id, count: n, damage: held.damage };
+    held.count -= n;
+    this.inv.set(this.hotbarIndex, held.count > 0 ? held : null);
+    this.throwStack(out);
+  }
+
+  /** Throw a stack forward from the eye (also used by the UI for items dropped outside it). */
+  throwStack(st: ItemStack): void {
+    const e = this.eyePos, f = this.player.cam.fwd;
+    const v = [f[0]! * 5, f[1]! * 5 + 2, f[2]! * 5, f[3]! * 5];
+    this.items.spawn(e[0]! + f[0]! * 0.4, e[1]! - 0.35, e[2]! + f[2]! * 0.4, e[3]! + f[3]! * 0.4, st, v, 1.5);
+  }
+
+  /** Right click: open a station/container, use an item, or place the held block. */
+  private useHeld(sneaking: boolean): void {
+    const held = this.held;
+    if (this.hasTarget && !(sneaking && held)) {
+      const t = this.target;
+      const tid = voxelId(t.voxel);
+      const pos: [number, number, number, number] = [t.x, t.y, t.z, t.w];
+      const name = REG.blocks[tid]!.name;
+      if (name === 'crafting_table') {
+        this.onOpenScreen?.({ kind: 'crafting', pos });
+        return;
       }
+      if (this.blockEntities.hasEntity(tid)) {
+        const fk = this.blockEntities.furnaceKind(tid);
+        this.onOpenScreen?.(fk ? { kind: 'furnace', pos, furnace: fk } : { kind: 'chest', pos });
+        return;
+      }
+    }
+    if (!held) return;
+    const def = IREG.def(held.id);
+    if (def.use) {
+      this.useItem(held, def.use);
+      return;
+    }
+    const bid = IREG.itemBlock[held.id]!;
+    if (bid < 0) return;
+    if (this.placeAtTarget(bid) && this.player.mode === 'survival') {
+      held.count--;
+      this.inv.set(this.hotbarIndex, held.count > 0 ? held : null);
+    }
+  }
+
+  private useItem(held: ItemStack, use: NonNullable<ReturnType<typeof IREG.def>['use']>): void {
+    const survival = this.player.mode === 'survival';
+    const reach = survival ? 5 : 7;
+    if (use === 'bucket') {
+      const hit = this.fluidHit;
+      if (!raycast(this.world, this.eyePos, this.player.cam.fwd, reach, hit, true)) return;
+      const v = hit.voxel;
+      const fl = REG.fluid[voxelId(v)]!;
+      if (fl === 0 || (v >>> 12) !== 0) return; // only sources can be scooped
+      this.world.setBlock(hit.x, hit.y, hit.z, hit.w, 0);
+      const filled = { id: IREG.id(fl === FLUID_WATER ? 'water_bucket' : 'lava_bucket'), count: 1, damage: 0 };
+      if (!survival) return;
+      if (held.count === 1) this.inv.set(this.hotbarIndex, filled);
+      else {
+        held.count--;
+        this.inv.set(this.hotbarIndex, held);
+        if (this.inv.add(filled) > 0) this.throwStack(filled);
+      }
+      return;
+    }
+    if (use === 'water_bucket' || use === 'lava_bucket') {
+      if (!this.hasTarget) return;
+      const placed = this.placeAtTarget(use === 'water_bucket' ? REG.id('water') : REG.id('lava'));
+      if (placed && survival) this.inv.set(this.hotbarIndex, { id: IREG.id('bucket'), count: 1, damage: 0 });
+      return;
+    }
+    if (use === 'flint_and_steel') {
+      this.message?.('Nothing to light here yet (portals arrive with the Ember Depths).');
+    }
+  }
+
+  /** Middle click: select (or, in creative, create) the targeted block's item in the hotbar. */
+  private pickBlock(): void {
+    const item = IREG.blockItem[voxelId(this.target.voxel)]!;
+    if (item < 0) return;
+    for (let i = 0; i < HOTBAR_SIZE; i++) {
+      if (this.inv.get(i)?.id === item) {
+        this.hotbarIndex = i;
+        return;
+      }
+    }
+    if (this.player.mode === 'creative') {
+      this.inv.set(this.hotbarIndex, { id: item, count: IREG.maxStack[item]!, damage: 0 });
+      return;
+    }
+    // Survival: swap from the main inventory into the selected hotbar slot.
+    for (let i = HOTBAR_SIZE; i < 36; i++) {
+      const s = this.inv.get(i);
+      if (s?.id !== item) continue;
+      const cur = this.inv.get(this.hotbarIndex);
+      this.inv.set(this.hotbarIndex, s);
+      this.inv.set(i, cur);
+      return;
     }
   }
 

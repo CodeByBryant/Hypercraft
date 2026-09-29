@@ -6,7 +6,7 @@ export const BLOCKS: BlockDef[] = [
   { name: 'air', render: 'invisible', solid: false, textures: {}, replaceable: true },
   { name: 'bedrock', render: 'opaque', solid: true, textures: { all: 'bedrock' }, hardness: -1 },
   { name: 'stone', render: 'opaque', solid: true, textures: { all: 'stone' }, hardness: 1.5 },
-  { name: 'cobblestone', render: 'opaque', solid: true, textures: { all: 'cobblestone' }, hardness: 2 },
+  { name: 'cobblestone', render: 'opaque', solid: true, textures: { all: 'cobblestone' }, hardness: 2, tags: ['stone_crafting'] },
   { name: 'smooth_stone', render: 'opaque', solid: true, textures: { all: 'smooth_stone' }, hardness: 2 },
   { name: 'dirt', render: 'opaque', solid: true, textures: { all: 'dirt' }, hardness: 0.5 },
   {
@@ -18,7 +18,7 @@ export const BLOCKS: BlockDef[] = [
     biomeTint: 1,
     hardness: 0.6,
   },
-  { name: 'sand', render: 'opaque', solid: true, textures: { all: 'sand' }, hardness: 0.5 },
+  { name: 'sand', render: 'opaque', solid: true, textures: { all: 'sand' }, hardness: 0.5, tags: ['sand'] },
   { name: 'sandstone', render: 'opaque', solid: true, textures: { all: 'sandstone' }, hardness: 0.8 },
   { name: 'gravel', render: 'opaque', solid: true, textures: { all: 'gravel' }, hardness: 0.6 },
   { name: 'snow', displayName: 'Snow Block', render: 'opaque', solid: true, textures: { all: 'snow' }, hardness: 0.2 },
@@ -71,7 +71,7 @@ export const BLOCKS: BlockDef[] = [
     hardness: 0.2,
     tags: ['leaves'],
   },
-  { name: 'planks', render: 'opaque', solid: true, textures: { all: 'planks' }, hardness: 2 },
+  { name: 'planks', displayName: 'Tesseract Planks', render: 'opaque', solid: true, textures: { all: 'planks' }, hardness: 2, tags: ['planks'] },
   {
     name: 'glass',
     render: 'translucent',
