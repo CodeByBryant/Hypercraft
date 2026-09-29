@@ -240,6 +240,26 @@ export function paintIcon(def: IconDef): Uint8ClampedArray {
       p.disc(12.5, 3.5, 2, main);
       p.line(5, 12, 12, 5, shade);
       break;
+    case 'feather':
+      p.line(3, 14, 12, 3, shade);
+      p.poly([[5, 11], [9, 3], [13, 2], [12, 6], [7, 12]], main);
+      p.line(4, 13, 12, 3, accent);
+      break;
+    case 'arrow':
+      p.line(3, 13, 12, 4, rgba('#8a6a3c'));
+      p.poly([[10, 3], [14, 2], [13, 6]], main);
+      p.line(2, 11, 4, 13, accent);
+      p.line(2, 13, 4, 14, accent);
+      break;
+    case 'string':
+      for (let k = 0; k < 14; k++) p.set(2 + k, 8 + Math.round(3 * Math.sin(k * 0.9)), main);
+      for (let k = 0; k < 12; k++) p.set(3 + k, 6 + Math.round(2 * Math.cos(k * 1.1)), shade);
+      break;
+    case 'bow':
+      for (let a = -1.25; a <= 1.25; a += 0.03) p.set(4 + 8 * Math.cos(a) - 2, 8 + 7 * Math.sin(a), main);
+      for (let a = -1.25; a <= 1.25; a += 0.03) p.set(4 + 8 * Math.cos(a) - 3, 8 + 7 * Math.sin(a), shade);
+      p.line(4.5, 1.5, 4.5, 14.5, accent);
+      break;
   }
   p.outline();
   return p.px;

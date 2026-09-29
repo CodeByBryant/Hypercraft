@@ -42,6 +42,12 @@ export const RECIPES: RecipeDef[] = [
   { type: 'shaped', pattern: [' i ', 'ifi', ' i '], key: { i: 'iron_ingot', f: 'fluxite_dust' }, result: 'compass' },
   { type: 'shaped', pattern: [' g ', 'gfg', ' g '], key: { g: 'gold_ingot', f: 'fluxite_dust' }, result: 'clock' },
 
+  // Combat and fibre.
+  { type: 'shaped', pattern: [' ts', 't s', ' ts'], key: { t: 'stick', s: 'string' }, result: 'bow' },
+  { type: 'shaped', pattern: ['f', 's', 'e'], key: { f: 'flint', s: 'stick', e: 'feather' }, result: 'arrow', count: 4 },
+  { type: 'shaped', pattern: ['ss', 'ss'], key: { s: 'string' }, result: 'wool' },
+  { type: 'shaped', pattern: ['hh', 'hh'], key: { h: 'rabbit_hide' }, result: 'leather' },
+
   // Nuggets.
   { type: 'shapeless', ingredients: ['iron_ingot'], result: 'iron_nugget', count: 9 },
   { type: 'shapeless', ingredients: ['gold_ingot'], result: 'gold_nugget', count: 9 },

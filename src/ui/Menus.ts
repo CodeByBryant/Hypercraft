@@ -80,6 +80,8 @@ export class Menus {
         h('p', {}, 'The world has four spatial axes: X, Y (up), Z and W. Your screen shows a 3D cross-section. The axis you cannot see is the hidden axis h; the compass bottom-right shows it.'),
         h('p', {}, h('b', {}, 'WASD'), ' move · ', h('b', {}, 'Arrow keys / mouse'), ' look · ', h('b', {}, 'Q / E'), ' move kata / ana (along h) · ', h('b', {}, 'Space'), ' jump (double-tap: fly in creative)'),
         h('p', {}, h('b', {}, 'Z / X'), ' and ', h('b', {}, 'F / V'), ' rotate the slice through the 4th dimension · ', h('b', {}, 'Alt + mouse'), ' free slice rotation · ', h('b', {}, 'C'), ' snap back to an axis-aligned slice'),
+        h('p', {}, h('b', {}, 'Left click'), ' mine (hold in survival) / attack · ', h('b', {}, 'Right click'), ' place, use, open crafting tables, chests and furnaces (Mac: two-finger click, or Ctrl/Cmd + click) · ', h('b', {}, 'Tab / I'), ' inventory and recipe book · ', h('b', {}, 'B'), ' drop item'),
+        h('p', {}, 'Survival worlds start with an empty inventory: mine blocks (they drop as items you pick up), craft planks and a crafting table, then tools.'),
         h('p', {}, 'Tilted slices cut cubes into prisms. Press ', h('b', {}, 'P'), ' to see every cross-section edge coloured by axis, ', h('b', {}, 'F3'), ' for debug info.'),
         h('p', {}, h('b', {}, 'Touch:'), ' left thumb = move stick, right side = drag to look, tap = place, hold = break, two-finger twist / drag = rotate the slice.'),
       ),

@@ -82,6 +82,8 @@ export const DEFAULT_BINDINGS: Record<Action, string[]> = {
   drop: ['KeyB'],
 };
 
+const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
+
 export class Input {
   private readonly keys = new Set<string>();
   private readonly pressedKeys = new Set<string>();
@@ -98,6 +100,9 @@ export class Input {
   private lastJumpPress = -1e9;
   doubleJump = false;
   private readonly canvas: HTMLElement;
+  /** Physical button -> logical button (Mac Ctrl/Cmd+click maps left to right). */
+  private readonly buttonMap: number[] = [0, 1, 2, 3, 4];
+  private lastSecondary = -1e9;
 
   constructor(canvas: HTMLElement, bindings: Record<Action, string[]> = DEFAULT_BINDINGS) {
     this.canvas = canvas;
@@ -110,14 +115,26 @@ export class Input {
       this.buttons = 0;
     });
     canvas.addEventListener('mousedown', (e) => {
-      this.buttons |= 1 << e.button;
-      this.pressedButtons |= 1 << e.button;
+      let b = e.button;
+      // Mac: Ctrl+click and Cmd+click are the secondary (right) click on trackpads.
+      if (b === 0 && IS_MAC && (e.ctrlKey || e.metaKey)) b = 2;
+      if (b === 2) this.lastSecondary = performance.now();
+      this.buttonMap[e.button] = b;
+      this.buttons |= 1 << b;
+      this.pressedButtons |= 1 << b;
       e.preventDefault();
     });
     window.addEventListener('mouseup', (e) => {
-      this.buttons &= ~(1 << e.button);
+      const b = this.buttonMap[e.button] ?? e.button;
+      this.buttonMap[e.button] = e.button;
+      this.buttons &= ~(1 << b);
     });
-    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    canvas.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      // Some trackpads (two-finger tap, notably on macOS) only send a contextmenu event with
+      // no right-button mousedown: treat it as a single place/use click.
+      if (performance.now() - this.lastSecondary > 250) this.pressedButtons |= 1 << 2;
+    });
     window.addEventListener('mousemove', (e) => {
       if (!this.locked && !this.freeMouse) return;
       this.mouseDX += e.movementX;

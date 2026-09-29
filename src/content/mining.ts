@@ -95,3 +95,7 @@ set(['bone_shrub', 'rib_weed'], { shears: true, drops: [{ item: 'bone', chance: 
 
 // Glass and ice shatter.
 set(['glass', 'ice'], { drops: 'none' });
+
+// Webs: swords and shears cut them quickly; they drop string.
+set(['cobweb'], { tool: 'sword', shears: true, drops: [{ item: 'string' }] });
+set(['wool'], { tool: 'shears' });

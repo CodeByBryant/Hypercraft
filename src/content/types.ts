@@ -243,7 +243,11 @@ export type IconShape =
   | 'shard'
   | 'flint'
   | 'apple'
-  | 'bone';
+  | 'bone'
+  | 'feather'
+  | 'arrow'
+  | 'string'
+  | 'bow';
 
 /** Procedural 16x16 pixel icon: a shape painted with a small palette (main, shade, accent). */
 export interface IconDef {
@@ -271,7 +275,7 @@ export interface ItemDef {
   tags?: string[];
   group?: ItemGroup;
   /** Right-click behaviour implemented in the engine. */
-  use?: 'bucket' | 'water_bucket' | 'lava_bucket' | 'flint_and_steel';
+  use?: 'bucket' | 'water_bucket' | 'lava_bucket' | 'flint_and_steel' | 'bow';
   /** Held-item HUD readout. */
   readout?: 'compass' | 'clock';
 }
@@ -327,6 +331,79 @@ export interface SmeltingRecipe {
 }
 
 export type RecipeDef = ShapedRecipe | ShapelessRecipe | SmeltingRecipe;
+
+// ------------------------------------------------------------------ mobs (Phase 4)
+
+/**
+ * One analytic primitive of a mob body, in the mob's local 4D frame:
+ * x = right, y = up, z = forward, w = the mob's own "ana" axis. The ray marcher intersects
+ * these exactly, so a mob's cross-section changes with the slice like everything else.
+ */
+export interface MobPart {
+  kind: 'box' | 'ball' | 'capsule';
+  /** Box/ball centre, or capsule end A. */
+  at: [number, number, number, number];
+  /** Box half extents. */
+  size?: [number, number, number, number];
+  /** Ball / capsule radius. */
+  r?: number;
+  /** Capsule end B. */
+  to?: [number, number, number, number];
+  color: Hex;
+  /** Glows (ignores light). */
+  glow?: boolean;
+  /** Procedural animation role. */
+  anim?: 'leg' | 'head' | 'wing' | 'tail' | 'pulse';
+  /** Animation phase offset (radians). */
+  phase?: number;
+}
+
+export type MobAI =
+  | 'passive'
+  | 'melee'
+  | 'ranged'
+  | 'exploder'
+  | 'stalker'
+  | 'hopper'
+  | 'flyer'
+  | 'swimmer'
+  | 'golem'
+  | 'climber'
+  | 'mimic'
+  | 'lurker';
+
+export interface MobDef {
+  name: string;
+  displayName: string;
+  hostile: boolean;
+  ai: MobAI;
+  health: number;
+  /** Blocks per second. */
+  speed: number;
+  /** Melee damage per hit (hostile). */
+  damage?: number;
+  /** Body hitbox half-width (x, z and w) and height. */
+  width: number;
+  height: number;
+  parts: MobPart[];
+  drops?: DropDef[];
+  /** Burns in direct sunlight (undead). */
+  burnsInDay?: boolean;
+  /** Immune to fire / lava. */
+  fireproof?: boolean;
+  /** Hopper: splits into this many smaller copies on death (size levels 3 -> 2 -> 1). */
+  splits?: number;
+  /** Visual scale range for spawned individuals. */
+  scale?: [number, number];
+  /** Only damageable while its cross-section is inside your slice (Phase Golem). */
+  sliceBound?: boolean;
+  /** Ranged: projectile item and seconds between shots. */
+  projectile?: { item: string; cooldown: number; damage: number };
+  /** Exploder: blast radius (4D ball) and fuse seconds. */
+  blast?: { radius: number; fuse: number };
+  /** Periodically drops an item (hyperchickens lay eggs): item and seconds range. */
+  lays?: { item: string; every: [number, number] };
+}
 
 export type WeatherKind = 'clear' | 'rain' | 'snow' | 'thunder' | 'phase_storm';
 

@@ -197,7 +197,7 @@ export class InventoryScreen {
     const mainGrid = h('div', 'inv-grid', main);
     mainGrid.style.gridTemplateColumns = 'repeat(9, auto)';
     for (let i = HOTBAR_SIZE; i < MAIN_END; i++) this.slot(mainGrid, g.inv, i);
-    const hot = h('div', 'inv-grid', main);
+    const hot = h('div', 'inv-grid inv-hotbar', main);
     hot.style.gridTemplateColumns = 'repeat(9, auto)';
     hot.style.marginTop = '8px';
     for (let i = 0; i < HOTBAR_SIZE; i++) this.slot(hot, g.inv, i);

@@ -40,7 +40,7 @@ test('survival mining, recipe-book crafting and furnace smelting', async ({ page
   expect(await count('log')).toBe(1);
   await page.click('.inv-book .islot[data-item="stick"]');
   await page.click('.islot.result'); // result onto the cursor...
-  await page.click('.inv-main .inv-grid:last-of-type .islot[data-slot="8"]'); // ...then into hotbar slot 9
+  await page.click('.inv-hotbar .islot[data-slot="8"]'); // ...then into hotbar slot 9
   expect(await count('stick')).toBe(4);
   expect(await count('planks')).toBe(2);
   if (process.env.SHOT_DIR) {
@@ -49,8 +49,15 @@ test('survival mining, recipe-book crafting and furnace smelting', async ({ page
   }
   await page.evaluate(() => window.__hc.closeScreen());
 
-  // Furnace: raw iron + coal -> iron ingots while the block is lit.
-  await page.evaluate(() => window.__hc.setMode('creative'));
+  // Furnace: raw iron + coal -> iron ingots while the block is lit. (We are standing in the
+  // hole we mined; fly up so the furnace does not go into our own body.)
+  await page.evaluate(() => {
+    const s = window.__hc.state();
+    window.__hc.setMode('creative');
+    window.__hc.setFlying(true);
+    window.__hc.teleport(s.pos[0]!, s.pos[1]! + 2.5, s.pos[2]!, s.pos[3]!);
+    window.__hc.setView({ pitch: -89 });
+  });
   await page.evaluate(() => window.__hc.frames(3));
   const t2 = await page.evaluate(() => window.__hc.target());
   expect(t2).not.toBeNull();

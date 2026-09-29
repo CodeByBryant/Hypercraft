@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.1 — Mac placing fix (2026-09-29)
+
+### Fixed
+- Placing blocks on Mac: Ctrl+click and Cmd+click now count as the secondary (right) click,
+  and a trackpad two-finger tap that only sends a context-menu event places once.
+- Inventory grids stay compact; how-to-play mentions the Mac secondary click and the survival
+  start (empty inventory).
+- e2e: the Phase 3 survival spec (mining, recipe-book crafting, furnace) now passes.
+
+### Added (groundwork for Phase 4)
+- Mob definitions for 28 Surface mobs as analytic 4D bodies, the mob registry with
+  validation, a 4D A* pathfinder (unit-tested: it routes around walls through W), ray vs
+  4D ball/box/capsule intersection, mob drop items, bow, arrows, wool and cobwebs.
+
 ## 0.3.0 — Phase 3: Items, inventory, mining, crafting, furnaces (2026-09-29)
 
 ### Added
