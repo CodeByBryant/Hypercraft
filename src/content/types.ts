@@ -111,7 +111,10 @@ export type TexturePattern =
   | 'furnace'
   | 'table_top'
   | 'chest'
-  | 'metal';
+  | 'metal'
+  | 'cage'
+  | 'shelf'
+  | 'thatch';
 
 /** Procedural 16x16x16 solid texture (sampled on the 3D facets of tesseracts). */
 export interface TextureDef {
@@ -249,7 +252,17 @@ export type IconShape =
   | 'feather'
   | 'arrow'
   | 'string'
-  | 'bow';
+  | 'bow'
+  | 'paper'
+  | 'book'
+  | 'wheat'
+  | 'bread'
+  | 'map'
+  | 'torch'
+  | 'lantern'
+  | 'fence'
+  | 'campfire'
+  | 'web';
 
 /** Procedural 16x16 pixel icon: a shape painted with a small palette (main, shade, accent). */
 export interface IconDef {
@@ -279,7 +292,9 @@ export interface ItemDef {
   /** Right-click behaviour implemented in the engine. */
   use?: 'bucket' | 'water_bucket' | 'lava_bucket' | 'flint_and_steel' | 'bow';
   /** Held-item HUD readout. */
-  readout?: 'compass' | 'clock';
+  readout?: 'compass' | 'clock' | 'atlas';
+  /** Atlas items: structure names they point to (the nearest one of any). */
+  atlas?: string[];
 }
 
 export interface DropDef {
@@ -372,7 +387,8 @@ export type MobAI =
   | 'golem'
   | 'climber'
   | 'mimic'
-  | 'lurker';
+  | 'lurker'
+  | 'villager';
 
 export interface MobDef {
   name: string;
@@ -410,6 +426,80 @@ export interface MobDef {
    * few seconds (Web Weavers spin cobwebs, often kata or ana of your slice).
    */
   spins?: { block: string; every: [number, number] };
+  /** Villager profession (trades.ts); right click opens trading. */
+  profession?: string;
+  /** Saved with the column it stands in (villagers), instead of despawning. */
+  persistent?: boolean;
+}
+
+// ------------------------------------------------------------------ loot (Phase 5)
+
+export interface LootEntry {
+  item: string;
+  weight: number;
+  count?: [number, number];
+  /** Tools: durability already used, as a fraction range of the maximum. */
+  wear?: [number, number];
+}
+
+export interface LootPool {
+  rolls: [number, number];
+  entries: LootEntry[];
+}
+
+/** A chest loot table: each pool is rolled `rolls` times; results spread over random slots. */
+export interface LootTable {
+  pools: LootPool[];
+}
+
+// ------------------------------------------------------------------ structures (Phase 5)
+
+export type StructurePlacement = 'surface' | 'underground' | 'underwater' | 'beach' | 'sheet';
+
+export interface StructureDef {
+  name: string;
+  displayName: string;
+  placement: StructurePlacement;
+  /** One attempt per grid cell of this size in x, z and w (a 4D grid in the horizontal 3-space). */
+  spacing: number;
+  /** Chance that a cell's attempt happens (before biome and terrain checks). */
+  chance: number;
+  /** Builder id (src/world/gen/structures/builders). */
+  builder: string;
+  /** Builder parameters (style, sizes, loot tables, mobs...). */
+  params?: Record<string, unknown>;
+  /** Largest horizontal distance from the start any block can be placed. */
+  radius: number;
+  /** Underground placements: start height range. */
+  y?: [number, number];
+  /** Hash salt: keeps grids of different structures independent. */
+  salt: number;
+}
+
+// ------------------------------------------------------------------ trading (Phase 5)
+
+/** [item, count] */
+export type TradeStack = [string, number];
+
+export interface TradeDef {
+  /** What the player pays (one or two stacks). */
+  cost: TradeStack[];
+  /** What the player gets. */
+  result: TradeStack;
+  /** Trades before the offer is out of stock (until the next restock). */
+  maxUses: number;
+  /** Villager experience per trade. */
+  xp: number;
+}
+
+export interface ProfessionDef {
+  name: string;
+  displayName: string;
+  /** Robe colour (villager body) and trim. */
+  robe: Hex;
+  trim: Hex;
+  /** Trades by level (novice, apprentice, journeyman, expert, master); two are offered per level. */
+  levels: TradeDef[][];
 }
 
 export type WeatherKind = 'clear' | 'rain' | 'snow' | 'thunder' | 'phase_storm';

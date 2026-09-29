@@ -1,6 +1,7 @@
 // Item icon sheet: 32x32 cells on a 1024x1024 canvas. Block items are drawn as isometric
-// cubes (or flat sprites for plants, torches, ladders) from the world texture atlas; other
-// items are painted from their IconDef. Used by the DOM UI (CSS sprites) and uploaded as a
+// cubes (or flat sprites for plants and ladders) from the world texture atlas; other items,
+// and block items with an explicit icon (torches, lanterns, fences...), are painted from
+// their IconDef. Used by the DOM UI (CSS sprites) and uploaded as a
 // texture for dropped-item sprites.
 
 import { IREG } from '../content/itemRegistry';
@@ -57,7 +58,9 @@ export class IconAtlas {
     const [cx, cy] = this.cell(id);
     const bid = IREG.itemBlock[id]!;
     const def = IREG.def(id);
-    if (bid < 0 || !REG.blocks[bid] || REG.render[bid] === RENDER_INVISIBLE) {
+    // Painted icons win: items without a block, and block items whose shape does not read as
+    // a cube or a flat texture (torches, lanterns, fences, campfires, cobwebs).
+    if (def.icon || bid < 0 || !REG.blocks[bid] || REG.render[bid] === RENDER_INVISIBLE) {
       const px = def.icon ? paintIcon(def.icon) : new Uint8ClampedArray(ICON * ICON * 4);
       for (let y = 0; y < CELL; y++)
         for (let x = 0; x < CELL; x++) {

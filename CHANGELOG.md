@@ -1,5 +1,59 @@
 # Changelog
 
+## 0.4.1 — Mobile controls overhaul, mob visibility, icons (2026-09-29)
+
+### Fixed (playtest feedback)
+- **Hotbar taps on touch screens** now select the slot. The full-screen touch zones used to
+  sit on top of the hotbar and swallow every tap.
+- **Every screen can be closed on touch**: inventory, crafting table, chest and furnace have
+  a ✕ button. Before, only Esc, Tab or I closed them.
+- **No more ghost taps**: the inventory and pause buttons act when the tap completes, so the
+  same tap no longer presses a button in the screen it just opened.
+- **Sheep and other passive mobs stop popping in and out of view.** Near your slice,
+  wandering mobs (animals, and hostiles that have not noticed you) wander *inside* it and
+  settle into it when a little off. Fleeing animals flee inside it too. Knockback is gentler
+  and stays in the slice. Near you, mobs keep their own w axis on your hidden axis, so you
+  see their designed cross-section (legs, heads) instead of a random oblique cut.
+- **More passive mobs, easier to find**: the passive cap rose from 12 to 20, spawn
+  attempts from 6 to 8 per cycle, and half of them land in your current slice (herds
+  spread inside it). Passive mobs despawn beyond 96 blocks, so the cap refills near you.
+- **Item icons**: the torch was a solid brown, yellow and white square. It now has a
+  pixel-art icon, and so do lanterns, fences, campfires and cobwebs.
+
+### Changed (touch controls)
+- **Tap to interact**: tap a mob to hit it, or tap a block to use or place right where you
+  tapped. The ray goes through your finger, not the crosshair.
+- **Long-press mines the block under your finger**; slide the finger to move to the next
+  block.
+- **Aim assist**: a near miss on a visible mob still hits (0.45 blocks on touch, 0.12 with
+  a mouse). It never reaches mobs off your slice.
+- **New thumb cluster**: Kata / Ana / Sneak, then ⛏/⚔ Hit (turns red on a mob) / ✋ Use /
+  Drop, then a wide Jump. Use is a hold button, so bows can be drawn.
+- **Screens**:
+  - a faint ring shows where the move stick is;
+  - screens scale to fit phones;
+  - the recipe book is a toggle on small screens (it was hidden before);
+  - holding a slot splits it, and **Quick move** makes taps move whole stacks.
+- The Fly button only shows in creative and spectator; the game-mode label moved off the
+  hotbar.
+- `?test=1&touch=1` shows the touch controls in test worlds, and a new e2e spec drives them
+  with real touch events on a phone-sized screen:
+  - hotbar taps;
+  - closing the inventory and crafting table with ✕;
+  - tapping a mob off the crosshair to hit it;
+  - tapping to place;
+  - long-press mining.
+
+### Added (early Phase 5 content)
+- Building blocks, craftable now:
+  - stone bricks (plain, mossy, cracked, chiseled);
+  - thatch, plaster, dirt path and hay bale;
+  - bookshelf, lantern, fence and campfire;
+  - sea bricks and sea lantern, tesseract bricks and gilded bricks;
+  - red and blue wool.
+- Paper, books, wheat (from wild wheat) and bread.
+- The mob spawner block (no item).
+
 ## 0.4.0 — Phase 4: Mobs, combat, health (2026-09-29)
 
 ### Added

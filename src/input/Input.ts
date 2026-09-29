@@ -163,6 +163,34 @@ export class Input {
   /** Slice-rotation deltas from gestures, in radians this frame. */
   sliceRH = 0;
   sliceFH = 0;
+  /**
+   * Touch "tap to interact": while `aimOn`, picking uses the ray through this screen point
+   * (NDC, -1..1) instead of the crosshair. `aimDirty` asks the game to re-pick right away.
+   */
+  aimX = 0;
+  aimY = 0;
+  aimOn = false;
+  aimDirty = false;
+  /** A quick tap at the aim point: interact once (attack the mob there, or use / place). */
+  tapInteract = false;
+
+  setAim(x: number, y: number): void {
+    this.aimX = Math.max(-1, Math.min(1, x));
+    this.aimY = Math.max(-1, Math.min(1, y));
+    this.aimOn = true;
+    this.aimDirty = true;
+  }
+
+  clearAim(): void {
+    this.aimOn = false;
+    this.aimDirty = true;
+  }
+
+  /** One interaction at a screen point (touch tap). */
+  tapAt(x: number, y: number): void {
+    this.setAim(x, y);
+    this.tapInteract = true;
+  }
 
   rebuild(): void {
     this.codeToActions.clear();
@@ -232,6 +260,7 @@ export class Input {
   clearPressed(): void {
     this.pressedKeys.clear();
     this.pressedButtons = 0;
+    this.tapInteract = false;
   }
 
   endFrame(): void {

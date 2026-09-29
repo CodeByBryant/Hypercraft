@@ -190,4 +190,33 @@ describe('mob manager', () => {
       expect(w).toBe(1); // 1.5 blocks toward the weaver, along W
     }
   });
+
+  it('passive mobs near your slice drift into it and flee inside it', () => {
+    const mm = new MobManager(flat);
+    mm.enabled = false;
+    const h = host(); // player at (0, 10, 0, 0), hidden axis +W
+    const sheep = mm.spawn('kata_sheep', 3.5, 10, 2.5, 3.2)!;
+    for (let i = 0; i < 300; i++) mm.update(1 / 30, h, () => null, null);
+    expect(Math.abs(sheep.pos[3]!)).toBeLessThan(0.6); // settled into the w = 0 slice
+    // Hit it: it runs away but stays in the slice.
+    mm.damage(sheep, 1, [sheep.pos[0]! - 1, 10, sheep.pos[2]!, sheep.pos[3]!]);
+    const w0 = sheep.pos[3]!;
+    for (let i = 0; i < 90; i++) mm.update(1 / 30, h, () => null, null);
+    expect(Math.hypot(sheep.pos[0]! - 3.5, sheep.pos[2]! - 2.5)).toBeGreaterThan(2);
+    expect(Math.abs(sheep.pos[3]! - w0)).toBeLessThan(0.6);
+  });
+
+  it('aim assist catches a near miss on a visible mob, never one off the slice', () => {
+    const mm = new MobManager(flat);
+    mm.spawn('kata_sheep', 0.5, 10, 4, 0.5);
+    const out = { mob: null as unknown as ReturnType<typeof mm.spawn> };
+    const o = [0.5 + 0.9, 11, 0.5, 0.5]; // 0.9 to the side of the body centre (width 0.45)
+    const d = [0, 0, 1, 0];
+    const hidden = [0, 0, 0, 1];
+    expect(mm.pick(o, d, 8, out as { mob: never })).toBe(Infinity);
+    expect(mm.pickAssist(o, d, 8, 0.5, hidden, out as { mob: never })).toBeLessThan(4);
+    const far = new MobManager(flat);
+    far.spawn('kata_sheep', 0.5, 10, 4, 2.5); // two blocks off the slice: invisible
+    expect(far.pickAssist([0.5, 11, 0.5, 0.5], d, 8, 0.5, hidden, out as { mob: never })).toBe(Infinity);
+  });
 });

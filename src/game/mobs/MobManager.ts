@@ -25,7 +25,7 @@ export const ENTITY_TEX_H = Math.ceil((PART_BASE + MAX_GPU_MOBS * MAX_MOB_PARTS 
 
 const MAX_MOBS = 64;
 const CAP_HOSTILE = 14;
-const CAP_PASSIVE = 12;
+const CAP_PASSIVE = 20;
 
 export interface MobHost {
   world: World;
@@ -77,6 +77,8 @@ export class Mob {
   spinTimer = 4;
   burnTimer = 0;
   noiseAt: Float64Array | null = null;
+  /** Within 32 blocks of the player this frame: faces and wanders relative to their slice. */
+  near = false;
   constructor(id: number, cm: CompiledMob, scale: number) {
     this.id = id;
     this.cm = cm;
@@ -151,6 +153,8 @@ export class MobManager {
   private readonly tmp = new Float64Array(4);
   lastNoise: Float64Array | null = null;
   enabled = true;
+  /** Host of the current update (steering reads the player's hidden axis from it). */
+  private host: MobHost | null = null;
 
   constructor(private readonly world: World) {
     this.pf = new Pathfinder(world, 700);
@@ -201,18 +205,21 @@ export class MobManager {
 
   private spawnCycle(h: MobHost, biomeAt: (x: number, z: number, w: number) => BiomeDef | null, caveBiomeAt: ((x: number, y: number, z: number, w: number) => number) | null): void {
     const p = h.playerPos;
+    const H = h.playerHidden;
     let hostile = 0, passive = 0;
     for (const m of this.list) (m.def.hostile ? hostile++ : passive++);
-    for (let attempt = 0; attempt < 6; attempt++) {
-      // A random point on a 4D shell around the player (not only in the slice).
-      const d = 14 + Math.random() * 30;
-      const u = Math.random() * 2 - 1, phi = Math.random() * Math.PI * 2;
-      const s = Math.sqrt(1 - u * u);
-      const x = Math.floor(p[0]! + d * s * Math.cos(phi)), z = Math.floor(p[2]! + d * s * Math.sin(phi)), w = Math.floor(p[3]! + d * u);
+    const dir = this.tmp;
+    for (let attempt = 0; attempt < 8; attempt++) {
+      // Half the attempts land in the player's slice (so there is something to see), the rest
+      // anywhere on a 4D shell around the player (mobs live kata and ana of you too).
+      const inSlice = attempt % 2 === 0;
+      const d = inSlice ? 12 + Math.random() * 24 : 14 + Math.random() * 30;
+      randomHorizontal(dir, inSlice ? H : null);
+      const x = Math.floor(p[0]! + d * dir[0]!), z = Math.floor(p[2]! + d * dir[2]!), w = Math.floor(p[3]! + d * dir[3]!);
       const biome = biomeAt(x, z, w);
       if (!biome?.mobs) continue;
       const sky = this.world.skyHeight(x, z, w);
-      const underground = Math.random() < 0.45;
+      const underground = Math.random() < (inSlice ? 0.25 : 0.45);
       let y = sky;
       let table: MobSpawn[] | undefined;
       if (underground) {
@@ -245,7 +252,11 @@ export class MobManager {
       if (!cm.def.hostile && passive >= CAP_PASSIVE) continue;
       const n = pick.group ? pick.group[0] + Math.floor(Math.random() * (pick.group[1] - pick.group[0] + 1)) : 1;
       for (let k = 0; k < n; k++) {
-        const m = this.spawn(pick.mob, x + 0.5 + (k ? Math.random() * 2 - 1 : 0), y, z + 0.5 + (k ? Math.random() * 2 - 1 : 0), w + 0.5 + (k ? Math.random() * 2 - 1 : 0));
+        // Herd members spread around the first one (inside the slice for in-slice spawns).
+        const off = this.pa;
+        if (k) randomHorizontal(off, inSlice ? H : null);
+        const sp = k ? 0.6 + Math.random() * 1.4 : 0;
+        const m = this.spawn(pick.mob, x + 0.5 + off[0]! * sp, y, z + 0.5 + off[2]! * sp, w + 0.5 + off[3]! * sp);
         if (!m) break;
         if (m.def.hostile) hostile++;
         else passive++;
@@ -296,6 +307,7 @@ export class MobManager {
       }
     }
     this.pathBudget = 2;
+    this.host = h;
     const p = h.playerPos;
     for (let i = this.list.length - 1; i >= 0; i--) {
       const m = this.list[i]!;
@@ -303,8 +315,10 @@ export class MobManager {
       m.hurt = Math.max(0, m.hurt - dt);
       m.attackCd -= dt;
       const d4 = dist4(m.pos, p);
-      // Despawn far away (hostiles sooner), and hostiles on peaceful.
-      if ((m.def.hostile && (d4 > 80 || h.difficulty === 0)) || d4 > 120) {
+      m.near = d4 < 32;
+      // Despawn far away (hostiles sooner), and hostiles on peaceful. Persistent mobs
+      // (villagers) never despawn: the game saves them with their column instead.
+      if (!m.def.persistent && ((m.def.hostile && (d4 > 80 || h.difficulty === 0)) || d4 > 96)) {
         this.list.splice(i, 1);
         continue;
       }
@@ -350,7 +364,9 @@ export class MobManager {
       this.brake(m);
       return;
     }
-    m.face(dx, dz, dw, hidden);
+    // Near the player, mobs keep their own w axis on the player's hidden axis, so the slice
+    // shows their designed cross-section (legs, heads) instead of a random oblique cut.
+    m.face(dx, dz, dw, hidden ?? (m.near && this.host ? this.host.playerHidden : undefined));
     const k = Math.min(1, l);
     m.vel[0] = (dx / l) * speed * k;
     m.vel[2] = (dz / l) * speed * k;
@@ -371,15 +387,64 @@ export class MobManager {
     if (m.timer <= 0 || m.mode !== 'wander') {
       m.mode = Math.random() < 0.35 ? 'idle' : 'wander';
       m.timer = 3 + Math.random() * 6;
-      const r = 6;
-      m.target[0] = m.pos[0]! + (Math.random() * 2 - 1) * r;
-      m.target[1] = m.pos[1]! + (fly ? (Math.random() * 2 - 1) * 2 : 0);
-      m.target[2] = m.pos[2]! + (Math.random() * 2 - 1) * r;
-      m.target[3] = m.pos[3]! + (Math.random() * 2 - 1) * r;
+      const r = 1.5 + Math.random() * 4.5;
+      const dir = this.pb;
+      const t = m.target;
+      if (this.settles(m)) {
+        // Near your slice: wander inside it (and drift into it), so animals you are looking
+        // at do not keep slipping kata/ana out of view.
+        randomHorizontal(dir, this.host!.playerHidden);
+        this.toSlice(m, t);
+        for (const k of [0, 2, 3]) t[k] = t[k]! + dir[k]! * r;
+      } else {
+        randomHorizontal(dir, null);
+        for (const k of [0, 2, 3]) t[k] = m.pos[k]! + dir[k]! * r;
+      }
+      t[1] = m.pos[1]! + (fly ? (Math.random() * 2 - 1) * 2 : 0);
     }
-    if (m.mode === 'idle') this.brake(m);
-    else this.steer(m, m.target[0]!, m.target[2]!, m.target[3]!, speed);
+    if (m.mode === 'idle') {
+      this.brake(m);
+      // Idle mobs near the slice still drift into it.
+      if (this.settles(m)) {
+        const t = this.pa;
+        this.toSlice(m, t);
+        const off = Math.hypot(t[0]! - m.pos[0]!, t[2]! - m.pos[2]!, t[3]! - m.pos[3]!);
+        if (off > 0.15) this.steer(m, t[0]!, t[2]!, t[3]!, speed * 0.5);
+      }
+    } else this.steer(m, m.target[0]!, m.target[2]!, m.target[3]!, speed);
     if (fly) m.vel[1] = (m.target[1]! - m.pos[1]!) * 0.8;
+  }
+
+  /** Wanders relative to the player's slice: near the player and within 6 blocks of it. */
+  private settles(m: Mob): boolean {
+    const h = this.host;
+    if (!h || !m.near || m.def.ai === 'stalker') return false;
+    const H = h.playerHidden, p = h.playerPos;
+    const along = (m.pos[0]! - p[0]!) * H[0]! + (m.pos[2]! - p[2]!) * H[2]! + (m.pos[3]! - p[3]!) * H[3]!;
+    return Math.abs(along) < 6;
+  }
+
+  /** The mob's position moved onto the player's slice (along the hidden axis). */
+  private toSlice(m: Mob, out: Float64Array): void {
+    const h = this.host!;
+    const H = h.playerHidden, p = h.playerPos;
+    const along = (m.pos[0]! - p[0]!) * H[0]! + (m.pos[2]! - p[2]!) * H[2]! + (m.pos[3]! - p[3]!) * H[3]!;
+    for (let k = 0; k < 4; k++) out[k] = m.pos[k]! - along * H[k]!;
+  }
+
+  /** Run away from the player; near their slice, inside it (so it stays in view). */
+  private flee(m: Mob, p: Float64Array, speed: number): void {
+    const d = this.pb;
+    for (let k = 0; k < 4; k++) d[k] = k === 1 ? 0 : m.pos[k]! - p[k]!;
+    const t = this.pa;
+    if (this.settles(m)) {
+      const H = this.host!.playerHidden;
+      const a = d[0]! * H[0]! + d[2]! * H[2]! + d[3]! * H[3]!;
+      for (const k of [0, 2, 3]) d[k] = d[k]! - a * H[k]!;
+      this.toSlice(m, t);
+    } else for (let k = 0; k < 4; k++) t[k] = m.pos[k]!;
+    const l = Math.hypot(d[0]!, d[2]!, d[3]!) || 1;
+    this.steer(m, t[0]! + (d[0]! / l) * 4, t[2]! + (d[2]! / l) * 4, t[3]! + (d[3]! / l) * 4, speed);
   }
 
   /** Walk toward the player using the 4D pathfinder (refreshed every ~1.2 s). */
@@ -445,7 +510,7 @@ export class MobManager {
       case 'passive': {
         if (m.mode === 'flee' && m.timer > 0) {
           m.timer -= dt;
-          this.steer(m, m.pos[0]! * 2 - p[0]!, m.pos[2]! * 2 - p[2]!, m.pos[3]! * 2 - p[3]!, sp * 1.7);
+          this.flee(m, p, sp * 1.5);
         } else this.wander(m, dt, sp);
         break;
       }
@@ -774,11 +839,11 @@ export class MobManager {
       m.hurt = 0.45;
       const dx = m.pos[0]! - from[0]!, dz = m.pos[2]! - from[2]!, dw = m.pos[3]! - from[3]!;
       const l = Math.hypot(dx, dz, dw) || 1;
-      const kb = m.def.ai === 'golem' ? 1.5 : 5.5;
+      const kb = m.def.ai === 'golem' ? 1.2 : 3.6;
       m.vel[0] = (dx / l) * kb;
       m.vel[2] = (dz / l) * kb;
       m.vel[3] = (dw / l) * kb;
-      m.vel[1] = 4.5;
+      m.vel[1] = 3.6;
       if (!m.def.hostile) {
         m.mode = 'flee';
         m.timer = 5;
@@ -822,6 +887,38 @@ export class MobManager {
       if (rayBall(o, d, m.pos, r) > best) continue;
       this.toLocal(m, o, d, lo, ld);
       const t = this.rayParts(m, lo, ld) * m.scale;
+      if (t < best) {
+        best = t;
+        out.mob = m;
+      }
+    }
+    return out.mob ? best : Infinity;
+  }
+
+  /**
+   * Aim assist for when the exact pick misses: each mob whose body crosses the slice counts
+   * as an upright capsule (its hitbox) inflated by `assist` blocks. Returns t or Infinity.
+   */
+  pickAssist(o: ArrayLike<number>, d: ArrayLike<number>, maxT: number, assist: number, hidden: ArrayLike<number>, out: { mob: Mob | null }): number {
+    let best = maxT;
+    out.mob = null;
+    const a = this.pa, b = this.pb;
+    for (const m of this.list) {
+      // Only mobs you can actually see (their body crosses the view hyperplane).
+      let dh = 0;
+      for (let k = 0; k < 4; k++) dh += (m.pos[k]! - o[k]!) * hidden[k]!;
+      const wdt = m.width;
+      if (Math.abs(dh) > wdt * 0.85) continue;
+      // An upright capsule along the body's height, as wide as the hitbox plus the assist.
+      const r = wdt + assist;
+      const ht = m.height;
+      for (let k = 0; k < 4; k++) {
+        a[k] = m.pos[k]!;
+        b[k] = m.pos[k]!;
+      }
+      a[1] = a[1]! + Math.min(0.2, ht * 0.25);
+      b[1] = b[1]! + Math.max(ht - 0.2, ht * 0.75);
+      const t = rayCapsule(o, d, a, b, r);
       if (t < best) {
         best = t;
         out.mob = m;
@@ -964,6 +1061,33 @@ export class MobManager {
     out.sort((x, y) => dist4(x.pos, p) - dist4(y.pos, p));
     return out.length;
   }
+}
+
+/**
+ * A random unit direction in the horizontal 3-space (x, z, w); with `hidden`, restricted to
+ * the plane orthogonal to it (the player's slice).
+ */
+function randomHorizontal(out: Float64Array, hidden: ArrayLike<number> | null): void {
+  for (let tries = 0; tries < 8; tries++) {
+    let x = Math.random() * 2 - 1, z = Math.random() * 2 - 1, w = Math.random() * 2 - 1;
+    if (hidden) {
+      const d = x * hidden[0]! + z * hidden[2]! + w * hidden[3]!;
+      x -= d * hidden[0]!;
+      z -= d * hidden[2]!;
+      w -= d * hidden[3]!;
+    }
+    const l = Math.hypot(x, z, w);
+    if (l < 0.1 || l > 1) continue;
+    out[0] = x / l;
+    out[1] = 0;
+    out[2] = z / l;
+    out[3] = w / l;
+    return;
+  }
+  out[0] = 1;
+  out[1] = 0;
+  out[2] = 0;
+  out[3] = 0;
 }
 
 function dist4(a: ArrayLike<number>, b: ArrayLike<number>): number {

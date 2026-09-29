@@ -293,6 +293,33 @@ export function generateTexture(def: TextureDef, index: number): Uint8Array {
             col = frame ? c1 : scale(c0, 1 + (j - 0.5) * 0.08);
             break;
           }
+          case 'cage': {
+            // Mob spawner: a 3D lattice of dark bars (every 4 texels in u, v and s), hollow inside.
+            const bu = (u & 3) === 0 || u === 15, bv = (v & 3) === 0 || v === 15, bs = (s & 3) === 0 || s === 15;
+            const bars = (bu && bv) || (bu && bs) || (bv && bs);
+            a = bars ? 1 : 0;
+            col = scale(bars ? c0 : c1, 1 + (j - 0.5) * 0.2);
+            break;
+          }
+          case 'shelf': {
+            // Bookshelf: wooden frame and a middle board; rows of book spines (palette 2..).
+            const frame = v === 0 || v === 15 || v === 7 || v === 8 || u === 0 || u === 15 || s === 0 || s === 15;
+            if (frame) col = scale(v === 7 || v === 8 ? c1 : c0, 1 + (j - 0.5) * 0.1);
+            else {
+              const book = (u + s * 3) >> 1;
+              const pick = 2 + Math.floor(hash4f(book, v >> 3, 0, 25, seed) * Math.max(1, cols.length - 2));
+              const top = (v & 7) === 6 && hash4f(book, v >> 3, 1, 26, seed) < 0.5;
+              col = top ? scale(c1, 0.5) : scale(cols[Math.min(cols.length - 1, pick)]!, 0.85 + 0.3 * hash4f(book, v >> 3, 2, 27, seed));
+            }
+            break;
+          }
+          case 'thatch': {
+            // Straw: long streaks along u with dark gaps.
+            const st = hash4f(0, v, s, 28, seed) * 16 + u * 0.4;
+            const band = Math.floor(st) % 5;
+            col = scale(band === 0 ? c2 : band < 3 ? c0 : c1, 1 + (j - 0.5) * 0.18);
+            break;
+          }
         }
         const o = (u + TEX_SIZE * (v + TEX_SIZE * s)) * 4;
         out[o] = Math.max(0, Math.min(255, Math.round(col[0] * 255)));

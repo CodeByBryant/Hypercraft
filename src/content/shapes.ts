@@ -50,6 +50,29 @@ export const SHAPES: ShapeDef[] = [
     boxes: [[[0.0625, 0, 0.0625, 0.0625], [0.9375, 0.875, 0.9375, 0.9375]]],
     collision: 'shape',
   },
+  {
+    // Dirt path: 1/16 lower than a full block.
+    name: 'path',
+    kind: 'boxes',
+    boxes: [[[0, 0, 0, 0], [1, 0.9375, 1, 1]]],
+    collision: 'shape',
+  },
+  {
+    // Lantern: a small hyperbox standing on the floor.
+    name: 'lantern',
+    kind: 'boxes',
+    boxes: [
+      [[0.3125, 0, 0.3125, 0.3125], [0.6875, 0.5, 0.6875, 0.6875]],
+      [[0.4375, 0.5, 0.4375, 0.4375], [0.5625, 0.625, 0.5625, 0.5625]],
+    ],
+    collision: 'shape',
+  },
+  {
+    name: 'campfire',
+    kind: 'boxes',
+    boxes: [[[0, 0, 0, 0], [1, 0.4375, 1, 1]]],
+    collision: 'shape',
+  },
   { name: 'plant', kind: 'plant', collision: 'none' },
   { name: 'fluid', kind: 'fluid', collision: 'none' },
 ];

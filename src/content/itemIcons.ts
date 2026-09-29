@@ -260,6 +260,94 @@ export function paintIcon(def: IconDef): Uint8ClampedArray {
       for (let a = -1.25; a <= 1.25; a += 0.03) p.set(4 + 8 * Math.cos(a) - 3, 8 + 7 * Math.sin(a), shade);
       p.line(4.5, 1.5, 4.5, 14.5, accent);
       break;
+    case 'paper':
+      p.poly([[3, 2], [12, 2], [13, 13], [4, 14]], main);
+      for (let y = 5; y <= 11; y += 2) p.line(5, y, 11, y - 0.3, shade);
+      break;
+    case 'book':
+      p.poly([[3, 3], [12, 2], [13, 13], [4, 14]], main);
+      p.line(4, 3, 5, 14, shade, 2);
+      p.line(7, 6, 11, 5.5, accent);
+      p.line(7, 8, 11, 7.5, accent);
+      break;
+    case 'wheat':
+      for (let k = 0; k < 3; k++) p.line(4 + k * 3, 14, 6 + k * 3, 3, shade);
+      for (let k = 0; k < 3; k++) for (let y = 3; y < 9; y += 2) p.disc(6.5 + k * 3 - (y - 3) * 0.15, y + 0.5, 1.2, main);
+      break;
+    case 'bread':
+      p.poly([[2, 10], [4, 6], [9, 4], [14, 6], [14, 10], [11, 12], [4, 12]], main);
+      p.line(5, 8, 7, 6, accent);
+      p.line(8, 8, 10, 6, accent);
+      p.line(11, 9, 12, 7, accent);
+      p.line(3, 11, 13, 11, shade);
+      break;
+    case 'torch': {
+      // Stick with a flame: main = wood, shade = flame, accent = hot core.
+      p.line(7, 14, 7, 7, main);
+      p.line(8, 14, 8, 7, rgba(def.colors[0], 0.72));
+      p.disc(8, 5.2, 2.6, shade);
+      p.disc(8, 5.6, 1.5, accent);
+      p.set(8, 2, shade);
+      break;
+    }
+    case 'lantern': {
+      // Iron cage around a glowing core: main = iron, shade = glow, accent = hot core.
+      p.line(8, 1, 8, 3, main);
+      p.line(6, 2, 10, 2, main);
+      p.poly([[4.5, 4.5], [11.5, 4.5], [11.5, 14.5], [4.5, 14.5]], main);
+      p.poly([[5.5, 6.5], [10.5, 6.5], [10.5, 12.5], [5.5, 12.5]], shade);
+      p.disc(8, 9.5, 1.6, accent);
+      p.line(5, 5, 11, 5, rgba(def.colors[0], 1.25));
+      p.line(5, 14, 11, 14, rgba(def.colors[0], 0.7));
+      break;
+    }
+    case 'fence': {
+      // Two posts and two rails.
+      p.poly([[3, 2], [6, 2], [6, 15], [3, 15]], main);
+      p.poly([[10, 2], [13, 2], [13, 15], [10, 15]], main);
+      p.poly([[6, 4], [10, 4], [10, 6], [6, 6]], shade);
+      p.poly([[6, 9], [10, 9], [10, 11], [6, 11]], shade);
+      p.line(5, 2, 5, 14, rgba(def.colors[0], 0.75));
+      p.line(12, 2, 12, 14, rgba(def.colors[0], 0.75));
+      break;
+    }
+    case 'campfire': {
+      // Crossed logs with a flame: main = logs, shade = flame, accent = core.
+      p.line(2, 14, 13, 11, main, 2);
+      p.line(3, 11, 14, 14, rgba(def.colors[0], 0.8), 2);
+      p.poly([[5, 11], [6, 6], [8, 2], [10, 6], [11, 11]], shade);
+      p.poly([[7, 11], [7.5, 7], [8.5, 5], [9.5, 8], [9, 11]], accent);
+      break;
+    }
+    case 'web': {
+      // Radial threads and two rings.
+      for (let k = 0; k < 8; k++) {
+        const a = (k * Math.PI) / 4 + 0.2;
+        p.line(8, 8, 8 + Math.cos(a) * 7.5, 8 + Math.sin(a) * 7.5, main);
+      }
+      for (const r of [3, 5.8]) {
+        for (let k = 0; k < 8; k++) {
+          const a0 = (k * Math.PI) / 4 + 0.2, a1 = ((k + 1) * Math.PI) / 4 + 0.2;
+          p.line(8 + Math.cos(a0) * r, 8 + Math.sin(a0) * r, 8 + Math.cos(a1) * r * 0.92, 8 + Math.sin(a1) * r * 0.92, shade);
+        }
+      }
+      break;
+    }
+    case 'map': {
+      // Folded map with a 4D compass rose (a small tesseract).
+      p.poly([[2, 3], [6, 2], [10, 3], [14, 2], [14, 13], [10, 14], [6, 13], [2, 14]], main);
+      p.line(6, 2, 6, 13, shade);
+      p.line(10, 3, 10, 14, shade);
+      p.line(5, 6, 9, 6, accent);
+      p.line(9, 6, 9, 10, accent);
+      p.line(9, 10, 5, 10, accent);
+      p.line(5, 10, 5, 6, accent);
+      p.line(7, 8, 11, 8, accent);
+      p.line(11, 8, 11, 12, accent);
+      p.line(5, 6, 7, 8, accent);
+      p.line(9, 10, 11, 12, accent);
+      break;
+    }
   }
   p.outline();
   return p.px;

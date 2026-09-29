@@ -71,6 +71,25 @@ export const RECIPES: RecipeDef[] = [
   { type: 'smelting', input: 'clay', result: 'terracotta_tan' },
   { type: 'smelting', input: '#log', result: 'charcoal' },
   { type: 'smelting', input: 'sandstone', result: 'cut_sandstone' },
+
+  // Phase 5: paper, books, food, decoration and structure blocks.
+  { type: 'shaped', pattern: ['rrr'], key: { r: 'reeds' }, result: 'paper', count: 3 },
+  { type: 'shapeless', ingredients: ['paper', 'paper', 'paper', 'leather'], result: 'book' },
+  { type: 'shaped', pattern: ['ppp', 'bbb', 'ppp'], key: { p: '#planks', b: 'book' }, result: 'bookshelf' },
+  { type: 'shaped', pattern: ['www'], key: { w: 'wheat' }, result: 'bread' },
+  { type: 'shaped', pattern: ['www', 'www', 'www'], key: { w: 'wheat' }, result: 'hay_bale' },
+  { type: 'shapeless', ingredients: ['hay_bale'], result: 'wheat', count: 9 },
+  { type: 'shaped', pattern: ['ww', 'ww'], key: { w: 'wheat' }, result: 'thatch' },
+  { type: 'shaped', pattern: ['nnn', 'ntn', 'nnn'], key: { n: 'iron_nugget', t: 'torch' }, result: 'lantern' },
+  { type: 'shaped', pattern: ['psp', 'psp'], key: { p: '#planks', s: 'stick' }, result: 'oak_fence', count: 3 },
+  { type: 'shaped', pattern: [' s ', 'scs', 'lll'], key: { s: 'stick', c: '#coal', l: '#log' }, result: 'campfire' },
+  { type: 'shaped', pattern: ['ss', 'ss'], key: { s: 'stone' }, result: 'stone_bricks', count: 4 },
+  { type: 'shapeless', ingredients: ['stone_bricks', 'moss_block'], result: 'mossy_stone_bricks' },
+  { type: 'shaped', pattern: ['cs', 'sc'], key: { c: 'clay_ball', s: 'sand' }, result: 'plaster', count: 4 },
+  { type: 'shaped', pattern: ['gg', 'gg'], key: { g: 'glow_scale' }, result: 'sea_lantern' },
+  { type: 'shapeless', ingredients: ['wool', 'poppy'], result: 'red_wool' },
+  { type: 'shapeless', ingredients: ['wool', 'cornflower'], result: 'blue_wool' },
+  { type: 'smelting', input: 'stone_bricks', result: 'cracked_stone_bricks' },
 ];
 
 // Storage blocks: 9 <-> 1.

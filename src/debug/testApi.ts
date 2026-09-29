@@ -159,6 +159,8 @@ export function installTestApi(game: Game, screen?: InventoryScreen): void {
     clearInventory(): void {
       game.inv.clear();
     },
+    /** Item id by name (-1 if unknown). */
+    itemId: (name: string) => (IREG.has(name) ? IREG.id(name) : -1),
     select(i: number): void {
       game.hotbarIndex = i;
     },

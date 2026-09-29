@@ -99,3 +99,16 @@ set(['glass', 'ice'], { drops: 'none' });
 // Webs: swords and shears cut them quickly; they drop string.
 set(['cobweb'], { tool: 'sword', shears: true, drops: [{ item: 'string' }] });
 set(['wool'], { tool: 'shears' });
+
+// Phase 5: structure blocks.
+set(['stone_bricks', 'mossy_stone_bricks', 'cracked_stone_bricks', 'chiseled_stone_bricks', 'sea_bricks', 'tesseract_bricks', 'gilded_bricks', 'lantern'], { tool: 'pickaxe', tier: 0 });
+set(['mob_spawner'], { tool: 'pickaxe', tier: 0, drops: 'none' });
+set(['sea_lantern'], { tool: 'pickaxe', drops: [{ item: 'glow_scale', count: [1, 2] }] });
+set(['bookshelf'], { tool: 'axe', drops: [{ item: 'book', count: [3, 3] }] });
+set(['oak_fence', 'campfire'], { tool: 'axe' });
+set(['campfire'], { drops: [{ item: 'charcoal', count: [1, 2] }] });
+set(['thatch', 'hay_bale'], { tool: 'hoe' });
+set(['dirt_path'], { tool: 'shovel', drops: [{ item: 'dirt' }] });
+set(['plaster'], { tool: 'pickaxe' });
+set(['wild_wheat'], { drops: [{ item: 'wheat', count: [1, 2] }] });
+set(['reeds'], { shears: false, drops: [{ item: 'reeds' }] });

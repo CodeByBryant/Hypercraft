@@ -84,7 +84,7 @@ export class Menus {
         h('p', {}, 'Survival worlds start with an empty inventory: mine blocks (they drop as items you pick up), craft planks and a crafting table, then tools.'),
         h('p', {}, 'Mobs are 4D too: a mob beside your slice is invisible. Hostiles that are kata or ana of you make that screen edge pulse violet, show up as red dots on the radar, and are named above the hotbar. Swords hit hardest; a full-strength swing while falling is a critical hit. Hold right click to draw a bow.'),
         h('p', {}, 'Tilted slices cut cubes into prisms. Press ', h('b', {}, 'P'), ' to see every cross-section edge coloured by axis, ', h('b', {}, 'F3'), ' for debug info.'),
-        h('p', {}, h('b', {}, 'Touch:'), ' left thumb = move stick, right side = drag to look, tap = place, hold = break, two-finger twist / drag = rotate the slice.'),
+        h('p', {}, h('b', {}, 'Touch:'), ' left thumb = move stick (push to the rim to sprint) · right side: drag = look, tap = hit the mob or use / place on the block you tapped, hold = mine under your finger · Hit / Use buttons act at the crosshair (hold Use to draw a bow) · tap the hotbar to switch items · two-finger twist / drag = rotate the slice · ✕ closes the inventory, crafting and chest screens (Quick move = tap moves whole stacks, hold a slot = split).'),
       ),
       h('button', { onclick: back }, 'Back'),
     );

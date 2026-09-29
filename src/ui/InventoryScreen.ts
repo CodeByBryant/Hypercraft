@@ -52,6 +52,10 @@ export class InventoryScreen {
   private creativeSearch = '';
   private refreshTimer = 0;
   private lastInvVersion = -1;
+  /** Touch: taps act as shift-clicks (move whole stacks between inventory and container). */
+  private quickMoveMode = false;
+  /** Small screens: the recipe book is a toggle instead of always shown. */
+  private bookOpen = false;
   onClose: (() => void) | null = null;
 
   constructor(parent: HTMLElement, game: Game) {
@@ -96,8 +100,17 @@ export class InventoryScreen {
 
   private hover: SlotRef | null = null;
 
+  /** When the screen opened: a tap that opened it must not also press something in it. */
+  private openedAt = 0;
+
+  private justOpened(): boolean {
+    // Only touch has this problem (a tap's synthetic click); mouse clicks act at once.
+    return this.game.touchMode && performance.now() - this.openedAt < 350;
+  }
+
   open(req: ScreenRequest): void {
     this.req = req;
+    this.openedAt = performance.now();
     this.tab = 'inventory';
     this.grid = null;
     this.gridSize = 0;
@@ -175,8 +188,33 @@ export class InventoryScreen {
     this.root.innerHTML = '';
     this.slots = [];
     const panel = h('div', 'inv-panel', this.root);
-    if (this.grid) this.renderBook(panel, focusSearch);
+    const small = window.innerWidth < 900 || window.innerHeight < 560;
+    if (this.grid && (!small || this.bookOpen)) this.renderBook(panel, focusSearch);
     const main = h('div', 'inv-main', panel);
+    // Header: close (every screen), recipe book toggle (small screens), quick move (touch).
+    const bar = h('div', 'inv-bar', main);
+    if (this.grid && small) {
+      const b = h('button', `inv-tool${this.bookOpen ? ' on' : ''}`, bar, '📖 Recipes');
+      b.addEventListener('click', () => {
+        if (this.justOpened()) return;
+        this.bookOpen = !this.bookOpen;
+        this.render();
+      });
+    }
+    if (g.touchMode) {
+      const b = h('button', `inv-tool${this.quickMoveMode ? ' on' : ''}`, bar, '⇄ Quick move');
+      b.title = 'Taps move whole stacks between your inventory and the other side';
+      b.addEventListener('click', () => {
+        if (this.justOpened()) return;
+        this.quickMoveMode = !this.quickMoveMode;
+        this.render();
+      });
+    }
+    const close = h('button', 'inv-close', bar, '✕');
+    close.title = 'Close (Esc)';
+    close.addEventListener('click', () => {
+      if (!this.justOpened()) this.close();
+    });
     const creative = g.player.mode === 'creative' && req.kind === 'inventory';
     if (creative) {
       const tabs = h('div', 'inv-tabs', main);
@@ -201,12 +239,28 @@ export class InventoryScreen {
     hot.style.gridTemplateColumns = 'repeat(9, auto)';
     hot.style.marginTop = '8px';
     for (let i = 0; i < HOTBAR_SIZE; i++) this.slot(hot, g.inv, i);
-    h('div', 'inv-hint', main, 'Click: take/place · Right-click: split/one · Shift-click: quick move · 1–9: to hotbar · click outside: throw');
+    h(
+      'div',
+      'inv-hint',
+      main,
+      g.touchMode
+        ? 'Tap: take/place · Hold: split / place one · ⇄ Quick move: taps move stacks · tap outside: throw'
+        : 'Click: take/place · Right-click: split/one · Shift-click: quick move · 1–9: to hotbar · click outside: throw',
+    );
     const bl = this.root.querySelector('.book-list');
     if (bl) bl.scrollTop = scrollBook;
     const cl = this.root.querySelector('.creative-list');
     if (cl) cl.scrollTop = scrollCreative;
     this.renderCursor();
+    this.fit(panel);
+  }
+
+  /** Scale the panel down so it always fits the screen (phones in landscape). */
+  private fit(panel: HTMLElement): void {
+    panel.style.transform = '';
+    const r = panel.getBoundingClientRect();
+    const k = Math.min(1, (window.innerWidth - 12) / Math.max(1, r.width), (window.innerHeight - 12) / Math.max(1, r.height));
+    if (k < 0.995) panel.style.transform = `scale(${k.toFixed(3)})`;
   }
 
   private renderPlayerTop(main: HTMLElement): void {
@@ -332,7 +386,9 @@ export class InventoryScreen {
       if (r.count > 1) h('span', 'count', el, String(r.count));
       el.addEventListener('pointerenter', () => this.showTip(`${IREG.displayName(r.result)}${r.count > 1 ? ` ×${r.count}` : ''} — ${this.describe(r)}`));
       el.addEventListener('pointerleave', () => this.hideTip());
-      el.addEventListener('click', () => this.fillRecipe(r));
+      el.addEventListener('click', () => {
+        if (!this.justOpened()) this.fillRecipe(r);
+      });
     }
     if (focus) input.focus();
   }
@@ -358,6 +414,27 @@ export class InventoryScreen {
     el.addEventListener('pointerdown', (e) => {
       e.stopPropagation();
       e.preventDefault();
+      if (this.justOpened()) return;
+      if (e.pointerType === 'touch') {
+        // Touch: tap = click (on release), hold = right click. The release is watched on the
+        // window: a refresh (furnace progress) may replace this element mid-tap.
+        const id = e.pointerId;
+        let held = false;
+        const timer = window.setTimeout(() => {
+          held = true;
+          this.click(ref, true, false);
+        }, 420);
+        const done = (ev: PointerEvent) => {
+          if (ev.pointerId !== id) return;
+          window.removeEventListener('pointerup', done);
+          window.removeEventListener('pointercancel', done);
+          window.clearTimeout(timer);
+          if (!held && ev.type === 'pointerup' && this.req) this.click(ref, false, this.quickMoveMode);
+        };
+        window.addEventListener('pointerup', done);
+        window.addEventListener('pointercancel', done);
+        return;
+      }
       this.click(ref, e.button === 2, e.shiftKey);
     });
     el.addEventListener('contextmenu', (e) => e.preventDefault());

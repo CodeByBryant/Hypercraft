@@ -48,10 +48,22 @@ particles unless `&particles=1`; used by tests).
 | **P** | cross-section wireframe overlay |
 | G / T / Y / O | game mode / time +3 h / weather / internal resolution (cheats/creative) |
 
-**Touch screens** (auto-detected, or Settings → Touch controls): left thumb = floating move
-stick (push to the rim to sprint), right side = drag to look, tap = place, long-press = break,
-two-finger twist = rotate the slice right↔hidden, two-finger drag = forward↔hidden, plus
-buttons for jump, sneak, kata/ana, slice rotation, snap, fly, pause, F3 and P.
+**Touch screens** (auto-detected, or Settings → Touch controls):
+* **Move.** Left thumb works a floating move stick (a faint ring shows where); push it to the
+  rim to sprint.
+* **Look and interact.** On the right side, drag to look. Tap a mob to hit it, or tap a block
+  to use or place on it, right where you tapped. Long-press mines the block under your
+  finger; slide the finger to move on to the next block.
+* **Slice.** Two-finger twist rotates the slice right↔hidden; two-finger drag rotates it
+  forward↔hidden.
+* **Buttons.**
+  * ⛏/⚔ Hit and ✋ Use act at the crosshair (hold Use to draw a bow).
+  * Jump, Sneak, Kata/Ana and Drop.
+  * Slice rotation and snap.
+  * 🎒 Inventory, pause, fly (creative), F3 and P.
+* **Hotbar and screens.** Tap the hotbar to switch items. Every screen has a ✕ close button
+  and scales to fit a phone. On phones the recipe book is a toggle. In screens, **Quick
+  move** makes taps move whole stacks, and holding a slot splits it.
 
 **Worlds and seeds**: Singleplayer → Create new world. Type any seed (numbers are used
 as-is, text is hashed), roll a random one with 🎲, or pick a seed idea. Worlds autosave to the

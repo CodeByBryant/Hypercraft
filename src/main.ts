@@ -95,6 +95,7 @@ function startGame(info: WorldInfo, persistence: Persistence | null, settings: S
     const dt = (now - lastHud) / 1000;
     hud.update(dt);
     invScreen.update(dt);
+    if (touch.isVisible) touch.update({ creative: game.player.mode === 'creative' || game.player.mode === 'spectator', onMob: game.targetMob !== null });
     lastHud = now;
   };
   const touch = new TouchControls(uiRoot, game.input, {
@@ -105,6 +106,9 @@ function startGame(info: WorldInfo, persistence: Persistence | null, settings: S
     },
   });
   const usingTouch = () => touchWanted(settings);
+  // Test worlds hide the touch controls unless ?touch=1 (e2e tests of the touch UI).
+  const showTouchInTest = !test || q.has('touch');
+  game.touchMode = usingTouch();
   // Inventory / crafting / chest / furnace screens: the world keeps running, player input stops.
   game.onOpenScreen = (r) => {
     if (game.paused || invScreen.isOpen || game.vitals.dead) return;
@@ -117,13 +121,13 @@ function startGame(info: WorldInfo, persistence: Persistence | null, settings: S
     game.input.clearPressed();
     if (game.paused || game.vitals.dead) return;
     game.input.enabled = true;
-    touch.setVisible(usingTouch() && !test);
+    touch.setVisible(usingTouch() && showTouchInTest);
     if (!usingTouch() && !test) game.input.requestLock();
   };
   const setPaused = (p: boolean) => {
     game.paused = p;
     game.input.enabled = !p;
-    touch.setVisible(!p && usingTouch() && !test);
+    touch.setVisible(!p && usingTouch() && showTouchInTest);
     if (!p) menus.hide();
   };
   const resume = () => {
@@ -151,7 +155,7 @@ function startGame(info: WorldInfo, persistence: Persistence | null, settings: S
         menus.hide();
         if (game.paused) return;
         game.input.enabled = true;
-        touch.setVisible(usingTouch() && !test);
+        touch.setVisible(usingTouch() && showTouchInTest);
         if (!usingTouch() && !test) game.input.requestLock();
       },
       quit: async () => {
@@ -169,6 +173,7 @@ function startGame(info: WorldInfo, persistence: Persistence | null, settings: S
         menus.settings(settings, () => {
           game.applySettings();
           touch.sensitivity = settings.sensitivity;
+          game.touchMode = usingTouch();
         }, showPause),
       quit: async () => {
         await game.saveAll();
@@ -214,6 +219,7 @@ async function boot(): Promise<void> {
   if (test) {
     // Deterministic screenshots: no ambient particles unless asked for (?particles=1).
     if (!q.has('particles')) settings.particles = 'off';
+    if (q.has('touch')) settings.touch = 'on';
     const game = startGame(ephemeralWorld(q.get('seed') ?? 'hypercraft', 'creative'), null, settings, true);
     if (game && bench) {
       const overlay = document.createElement('div');

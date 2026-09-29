@@ -377,6 +377,20 @@ body {
   right: 0;
   width: 58%;
 }
+.joy-hint {
+  position: absolute;
+  left: 44px;
+  bottom: 44px;
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.16) 0 22px, rgba(255, 255, 255, 0.04) 23px);
+  pointer-events: none;
+}
+.touch.moving .joy-hint {
+  display: none;
+}
 .joy-base {
   position: absolute;
   width: 120px;
@@ -448,6 +462,18 @@ body {
   background: rgba(120, 150, 255, 0.55);
   border-color: #cfe0ff;
 }
+.tbtn.hit,
+.tbtn.use {
+  font-size: 14px;
+  font-weight: 600;
+}
+.tbtn.hit.target {
+  background: rgba(220, 50, 50, 0.55);
+  border-color: #ffb0b0;
+}
+.tbtn.drop {
+  font-size: 11px;
+}
 .touch-top .tbtn {
   height: 36px;
 }
@@ -463,6 +489,10 @@ body {
   .tbtn.big {
     height: 48px;
   }
+}
+.hotbar {
+  /* Above the full-screen touch zones, so hotbar taps select slots. */
+  z-index: 5;
 }
 .hotbar .slot {
   pointer-events: auto;
@@ -696,12 +726,18 @@ body.touch-active .hotbar {
 }
 body.touch-active .slot {
   flex: none;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
+}
+body.touch-active .vitals {
+  bottom: 58px;
+}
+body.touch-active .toast {
+  bottom: 80px;
 }
 body.touch-active .mode {
-  top: auto;
-  bottom: 48px;
+  top: 52px;
+  bottom: auto;
   right: 50%;
   transform: translateX(50%);
 }
@@ -730,8 +766,41 @@ body.touch-active .debug {
   display: flex;
   gap: 12px;
   align-items: flex-start;
-  max-width: calc(100vw - 24px);
-  max-height: calc(100vh - 24px);
+  transform-origin: center center;
+  flex: none;
+}
+.inv-main {
+  position: relative;
+}
+.inv-bar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin: -4px -4px 4px 0;
+}
+.inv-bar button {
+  font: inherit;
+  font-size: 13px;
+  color: #e6ebf5;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  height: 34px;
+  padding: 0 10px;
+  cursor: pointer;
+}
+.inv-bar button.on {
+  background: rgba(90, 120, 255, 0.45);
+  border-color: #cfe0ff;
+}
+.inv-bar .inv-close {
+  width: 38px;
+  padding: 0;
+  font-size: 18px;
+  font-weight: bold;
+}
+.inv-bar .inv-close:hover {
+  background: rgba(255, 80, 80, 0.35);
 }
 .inv-main,
 .inv-book {
@@ -895,14 +964,7 @@ body.touch-active .debug {
 }
 @media (max-width: 720px), (max-height: 520px) {
   .inv-book {
-    display: none;
-  }
-  .islot {
-    width: 32px;
-    height: 32px;
-  }
-  .islot .icon {
-    transform: scale(0.85);
+    width: 210px;
   }
 }
 

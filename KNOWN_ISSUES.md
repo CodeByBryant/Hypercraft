@@ -111,7 +111,17 @@ Honest list as of Phase 4 (mobs, combat, health). Items tagged with the phase ex
 - The recipe book fills the grid from the inventory but does not show ingredient ghosts.
 - No audio (Phase 12).
 - No key-rebinding UI yet (bindings are data in `src/input/Input.ts`); gamepad support is
-  Phase 12. Touch controls exist but have only been tested in emulation.
+  Phase 12.
+- **Touch controls** are covered by an e2e spec with emulated touch events on a phone-sized
+  screen (hotbar, closing screens, tap to hit and place, long-press mining), but they have
+  not been tested on many real devices. On touch, taps interact where you tap, and the Hit /
+  Use buttons act at the crosshair. There is no drag-to-distribute in screens, and no
+  haptics yet.
+- **Wandering mobs follow your slice.** Wandering mobs within 32 blocks and 6 blocks kata/ana
+  of your slice move into it and stay in it. That covers animals, and hostiles that have not
+  noticed you; Ana Stalkers are the exception. This is a deliberate playability concession:
+  otherwise animals drift in and out of view as they walk through W. Hostiles that are
+  chasing you use their own 4D paths, and the R2 warnings still cover them.
 
 ## Tooling
 - The original prototype `tesseract-miner.html` was not in the repository, so the renderer

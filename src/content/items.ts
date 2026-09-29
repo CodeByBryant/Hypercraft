@@ -58,6 +58,16 @@ export const ITEMS: ItemDef[] = [
   { name: 'shears', displayName: 'Shears', maxStack: 1, durability: 238, tool: { kind: 'shears', tier: 'iron' }, icon: { shape: 'shears', colors: ['#dcdcdc', '#8a8a8a'] }, group: 'tools' },
   { name: 'compass', displayName: 'Hypercompass', maxStack: 1, icon: { shape: 'compass', colors: ['#9a9a9a', '#5a5a5a', '#ff3030'] }, readout: 'compass', group: 'tools' },
   { name: 'clock', displayName: 'Clock', maxStack: 1, icon: { shape: 'clock', colors: ['#f4d03f', '#a8861f', '#3f6ff0'] }, readout: 'clock', group: 'tools' },
+  // Phase 5: paper and books (librarians), wheat and bread (farmers), atlases (cartographers).
+  material('paper', 'Paper', 'paper', ['#f4f0e4', '#c8c0a8']),
+  material('book', 'Book', 'book', ['#8a4a2a', '#5a2a14', '#f4e8c8']),
+  material('wheat', 'Wheat', 'wheat', ['#e0c060', '#8a7a2a']),
+  { name: 'bread', displayName: 'Bread', icon: { shape: 'bread', colors: ['#c8904a', '#8a5a2a', '#e8c080'] }, group: 'food' },
+  // Atlases point to the nearest structure of their kind, in your slice and kata/ana of it.
+  { name: 'village_atlas', displayName: 'Village Atlas', maxStack: 1, icon: { shape: 'map', colors: ['#e8dcb8', '#a89870', '#3a8a3a'] }, readout: 'atlas', atlas: ['village_meadow', 'village_orchard', 'village_marsh', 'village_taiga', 'village_snow', 'village_savanna', 'village_desert'], group: 'tools' },
+  { name: 'temple_atlas', displayName: 'Temple Atlas', maxStack: 1, icon: { shape: 'map', colors: ['#e8dcb8', '#a89870', '#c8902a'] }, readout: 'atlas', atlas: ['desert_temple', 'jungle_shrine', 'tesseract_grove_temple', 'sunken_monument'], group: 'tools' },
+  { name: 'vault_atlas', displayName: 'Vault Atlas', maxStack: 1, icon: { shape: 'map', colors: ['#e8dcb8', '#a89870', '#8a4ad8'] }, readout: 'atlas', atlas: ['ana_vault', 'deep_silent_vault', 'library_ruins'], group: 'tools' },
+  { name: 'ruins_atlas', displayName: 'Ruins Atlas', maxStack: 1, icon: { shape: 'map', colors: ['#e8dcb8', '#a89870', '#7a7a7a'] }, readout: 'atlas', atlas: ['ancient_ruins', 'ruined_portal', 'dungeon', 'hypermine'], group: 'tools' },
 ];
 
 // Tools: every tier x (pickaxe, axe, shovel, hoe, sword).
@@ -83,7 +93,7 @@ for (const t of TIERS) {
 }
 
 /** Blocks without an item (fluids, portals, technical and "lit" state blocks). */
-export const NO_ITEM_BLOCKS = new Set(['air', 'water', 'lava', 'portal', 'lit_furnace', 'lit_blast_furnace', 'lit_smoker']);
+export const NO_ITEM_BLOCKS = new Set(['air', 'water', 'lava', 'portal', 'lit_furnace', 'lit_blast_furnace', 'lit_smoker', 'mob_spawner']);
 
 /** Extra item properties for block items (fuel values, stack sizes, groups). */
 export const BLOCK_ITEM_EXTRAS: Record<string, Partial<ItemDef>> = {
@@ -96,7 +106,13 @@ export const BLOCK_ITEM_EXTRAS: Record<string, Partial<ItemDef>> = {
   coal_block: { fuel: 800 },
   bamboo_block: { fuel: 2.5 },
   dead_bush: { fuel: 5 },
-  torch: { group: 'functional' },
+  torch: { group: 'functional', icon: { shape: 'torch', colors: ['#8a6a3c', '#ffb02a', '#fff4b0'] } },
+  bookshelf: { fuel: 15, group: 'functional' },
+  oak_fence: { fuel: 15, icon: { shape: 'fence', colors: ['#b08a50', '#8a6a3c'] } },
+  lantern: { group: 'functional', icon: { shape: 'lantern', colors: ['#4a4c56', '#ffc85a', '#fff6d0'] } },
+  campfire: { group: 'functional', icon: { shape: 'campfire', colors: ['#7a5a32', '#ff8a2a', '#ffe08a'] } },
+  cobweb: { icon: { shape: 'web', colors: ['#f0f0f6', '#c8c8d6'] } },
+  hay_bale: { fuel: 5 },
 };
 
 /** Furnace fuel for block items by block tag (seconds). */

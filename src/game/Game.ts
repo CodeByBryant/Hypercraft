@@ -177,6 +177,11 @@ export class Game {
   /** Called once when the player dies (death screen); `respawn()` brings them back. */
   onDeath: ((cause: string) => void) | null = null;
   private readonly pickOut: { mob: Mob | null } = { mob: null };
+  private readonly aimDir = new Float64Array(4);
+  /** Direction of the last pick (crosshair or touch aim). */
+  private pickDir: Float64Array;
+  /** Touch controls are in use (bigger aim assist). */
+  touchMode = false;
   private sinceSwing = 99;
   private envDamageTimer = 0;
   private sprintNoise = 0;
@@ -234,6 +239,7 @@ export class Game {
     this.env = new Environment(realm, this.seed);
     this.fluids = new FluidSim(this.world);
     this.player = new Player(realm.gravityAxis, realm.gravity);
+    this.pickDir = this.player.cam.fwd;
     this.input = new Input(canvas);
     this.input.freeMouse = opts.test;
     this.scaler = new ResolutionScaler();
@@ -522,15 +528,8 @@ export class Game {
     this.renderer.gpu.sync(this.test ? 50 : 5);
     this.uploadMsFrame = performance.now() - ut;
 
-    // Picking.
-    this.hasTarget = p.frozen ? false : raycast(this.world, this.eyePos, p.cam.fwd, p.mode === 'survival' ? 5 : 7, this.target);
-    // Mobs under the crosshair win over blocks behind them.
-    this.targetMob = null;
-    if (!p.frozen && p.mode !== 'spectator' && this.mobs.list.length > 0) {
-      const reach = REACH_ATTACK[p.mode === 'creative' ? 1 : 0]!;
-      const limit = this.hasTarget ? Math.min(reach, this.target.t) : reach;
-      if (this.mobs.pick(this.eyePos, p.cam.fwd, limit, this.pickOut) < limit) this.targetMob = this.pickOut.mob;
-    }
+    // Picking (crosshair, or the touch aim point while one is active).
+    this.updateTargets();
     this.params.selectOn = this.hasTarget && !this.targetMob;
     if (this.hasTarget) {
       const s = this.params.select;
@@ -701,10 +700,22 @@ export class Game {
     }
     if (input.pressed('resolution')) this.cycleResolution();
 
+    // Touch aim: re-pick at a new aim point before acting on it; a tap interacts once.
+    if (input.aimDirty) {
+      input.aimDirty = false;
+      p.eye(this.eyePos);
+      this.updateTargets();
+    }
+    this.sinceSwing += dt;
+    if (input.tapInteract) {
+      input.tapInteract = false;
+      this.interact(input.held('sneak'));
+      input.clearAim();
+    }
+
     // Attack / break / place / pick.
     this.breakCooldown -= dt;
     this.placeCooldown -= dt;
-    this.sinceSwing += dt;
     const mode = p.mode;
     const heldNow = this.held;
     const heldId = heldNow ? heldNow.id : -1;
@@ -750,6 +761,52 @@ export class Game {
     }
   }
 
+  /**
+   * Block and mob under the crosshair, or under the touch aim point (tap to interact). A mob
+   * nearer than the block wins; when the exact test misses, a little aim assist picks a mob
+   * whose body passes close to the ray (more on touch screens).
+   */
+  private updateTargets(): void {
+    const p = this.player;
+    const dir = this.input.aimOn ? this.aimDirection() : p.cam.fwd;
+    this.pickDir = dir;
+    this.hasTarget = p.frozen ? false : raycast(this.world, this.eyePos, dir, p.mode === 'survival' ? 5 : 7, this.target);
+    this.targetMob = null;
+    if (!p.frozen && p.mode !== 'spectator' && this.mobs.list.length > 0) {
+      const reach = REACH_ATTACK[p.mode === 'creative' ? 1 : 0]!;
+      const limit = this.hasTarget ? Math.min(reach, this.target.t + 0.3) : reach;
+      if (this.mobs.pick(this.eyePos, dir, limit, this.pickOut) < limit) this.targetMob = this.pickOut.mob;
+      else if (this.mobs.pickAssist(this.eyePos, dir, limit, this.touchMode ? 0.45 : 0.12, p.cam.H, this.pickOut) < limit) this.targetMob = this.pickOut.mob;
+    }
+  }
+
+  /** Ray direction through the touch aim point (same projection as the ray marcher). */
+  private aimDirection(): Float64Array {
+    const cam = this.player.cam;
+    const d = this.aimDir;
+    const tanY = Math.tan(this.params.fovY / 2);
+    const tanX = tanY * (this.canvas.width / Math.max(1, this.canvas.height));
+    const ax = this.input.aimX * tanX, ay = this.input.aimY * tanY;
+    let l = 0;
+    for (let k = 0; k < 4; k++) {
+      d[k] = cam.fwd[k]! + ax * cam.right[k]! + ay * cam.up[k]!;
+      l += d[k]! * d[k]!;
+    }
+    l = Math.sqrt(l);
+    for (let k = 0; k < 4; k++) d[k] = d[k]! / l;
+    return d;
+  }
+
+  /** Touch tap: hit the mob there, otherwise use / place like a right click. */
+  private interact(sneaking: boolean): void {
+    if (this.player.mode === 'spectator') return;
+    if (this.targetMob) {
+      this.attack(this.targetMob);
+      return;
+    }
+    this.useHeld(sneaking);
+  }
+
   /** No movement input (paused, dead, a screen is open). */
   private stopMoving(): void {
     const m = this.move;
@@ -789,7 +846,7 @@ export class Game {
     for (let k = 0; k < 4; k++) from[k] = m.pos[k]! - F[k]!;
     if (!this.mobs.damage(m, dmg, from, this.eyePos, p.cam.H)) return false;
     // Hit particles where the ray met the body.
-    const e = this.eyePos, f = p.cam.fwd;
+    const e = this.eyePos, f = this.pickDir;
     let t = 0;
     for (let k = 0; k < 4; k++) t += (m.pos[k]! - e[k]!) * f[k]!;
     t = Math.max(0.5, t - m.width);
@@ -1192,7 +1249,7 @@ export class Game {
     const reach = survival ? 5 : 7;
     if (use === 'bucket') {
       const hit = this.fluidHit;
-      if (!raycast(this.world, this.eyePos, this.player.cam.fwd, reach, hit, true)) return;
+      if (!raycast(this.world, this.eyePos, this.pickDir, reach, hit, true)) return;
       const v = hit.voxel;
       const fl = REG.fluid[voxelId(v)]!;
       if (fl === 0 || (v >>> 12) !== 0) return; // only sources can be scooped
