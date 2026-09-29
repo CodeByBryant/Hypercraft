@@ -40,6 +40,32 @@ function ephemeralWorld(seedText: string, mode: WorldInfo['mode']): WorldInfo {
   };
 }
 
+// iPad/iOS Safari: block pinch-zoom gestures and double-tap zoom (the game handles every
+// touch itself; Safari ignores user-scalable=no, so this has to be done in script too).
+for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) {
+  document.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
+}
+document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
+let lastTouchEnd = 0;
+document.addEventListener(
+  'touchend',
+  (e) => {
+    const now = performance.now();
+    const t = e.target as HTMLElement | null;
+    const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT');
+    if (!typing && now - lastTouchEnd < 350) e.preventDefault();
+    lastTouchEnd = now;
+  },
+  { passive: false },
+);
+document.addEventListener(
+  'touchmove',
+  (e) => {
+    if (e.touches.length > 1) e.preventDefault(); // no pinch zoom
+  },
+  { passive: false },
+);
+
 function fail(err: unknown): void {
   const msg = err instanceof Error ? err.message : String(err);
   uiRoot.innerHTML = `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;color:#fff;background:#200;pointer-events:auto;white-space:pre-wrap;font:12px monospace">HYPERCRAFT failed to start:\n\n${msg.replace(/</g, '&lt;')}</div>`;

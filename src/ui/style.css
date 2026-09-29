@@ -818,3 +818,36 @@ body.touch-active .debug {
     transform: scale(0.85);
   }
 }
+
+
+/* ---------------- touch: no browser zoom / callouts (iPad double-tap zoom) ---------------- */
+html,
+body,
+#game,
+#ui {
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+}
+button,
+.islot,
+.slot,
+.tbtn {
+  touch-action: manipulation;
+}
+/* Scrollable panels may pan vertically, but never zoom. */
+.menu-screen,
+.inv-book .book-list,
+.creative-list,
+.settings {
+  touch-action: pan-y;
+}
+input,
+textarea,
+select {
+  touch-action: manipulation;
+  -webkit-user-select: text;
+  user-select: text;
+}

@@ -3,6 +3,8 @@
 ## 0.3.1 — Mac placing fix (2026-09-29)
 
 ### Fixed
+- iPad/iOS: repeated taps no longer zoom the page (viewport locks scaling, `touch-action`
+  on every game surface, and Safari gesture/double-tap events are cancelled in script).
 - Placing blocks on Mac: Ctrl+click and Cmd+click now count as the secondary (right) click,
   and a trackpad two-finger tap that only sends a context-menu event places once.
 - Inventory grids stay compact; how-to-play mentions the Mac secondary click and the survival
