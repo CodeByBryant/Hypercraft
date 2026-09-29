@@ -23,7 +23,7 @@ export interface Hc {
   setResolution(h: number | 'auto'): void;
   setWire(on: boolean): void;
   setDebug(on: boolean): void;
-  state(): Record<string, unknown> & { pos: number[]; eye: number[]; hidden: number[]; columns: number };
+  state(): Record<string, unknown> & { pos: number[]; eye: number[]; hidden: number[]; fwd: number[]; columns: number };
   give(name: string, count?: number): number;
   inventory(): [number, string, number, number][];
   clearInventory(): void;
@@ -57,6 +57,24 @@ export interface Hc {
   explode(x: number, y: number, z: number, w: number, r: number): void;
   threat(): { glow: number[]; text: string };
   setDifficulty(d: 'peaceful' | 'easy' | 'normal' | 'hard'): void;
+  // Phase 5
+  itemId(name: string): number;
+  travel(x: number, y: number, z: number, w: number): void;
+  setBlock(x: number, y: number, z: number, w: number, name: string): boolean;
+  time(): { ticks: number; timeOfDay: number; day: number; weather: string };
+  locate(names: string[], maxDist?: number): { name: string; x: number; y: number; z: number; w: number } | null;
+  structureNames(): string[];
+  villagers(): { id: number; name: string; pos: number[]; profession: string | null; level: number; offers: { cost: [string, number][]; result: [string, number]; uses: number; maxUses: number }[] }[];
+  talk(id: number): boolean;
+  trade(id: number, i: number): boolean;
+  spawnerCount(): number;
+  atlas(): { item: string; target: { name: string; x: number; y: number; z: number; w: number } | null } | null;
+  readout(): string;
+  useBed(x: number, y: number, z: number, w: number): boolean;
+  bed(): [number, number, number, number] | null;
+  sleeping(): { t: number; skipped: boolean } | null;
+  wake(): void;
+  rayDist(max?: number): number;
 }
 
 declare global {

@@ -2,7 +2,7 @@
 // column's `extra.be` (keyed by local x,y,z,w), so saves need no extra machinery: the column
 // codec already persists `extra`. Furnaces in loaded columns tick with the world.
 
-import { REG, makeVoxel, voxelMeta } from '../../content/registry';
+import { REG, makeVoxel, voxelMeta, FLUID_LAVA } from '../../content/registry';
 import { IREG } from '../../content/itemRegistry';
 import type { FurnaceKind } from '../../content/types';
 import type { Column, World } from '../../world/World';
@@ -27,7 +27,19 @@ export interface FurnaceData {
   cookMax: number;
 }
 
-export type BlockEntityData = ChestData | FurnaceData;
+/** Mob spawner (dungeons, outposts...): spawns its mob near itself while a player is close. */
+export interface SpawnerData {
+  type: 'spawner';
+  mob: string;
+  /** Seconds until the next spawn attempt. */
+  delay: number;
+}
+
+export type BlockEntityData = ChestData | FurnaceData | SpawnerData;
+
+/** Spawner rules (Minecraft-like): player within 16 blocks, up to 6 of the mob within 8. */
+const SPAWNER_RANGE = 16;
+const SPAWNER_CAP = 6;
 
 export const CHEST_SLOTS = 27;
 
@@ -43,11 +55,25 @@ export class BlockEntities {
   private readonly chestId: number;
   /** Loaded furnaces by world key. */
   private readonly active = new Map<string, [number, number, number, number]>();
+  /** Loaded spawners by world key. */
+  private readonly spawners = new Map<string, [number, number, number, number]>();
+  private readonly spawnerId: number;
+  /** Loaded mob spawners (F3, tests). */
+  get spawnerCount(): number {
+    return this.spawners.size;
+  }
+  /** Where the player is (spawners only run near them). */
+  playerPos: ArrayLike<number> | null = null;
+  /** Spawn a mob at a point; returns false if it could not. Set by the game. */
+  spawnMob: ((name: string, x: number, y: number, z: number, w: number) => boolean) | null = null;
+  /** How many mobs of a kind are within a radius of a point. Set by the game. */
+  countNear: ((name: string, x: number, y: number, z: number, w: number, r: number) => number) | null = null;
   /** Positions whose lit state swap is in progress (so the swap keeps the entity). */
   private swapping = false;
 
   constructor(private readonly world: World) {
     this.chestId = REG.id('chest');
+    this.spawnerId = REG.id('mob_spawner');
     for (const [kind, unlit, lit] of [
       ['furnace', 'furnace', 'lit_furnace'],
       ['blast_furnace', 'blast_furnace', 'lit_blast_furnace'],
@@ -109,6 +135,16 @@ export class BlockEntities {
   onBlockChanged(x: number, y: number, z: number, w: number, oldV: number, newV: number): ItemStack[] {
     if (this.swapping) return [];
     const o = oldV & 0xfff, n = newV & 0xfff;
+    if (o === this.spawnerId && n !== o) {
+      // A broken spawner stops spawning (and forgets its entity).
+      this.spawners.delete(`${x},${y},${z},${w}`);
+      const col = this.col(x, z, w);
+      if (col) {
+        delete this.map(col)[this.localKey(x, y, z, w)];
+        this.touch(col);
+      }
+      return [];
+    }
     if (n !== o && this.furnaceBlocks.has(n)) this.active.set(`${x},${y},${z},${w}`, [x, y, z, w]);
     if (!this.hasEntity(o) || this.hasEntity(n)) return [];
     const col = this.col(x, z, w);
@@ -121,6 +157,7 @@ export class BlockEntities {
     delete m[k];
     this.touch(col);
     const out: ItemStack[] = [];
+    if (d.type === 'spawner') return out;
     for (const s of d.slots) {
       const st = loadStack(s);
       if (st) out.push(st);
@@ -132,15 +169,52 @@ export class BlockEntities {
     const m = col.extra.be as Record<string, BlockEntityData> | undefined;
     if (!m) return;
     for (const [k, d] of Object.entries(m)) {
-      if (d.type !== 'furnace') continue;
+      if (d.type !== 'furnace' && d.type !== 'spawner') continue;
       const [lx, y, lz, lw] = k.split(',').map(Number) as [number, number, number, number];
       const x = col.cx * 16 + lx, z = col.cz * 16 + lz, w = col.cw * 16 + lw;
-      this.active.set(`${x},${y},${z},${w}`, [x, y, z, w]);
+      (d.type === 'furnace' ? this.active : this.spawners).set(`${x},${y},${z},${w}`, [x, y, z, w]);
     }
   }
 
   onColumnRemoved(col: Column): void {
-    for (const [k, p] of this.active) if (p[0] >> 4 === col.cx && p[2] >> 4 === col.cz && p[3] >> 4 === col.cw) this.active.delete(k);
+    for (const map of [this.active, this.spawners]) for (const [k, p] of map) if (p[0] >> 4 === col.cx && p[2] >> 4 === col.cz && p[3] >> 4 === col.cw) map.delete(k);
+  }
+
+  get activeSpawners(): number {
+    return this.spawners.size;
+  }
+
+  /** Spawners near the player count down and release mobs around themselves. */
+  private tickSpawners(dt: number): void {
+    const p = this.playerPos;
+    if (!p || !this.spawnMob) return;
+    for (const [key, s] of this.spawners) {
+      const [x, y, z, w] = s;
+      if (Math.hypot(x + 0.5 - p[0]!, y - p[1]!, z + 0.5 - p[2]!, w + 0.5 - p[3]!) > SPAWNER_RANGE) continue;
+      const col = this.col(x, z, w);
+      const d = col ? this.map(col)[this.localKey(x, y, z, w)] : undefined;
+      if (!col || !d || d.type !== 'spawner' || (this.world.getBlock(x, y, z, w) & 0xfff) !== this.spawnerId) {
+        this.spawners.delete(key);
+        continue;
+      }
+      d.delay -= dt;
+      if (d.delay > 0) continue;
+      d.delay = 10 + Math.random() * 30;
+      if ((this.countNear?.(d.mob, x, y, z, w, 8) ?? 0) >= SPAWNER_CAP) continue;
+      const n = 1 + Math.floor(Math.random() * 4);
+      for (let i = 0; i < n; i++) {
+        // A free cell (with room for the body) within 3 blocks in x, z and w; mostly on the
+        // spawner's own level (dungeon floors), sometimes one up or down.
+        for (let tries = 0; tries < 12; tries++) {
+          const sx = x + Math.floor(Math.random() * 7) - 3, sz = z + Math.floor(Math.random() * 7) - 3, sw = w + Math.floor(Math.random() * 7) - 3;
+          const sy = y + [0, 0, -1, 1][tries & 3]!;
+          const g = this.world.getBlock(sx, sy - 1, sz, sw) & 0xfff;
+          const a = this.world.getBlock(sx, sy, sz, sw) & 0xfff, b = this.world.getBlock(sx, sy + 1, sz, sw) & 0xfff;
+          if (!REG.solid[g] || REG.solid[a] || REG.solid[b] || REG.fluid[a] === FLUID_LAVA) continue;
+          if (this.spawnMob(d.mob, sx + 0.5, sy, sz + 0.5, sw + 0.5)) break;
+        }
+      }
+    }
   }
 
   get activeFurnaces(): number {
@@ -153,6 +227,7 @@ export class BlockEntities {
     if (!d) return null;
     const col = this.col(x, z, w)!;
     const touch = () => this.touch(col);
+    if (d.type === 'spawner') return null;
     if (d.type === 'chest')
       return {
         size: CHEST_SLOTS,
@@ -173,8 +248,9 @@ export class BlockEntities {
     };
   }
 
-  /** Advance every loaded furnace by `dt` seconds. */
+  /** Advance every loaded furnace and spawner by `dt` seconds. */
   tick(dt: number): void {
+    this.tickSpawners(dt);
     for (const [key, p] of this.active) {
       const [x, y, z, w] = p;
       const col = this.col(x, z, w);

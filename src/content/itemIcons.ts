@@ -333,6 +333,17 @@ export function paintIcon(def: IconDef): Uint8ClampedArray {
       }
       break;
     }
+    case 'bed': {
+      // Side view: headboard and base (accent = wood), white pillow, blanket (main, shade).
+      p.poly([[1, 4], [3, 4], [3, 14], [1, 14]], accent);
+      p.poly([[3, 11], [15, 11], [15, 13], [3, 13]], accent);
+      p.line(14, 13, 14, 14, accent);
+      p.poly([[3, 7], [7, 7], [7, 11], [3, 11]], rgba('#f4f4f0'));
+      p.poly([[6, 8], [15, 8], [15, 11], [6, 11]], main);
+      p.line(6, 8, 14, 8, light);
+      p.line(6, 10, 14, 10, shade);
+      break;
+    }
     case 'map': {
       // Folded map with a 4D compass rose (a small tesseract).
       p.poly([[2, 3], [6, 2], [10, 3], [14, 2], [14, 13], [10, 14], [6, 13], [2, 14]], main);

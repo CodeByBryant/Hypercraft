@@ -28,13 +28,19 @@ self.onmessage = (e: MessageEvent<ToWorker>) => {
     post({ type: 'ready' });
     return;
   }
+  if (m.type === 'locate') {
+    const result = gen?.nearestStructure?.(m.names, m.x, m.z, m.w, m.maxDist) ?? null;
+    post({ type: 'located', id: m.id, result });
+    return;
+  }
   if (m.type === 'gen') {
     try {
       if (!gen || !blocks || !light) throw new Error('worker not initialised');
       const surface = new Uint8Array(COLUMN_LAYER * 4);
       const heightmap = new Uint8Array(COLUMN_LAYER);
       const t0 = performance.now();
-      gen.generate(m.cx, m.cz, m.cw, blocks, surface);
+      const extra: Record<string, unknown> = {};
+      gen.generate(m.cx, m.cz, m.cw, blocks, surface, extra);
       const t1 = performance.now();
       computeColumnLight(blocks, light, heightmap, gen.height);
       const t2 = performance.now();
@@ -47,6 +53,7 @@ self.onmessage = (e: MessageEvent<ToWorker>) => {
       }
       const t3 = performance.now();
       const msg: ColumnMsg = { type: 'column', id: m.id, cx: m.cx, cz: m.cz, cw: m.cw, chunks, heightmap, surface, times: [t1 - t0, t2 - t1, t3 - t2] };
+      if (Object.keys(extra).length) msg.extra = extra;
       post(msg, transfer);
     } catch (err) {
       post({ type: 'error', id: m.id, message: err instanceof Error ? err.stack ?? err.message : String(err) });

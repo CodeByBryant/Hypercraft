@@ -10,6 +10,9 @@ import { CRAFTING, type CompiledRecipe } from '../game/items/Crafting';
 import { HOTBAR_SIZE, MAIN_END, ARMOR_START, OFFHAND } from '../game/items/Inventory';
 import { SlotContainer, canMerge, insertInto, type Container, type ItemStack } from '../game/items/ItemStack';
 import type { FurnaceData } from '../game/items/BlockEntities';
+import { countIn } from '../game/items/ItemStack';
+import { levelProgress, price, repFactor, soldOut } from '../game/Trading';
+import { LEVEL_NAMES } from '../content/trades';
 
 type SlotKind = 'normal' | 'result' | 'output' | 'creative';
 
@@ -122,7 +125,7 @@ export class InventoryScreen {
     } else if (req.kind === 'crafting') {
       this.gridSize = 3;
       this.grid = new SlotContainer(9);
-    } else {
+    } else if (req.kind !== 'trade') {
       const [x, y, z, w] = req.pos;
       this.container = this.game.blockEntities.container(x, y, z, w);
       if (req.kind === 'furnace') this.furnace = this.game.blockEntities.get(x, y, z, w) as FurnaceData;
@@ -155,7 +158,15 @@ export class InventoryScreen {
   update(dt: number): void {
     if (!this.req) return;
     const r = this.req;
-    if (r.kind !== 'inventory') {
+    if (r.kind === 'trade') {
+      // The villager walked off (or died): close.
+      const v = this.game.villager(r.mob);
+      const e = this.game.eye();
+      if (!v || Math.hypot(v.mob.pos[0]! - e[0]!, v.mob.pos[1]! + 1 - e[1]!, v.mob.pos[2]! - e[2]!, v.mob.pos[3]! - e[3]!) > 7) {
+        this.close();
+        return;
+      }
+    } else if (r.kind !== 'inventory') {
       const [x, y, z, w] = r.pos;
       const id = this.game.world.getBlock(x, y, z, w) & 0xfff;
       const name = REG.blocks[id]?.name ?? '';
@@ -230,6 +241,7 @@ export class InventoryScreen {
     else if (req.kind === 'inventory') this.renderPlayerTop(main);
     else if (req.kind === 'crafting') this.renderCraftingGrid(main, 'Crafting Table');
     else if (req.kind === 'chest') this.renderChest(main);
+    else if (req.kind === 'trade') this.renderTrade(main, req.mob);
     else this.renderFurnace(main, req.furnace);
     h('div', 'inv-title', main, 'INVENTORY');
     const mainGrid = h('div', 'inv-grid', main);
@@ -286,6 +298,56 @@ export class InventoryScreen {
     const match = CRAFTING.match(this.gridStacks(), this.gridSize);
     const res = this.slot(row, null, 0, 'result');
     if (match) this.paint(res.el, { id: match.result, count: match.count, damage: 0 });
+  }
+
+  /**
+   * Trading: the villager's offers (cost → result). Prices already include reputation and
+   * demand; the original price is struck through when it differs. Tap / click an offer to
+   * trade once (you need the cost in your inventory).
+   */
+  private renderTrade(main: HTMLElement, id: number): void {
+    const g = this.game;
+    const v = g.villager(id);
+    if (!v) return;
+    const d = v.data;
+    const merchant = d.profession === 'merchant';
+    h('div', 'inv-title', main, merchant ? v.mob.def.displayName.toUpperCase() : `${v.mob.def.displayName.toUpperCase()} · ${LEVEL_NAMES[d.level]!.toUpperCase()}`);
+    if (!merchant) {
+      const bar = h('div', 'trade-level', main);
+      const fill = h('div', '', bar);
+      fill.style.width = `${Math.round(levelProgress(d) * 100)}%`;
+    }
+    const k = repFactor(d.rep);
+    const mood = h('div', 'trade-rep', main, d.rep === 0 ? 'Standing: neutral' : `Standing: ${d.rep > 0 ? '+' : ''}${d.rep} (prices ${k < 1 ? '−' : '+'}${Math.round(Math.abs(1 - k) * 100)}%)`);
+    mood.classList.toggle('bad', d.rep < 0);
+    const list = h('div', 'trade-list', main);
+    d.offers.forEach((o, i) => {
+      const out = soldOut(o);
+      const prices = o.cost.map((_, c) => price(o, c, d.rep));
+      const can = !out && (g.player.mode === 'creative' || o.cost.every(([n], c) => countIn(g.inv, IREG.id(n)) >= prices[c]!));
+      const row = h('div', `trade-offer${out ? ' out' : can ? ' can' : ''}`, list);
+      row.dataset.offer = String(i);
+      o.cost.forEach(([n, base], c) => {
+        const cell = h('div', 'trade-stack', row);
+        const icon = h('div', 'icon', cell);
+        g.icons.apply(icon, IREG.id(n), 32);
+        const p = prices[c]!;
+        if (p !== base) h('span', 'was', cell, String(base));
+        h('span', 'count', cell, String(p));
+        cell.title = IREG.displayName(IREG.id(n));
+      });
+      h('div', 'inv-arrow', row, out ? '✕' : '⇒');
+      const res = h('div', 'trade-stack', row);
+      g.icons.apply(h('div', 'icon', res), IREG.id(o.result[0]), 32);
+      if (o.result[1] > 1) h('span', 'count', res, String(o.result[1]));
+      res.title = IREG.displayName(IREG.id(o.result[0]));
+      h('div', 'trade-uses', row, out ? 'Sold out' : `${o.maxUses - o.uses} left`);
+      row.addEventListener('click', () => {
+        if (this.justOpened()) return;
+        if (g.trade(id, i)) this.render();
+      });
+    });
+    h('div', 'inv-hint', main, merchant ? 'The merchant moves on after a day or so.' : 'Offers restock twice a day. Trading raises your standing (cheaper prices); hitting villagers lowers it.');
   }
 
   private renderChest(main: HTMLElement): void {

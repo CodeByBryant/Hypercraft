@@ -1,5 +1,82 @@
 # Changelog
 
+## 0.5.0 — Phase 5: Structures, villages, trading, beds (2026-09-29)
+
+### Added
+- **Beds and sleeping** (playtest request: "there's no way to skip the night").
+  - Red, blue and white beds: craft 3 wool over 3 planks (dye wool with a poppy or a
+    cornflower), or use one in a village house, cabin or igloo.
+  - Right click a bed at night, or in a thunderstorm, and you sleep until sunrise. The screen
+    fades out, the night passes and storms clear. A **Leave bed** button (or jump) gets you
+    up first.
+  - Any bed you use becomes your **respawn point**, by day too. If it is gone when you die,
+    you wake at the world spawn.
+  - A hostile mob within 8 blocks (in x, z and w) and 5 up or down stops you from sleeping.
+    The message names it and says where it is, even when it is kata or ana of your slice
+    (R2). Taking damage wakes you up.
+- **Structures, all data-driven** (`src/content/structures.ts`). 32 structures generate on a
+  4D grid, one attempt per spacing³ cell of (x, z, w). Each builder writes in a local frame
+  and is placed in one of 48 orientations.
+  - **Villages** in seven styles: meadow, orchard, marsh (on stilts), taiga, snow, savanna
+    and desert.
+    - Each is a plaza with a 4D well, and roads along all six horizontal directions. Roads
+      follow the ground and cross water on plank bridges.
+    - The buildings are houses, farms, smithies, libraries, temples, masons, fletchers and
+      W-Walker shrines. Each has a 4D hip roof, sometimes a door on its ana wall, beds, a
+      chest and a villager.
+  - **Surface**: cabins, watchtowers, witch huts, windmills with 4D rotors, campsites,
+    igloos, outposts, stone circles (a sphere of pillars), standing slabs and fossil sites.
+  - **Temples and ruins**: desert temples (hyper-pyramids), jungle shrines, tesseract grove
+    temples (32 hypercube edges), ruined portals, ancient ruins, and sky towers whose floors
+    are joined by W-ramps.
+  - **Shore and sea**: lighthouses, buried treasure, shipwrecks, and sunken monuments with a
+    Drowned Sentinel spawner.
+  - **Underground**:
+    - dungeons with spawners;
+    - hypermines: tunnels along x, z and w, with supports, webs and loot;
+    - library ruins;
+    - deep silent vaults, guarded by a Lurker spawner;
+    - **Ana Vaults**: sealed rooms that open only onto an Ana Sheet, so the only way in is
+      through W.
+- **Loot tables** (30 of them, `src/content/loot.ts`): pools, rolls, weighted entries and
+  pre-worn tools. They are rolled deterministically per seed and chest position.
+- **Mob spawners** are block entities. They spawn their mob within 3 blocks (up to 6 nearby)
+  every 10–40 s while you are within 16 blocks.
+- **Villagers and trading.**
+  - There are eight professions: farmer, smith, librarian, cartographer, cleric, mason,
+    fletcher and W-Walker. Each has robe colours and five levels of trades, and the currency
+    is **Verdant**.
+  - Right click (or tap) a villager to open the trade screen.
+  - Prices follow your reputation (up to 35% off when liked, up to 50% more when you have
+    hit them) and demand. Offers restock twice a day.
+  - Trade experience levels a villager from Novice to Master, and each level unlocks new
+    offers.
+  - Villagers flee monsters, go home at night and turn to face you.
+  - They are **saved with the world** (the first mobs that are), in their column's data.
+- **Wandering Merchant**: turns up some mornings with six random offers, and leaves after
+  about a day and a half.
+- **Atlases** (village, temple, vault, ruins): hold one and the readout points to the nearest
+  structure it marks: a direction in your slice, the distance, and how far kata/ana. The
+  search runs in a worker.
+- New blocks:
+  - stone bricks, thatch, plaster, dirt path, hay bale, bookshelf, lantern, fence, campfire;
+  - sea bricks and sea lantern, tesseract bricks, gilded bricks;
+  - red and blue wool, the mob spawner, beds.
+- The hypercompass points to your bed once you have one.
+- F3 shows the villager and spawner counts and your bed.
+- A new e2e spec, `tests/e2e/structures.spec.ts`:
+  - finds a village through the structure grid and checks its roads and villagers;
+  - takes the R6 views of the village;
+  - trades through the trade screen;
+  - sleeps through a night, including the refusal while a monster waits kata;
+  - respawns at the bed;
+  - reads the atlas;
+  - checks a dungeon's spawner and loot chests, and that the spawner spawns.
+
+### Changed
+- `docs/how-to/add-a-structure.md` is now a real how-to, and `docs/data-formats.md` documents
+  structures, loot tables, trades and professions.
+
 ## 0.4.1 — Mobile controls overhaul, mob visibility, icons (2026-09-29)
 
 ### Fixed (playtest feedback)

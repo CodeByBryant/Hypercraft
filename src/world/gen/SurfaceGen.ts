@@ -19,6 +19,7 @@ import type { BiomeDef, RealmDef, TreeDef } from '../../content/types';
 import { COLUMN_LAYER } from '../constants';
 import { Climate, ClimateLattice, type BiomePick, type ClimateSample } from './surface/Climate';
 import { CaveFields, NF } from './surface/Caves';
+import { StructureGen, type GenExtra } from './structures/StructureGen';
 
 export interface GenOptions {
   /** Stamp the engine test garden next to spawn (test worlds / R6 reference views). */
@@ -322,6 +323,18 @@ export class SurfaceGenerator {
     return [x + 0.5, Math.max(h, this.sea) + 1.01, z - (this.garden ? 4 : 0) + 0.5, w + 0.5];
   }
 
+  /**
+   * The Ana Sheet of the 96-block W cell containing `w`, at (x, z): its centre w and y, or
+   * null where the sheet is masked out. (Structures use it to put vaults beside a sheet.)
+   */
+  sheetAt(x: number, z: number, w: number): { w: number; y: number } | null {
+    const cell = Math.floor(w / 96);
+    const sh = hash4(cell, 0, 0, 0, this.seed ^ SALT_SHEET);
+    const wc = cell * 96 + 48 + 20 * this.nSheet.n2(x / 150 + cell * 7.3, z / 150);
+    if (this.nSheetMask.n3(x / 300, z / 300, wc / 300) <= -0.15) return null;
+    return { w: wc, y: 16 + (sh % 28) + 5 * this.nSheet.n2(x / 90, z / 90 + 50) };
+  }
+
   /** Underground (cave) biome index at a position, or -1 for plain caves. */
   caveBiomeAt(x: number, y: number, z: number, w: number): number {
     return this.caveBiome(this.nCaveHum.n3(x / 170, z / 170, w / 170), this.nCaveWeird.n3(x / 220, z / 220, w / 220), y);
@@ -336,7 +349,19 @@ export class SurfaceGenerator {
 
   // ------------------------------------------------------------------ generate
 
-  generate(cx: number, cz: number, cw: number, blocks: Uint16Array, surface: Uint8Array): void {
+  /** Structures (built lazily: the main thread only needs them for atlases and tests). */
+  private structGen: StructureGen | null = null;
+  get structures(): StructureGen {
+    return (this.structGen ??= new StructureGen(this));
+  }
+
+  /** Nearest start of any of the named structures (atlas items, tests). */
+  nearestStructure(names: string[], x: number, z: number, w: number, maxDist = 1200): { name: string; x: number; y: number; z: number; w: number } | null {
+    const st = this.structures.placer.nearest(names, x, z, w, maxDist);
+    return st ? { name: st.def.name, x: st.x, y: st.y, z: st.z, w: st.w } : null;
+  }
+
+  generate(cx: number, cz: number, cw: number, blocks: Uint16Array, surface: Uint8Array, extra?: GenExtra): void {
     const H = this.height;
     const sea = this.sea;
     const X0 = cx * 16, Z0 = cz * 16, W0 = cw * 16;
@@ -508,6 +533,9 @@ export class SurfaceGenerator {
 
     // 6. Trees and plants.
     this.vegetation(X0, Z0, W0, heights, biomeOf, blocks);
+
+    // 7. Structures (villages, temples, dungeons...), with chests, spawners and villagers.
+    this.structures.apply(cx, cz, cw, blocks, extra ?? {});
 
     if (this.garden) stampGarden(blocks, X0 - this.gardenOrigin[0], Z0 - this.gardenOrigin[2], W0 - this.gardenOrigin[3], this.gardenFloor(), H);
   }

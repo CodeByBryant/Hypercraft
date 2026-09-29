@@ -73,6 +73,16 @@ export const SHAPES: ShapeDef[] = [
     boxes: [[[0, 0, 0, 0], [1, 0.4375, 1, 1]]],
     collision: 'shape',
   },
+  {
+    // Bed: a mattress on a slightly inset wooden base, 9/16 high like Minecraft's.
+    name: 'bed',
+    kind: 'boxes',
+    boxes: [
+      [[0.0625, 0, 0.0625, 0.0625], [0.9375, 0.1875, 0.9375, 0.9375]],
+      [[0, 0.1875, 0, 0], [1, 0.5625, 1, 1]],
+    ],
+    collision: 'shape',
+  },
   { name: 'plant', kind: 'plant', collision: 'none' },
   { name: 'fluid', kind: 'fluid', collision: 'none' },
 ];

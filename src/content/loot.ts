@@ -1,0 +1,469 @@
+// Chest loot tables (Phase 5). Each table has pools; each pool is rolled a random number of
+// times and picks weighted entries. Chests in generated structures are filled from these when
+// the column is generated (deterministic per world seed and chest position).
+
+import type { LootTable } from './types';
+
+const T = (pools: LootTable['pools']): LootTable => ({ pools });
+
+export const LOOT_TABLES: Record<string, LootTable> = {
+  // ---------------------------------------------------------------- villages
+  village_house: T([
+    {
+      rolls: [3, 6],
+      entries: [
+        { item: 'bread', weight: 10, count: [1, 4] },
+        { item: 'apple', weight: 8, count: [1, 3] },
+        { item: 'wheat', weight: 8, count: [2, 6] },
+        { item: 'stick', weight: 6, count: [2, 6] },
+        { item: 'torch', weight: 6, count: [2, 6] },
+        { item: 'coal', weight: 5, count: [1, 4] },
+        { item: 'paper', weight: 3, count: [1, 3] },
+        { item: 'egg', weight: 3, count: [1, 3] },
+        { item: 'iron_nugget', weight: 3, count: [1, 4] },
+        { item: 'verdant', weight: 1 },
+      ],
+    },
+  ]),
+  village_smith: T([
+    {
+      rolls: [3, 7],
+      entries: [
+        { item: 'iron_ingot', weight: 10, count: [1, 5] },
+        { item: 'iron_nugget', weight: 8, count: [2, 8] },
+        { item: 'coal', weight: 8, count: [2, 8] },
+        { item: 'bread', weight: 6, count: [1, 3] },
+        { item: 'iron_pickaxe', weight: 3, wear: [0.2, 0.8] },
+        { item: 'iron_sword', weight: 3, wear: [0.2, 0.8] },
+        { item: 'iron_axe', weight: 2, wear: [0.2, 0.8] },
+        { item: 'gold_ingot', weight: 3, count: [1, 3] },
+        { item: 'obsidian', weight: 2, count: [1, 3] },
+        { item: 'verdant', weight: 1, count: [1, 2] },
+      ],
+    },
+  ]),
+  village_library: T([
+    {
+      rolls: [2, 5],
+      entries: [
+        { item: 'book', weight: 10, count: [1, 3] },
+        { item: 'paper', weight: 10, count: [2, 8] },
+        { item: 'compass', weight: 2 },
+        { item: 'clock', weight: 2 },
+        { item: 'ruins_atlas', weight: 1 },
+        { item: 'lantern', weight: 3, count: [1, 2] },
+        { item: 'verdant', weight: 2, count: [1, 2] },
+      ],
+    },
+  ]),
+  village_temple: T([
+    {
+      rolls: [2, 5],
+      entries: [
+        { item: 'phase_dust', weight: 8, count: [1, 4] },
+        { item: 'glow_scale', weight: 5, count: [1, 3] },
+        { item: 'amethyst_shard', weight: 6, count: [1, 4] },
+        { item: 'lumen', weight: 4, count: [1, 3] },
+        { item: 'bone', weight: 6, count: [1, 4] },
+        { item: 'verdant', weight: 3, count: [1, 3] },
+        { item: 'echo_shard', weight: 1 },
+      ],
+    },
+  ]),
+  village_farm: T([
+    {
+      rolls: [3, 6],
+      entries: [
+        { item: 'wheat', weight: 12, count: [3, 9] },
+        { item: 'bread', weight: 8, count: [1, 4] },
+        { item: 'apple', weight: 6, count: [1, 4] },
+        { item: 'egg', weight: 5, count: [1, 4] },
+        { item: 'hay_bale', weight: 3, count: [1, 2] },
+        { item: 'iron_hoe', weight: 1, wear: [0.3, 0.8] },
+      ],
+    },
+  ]),
+  // ---------------------------------------------------------------- underground
+  dungeon: T([
+    {
+      rolls: [2, 4],
+      entries: [
+        { item: 'bone', weight: 10, count: [1, 6] },
+        { item: 'rotten_flesh', weight: 10, count: [1, 6] },
+        { item: 'string', weight: 8, count: [1, 5] },
+        { item: 'arrow', weight: 6, count: [2, 8] },
+        { item: 'bread', weight: 6, count: [1, 3] },
+        { item: 'coal', weight: 6, count: [2, 6] },
+      ],
+    },
+    {
+      rolls: [1, 3],
+      entries: [
+        { item: 'iron_ingot', weight: 10, count: [1, 4] },
+        { item: 'gold_ingot', weight: 6, count: [1, 4] },
+        { item: 'phase_dust', weight: 6, count: [1, 3] },
+        { item: 'azurite', weight: 3, count: [1, 2] },
+        { item: 'verdant', weight: 2, count: [1, 2] },
+        { item: 'bow', weight: 2, wear: [0.1, 0.6] },
+        { item: 'ruins_atlas', weight: 1 },
+      ],
+    },
+  ]),
+  hypermine: T([
+    {
+      rolls: [3, 6],
+      entries: [
+        { item: 'torch', weight: 10, count: [2, 8] },
+        { item: 'coal', weight: 10, count: [3, 8] },
+        { item: 'raw_copper', weight: 8, count: [2, 6] },
+        { item: 'iron_ingot', weight: 8, count: [1, 5] },
+        { item: 'gold_ingot', weight: 4, count: [1, 3] },
+        { item: 'fluxite_dust', weight: 5, count: [2, 6] },
+        { item: 'bread', weight: 5, count: [1, 3] },
+        { item: 'string', weight: 4, count: [1, 4] },
+        { item: 'iron_pickaxe', weight: 2, wear: [0.3, 0.9] },
+        { item: 'azurite', weight: 2, count: [1, 3] },
+        { item: 'echo_shard', weight: 1 },
+        { item: 'hyperite', weight: 1 },
+      ],
+    },
+  ]),
+  library: T([
+    {
+      rolls: [3, 6],
+      entries: [
+        { item: 'book', weight: 10, count: [1, 4] },
+        { item: 'paper', weight: 10, count: [2, 8] },
+        { item: 'bookshelf', weight: 3, count: [1, 2] },
+        { item: 'compass', weight: 2 },
+        { item: 'clock', weight: 2 },
+        { item: 'ruins_atlas', weight: 2 },
+        { item: 'vault_atlas', weight: 1 },
+        { item: 'phase_dust', weight: 3, count: [1, 3] },
+      ],
+    },
+  ]),
+  ana_vault: T([
+    {
+      rolls: [3, 6],
+      entries: [
+        { item: 'phase_dust', weight: 10, count: [2, 6] },
+        { item: 'echo_shard', weight: 6, count: [1, 3] },
+        { item: 'hyperite', weight: 4, count: [1, 3] },
+        { item: 'verdant', weight: 6, count: [1, 4] },
+        { item: 'azurite', weight: 6, count: [1, 4] },
+        { item: 'gold_ingot', weight: 6, count: [2, 5] },
+        { item: 'tesseract_bricks', weight: 3, count: [2, 6] },
+        { item: 'hyperite_sword', weight: 1, wear: [0.1, 0.5] },
+        { item: 'temple_atlas', weight: 1 },
+      ],
+    },
+  ]),
+  deep_silent_vault: T([
+    {
+      rolls: [3, 6],
+      entries: [
+        { item: 'echo_shard', weight: 10, count: [1, 4] },
+        { item: 'wraith_essence', weight: 6, count: [1, 3] },
+        { item: 'hyperite', weight: 4, count: [1, 3] },
+        { item: 'verdant', weight: 5, count: [1, 4] },
+        { item: 'fluxite_dust', weight: 6, count: [2, 8] },
+        { item: 'azurite', weight: 5, count: [1, 4] },
+        { item: 'hyperite_pickaxe', weight: 1, wear: [0.2, 0.6] },
+      ],
+    },
+  ]),
+  // ---------------------------------------------------------------- temples and ruins
+  desert_temple: T([
+    {
+      rolls: [2, 4],
+      entries: [
+        { item: 'bone', weight: 10, count: [2, 6] },
+        { item: 'rotten_flesh', weight: 10, count: [2, 6] },
+        { item: 'sand', weight: 6, count: [2, 8] },
+      ],
+    },
+    {
+      rolls: [2, 4],
+      entries: [
+        { item: 'gold_ingot', weight: 10, count: [2, 6] },
+        { item: 'iron_ingot', weight: 8, count: [1, 5] },
+        { item: 'verdant', weight: 5, count: [1, 3] },
+        { item: 'azurite', weight: 4, count: [1, 3] },
+        { item: 'phase_dust', weight: 5, count: [1, 4] },
+        { item: 'gold_block', weight: 1 },
+        { item: 'temple_atlas', weight: 1 },
+      ],
+    },
+  ]),
+  jungle_shrine: T([
+    {
+      rolls: [3, 6],
+      entries: [
+        { item: 'bamboo_block', weight: 8, count: [2, 6] },
+        { item: 'bone', weight: 8, count: [2, 6] },
+        { item: 'arrow', weight: 6, count: [2, 8] },
+        { item: 'gold_ingot', weight: 8, count: [2, 5] },
+        { item: 'iron_ingot', weight: 6, count: [1, 4] },
+        { item: 'verdant', weight: 5, count: [1, 3] },
+        { item: 'azurite', weight: 3, count: [1, 2] },
+        { item: 'glow_scale', weight: 3, count: [1, 3] },
+      ],
+    },
+  ]),
+  tesseract_temple: T([
+    {
+      rolls: [4, 7],
+      entries: [
+        { item: 'hyperite', weight: 6, count: [1, 3] },
+        { item: 'echo_shard', weight: 6, count: [1, 3] },
+        { item: 'phase_dust', weight: 10, count: [3, 8] },
+        { item: 'tesseract_bricks', weight: 6, count: [4, 12] },
+        { item: 'verdant', weight: 6, count: [2, 5] },
+        { item: 'azurite', weight: 6, count: [2, 5] },
+        { item: 'vault_atlas', weight: 2 },
+      ],
+    },
+  ]),
+  ruins: T([
+    {
+      rolls: [2, 5],
+      entries: [
+        { item: 'stone_bricks', weight: 8, count: [2, 8] },
+        { item: 'bone', weight: 8, count: [1, 5] },
+        { item: 'coal', weight: 6, count: [1, 5] },
+        { item: 'iron_nugget', weight: 6, count: [2, 8] },
+        { item: 'gold_nugget', weight: 6, count: [2, 8] },
+        { item: 'book', weight: 3 },
+        { item: 'verdant', weight: 2 },
+        { item: 'ruins_atlas', weight: 1 },
+      ],
+    },
+  ]),
+  ruined_portal: T([
+    {
+      rolls: [3, 6],
+      entries: [
+        { item: 'obsidian', weight: 10, count: [1, 4] },
+        { item: 'flint', weight: 8, count: [1, 4] },
+        { item: 'iron_nugget', weight: 8, count: [3, 9] },
+        { item: 'gold_nugget', weight: 8, count: [3, 9] },
+        { item: 'gold_ingot', weight: 5, count: [1, 3] },
+        { item: 'flint_and_steel', weight: 4, wear: [0, 0.5] },
+        { item: 'gold_sword', weight: 3, wear: [0.3, 0.9] },
+        { item: 'gold_pickaxe', weight: 3, wear: [0.3, 0.9] },
+        { item: 'phase_dust', weight: 4, count: [1, 3] },
+        { item: 'magma_cream', weight: 2, count: [1, 2] },
+      ],
+    },
+  ]),
+  // ---------------------------------------------------------------- coast and sea
+  shipwreck_supply: T([
+    {
+      rolls: [3, 7],
+      entries: [
+        { item: 'paper', weight: 8, count: [1, 6] },
+        { item: 'wheat', weight: 8, count: [4, 12] },
+        { item: 'bread', weight: 6, count: [1, 4] },
+        { item: 'coal', weight: 6, count: [2, 8] },
+        { item: 'feather', weight: 4, count: [1, 5] },
+        { item: 'leather', weight: 4, count: [1, 3] },
+        { item: 'apple', weight: 5, count: [1, 4] },
+        { item: 'string', weight: 4, count: [1, 4] },
+      ],
+    },
+  ]),
+  shipwreck_treasure: T([
+    {
+      rolls: [3, 6],
+      entries: [
+        { item: 'iron_ingot', weight: 10, count: [1, 5] },
+        { item: 'gold_ingot', weight: 8, count: [1, 5] },
+        { item: 'iron_nugget', weight: 8, count: [2, 10] },
+        { item: 'gold_nugget', weight: 8, count: [2, 10] },
+        { item: 'verdant', weight: 4, count: [1, 3] },
+        { item: 'azurite', weight: 4, count: [1, 3] },
+        { item: 'temple_atlas', weight: 1 },
+      ],
+    },
+  ]),
+  buried_treasure: T([
+    {
+      rolls: [5, 8],
+      entries: [
+        { item: 'gold_ingot', weight: 10, count: [2, 6] },
+        { item: 'iron_ingot', weight: 10, count: [2, 6] },
+        { item: 'verdant', weight: 6, count: [2, 5] },
+        { item: 'azurite', weight: 6, count: [2, 5] },
+        { item: 'glow_scale', weight: 4, count: [1, 3] },
+        { item: 'hyperite', weight: 2, count: [1, 2] },
+        { item: 'echo_shard', weight: 1 },
+      ],
+    },
+  ]),
+  sunken_monument: T([
+    {
+      rolls: [3, 6],
+      entries: [
+        { item: 'glow_scale', weight: 10, count: [2, 6] },
+        { item: 'sea_lantern', weight: 6, count: [1, 4] },
+        { item: 'gold_ingot', weight: 6, count: [2, 5] },
+        { item: 'verdant', weight: 5, count: [1, 4] },
+        { item: 'azurite', weight: 5, count: [1, 4] },
+        { item: 'gold_block', weight: 2 },
+        { item: 'hyperite', weight: 2, count: [1, 2] },
+        { item: 'echo_shard', weight: 2 },
+      ],
+    },
+  ]),
+  lighthouse: T([
+    {
+      rolls: [2, 5],
+      entries: [
+        { item: 'torch', weight: 10, count: [2, 8] },
+        { item: 'lantern', weight: 5, count: [1, 3] },
+        { item: 'coal', weight: 8, count: [2, 8] },
+        { item: 'bread', weight: 6, count: [1, 4] },
+        { item: 'compass', weight: 2 },
+        { item: 'glow_scale', weight: 4, count: [1, 3] },
+      ],
+    },
+  ]),
+  // ---------------------------------------------------------------- small surface sites
+  cabin: T([
+    {
+      rolls: [2, 5],
+      entries: [
+        { item: 'bread', weight: 8, count: [1, 3] },
+        { item: 'apple', weight: 8, count: [1, 3] },
+        { item: 'stick', weight: 6, count: [2, 6] },
+        { item: 'torch', weight: 6, count: [2, 5] },
+        { item: 'log', weight: 6, count: [2, 6] },
+        { item: 'coal', weight: 5, count: [1, 4] },
+        { item: 'iron_axe', weight: 2, wear: [0.3, 0.8] },
+        { item: 'bow', weight: 2, wear: [0.2, 0.7] },
+        { item: 'arrow', weight: 3, count: [2, 8] },
+      ],
+    },
+  ]),
+  watchtower: T([
+    {
+      rolls: [2, 4],
+      entries: [
+        { item: 'arrow', weight: 10, count: [3, 12] },
+        { item: 'bow', weight: 3, wear: [0.2, 0.7] },
+        { item: 'bread', weight: 6, count: [1, 3] },
+        { item: 'torch', weight: 6, count: [2, 6] },
+        { item: 'iron_nugget', weight: 5, count: [2, 6] },
+        { item: 'compass', weight: 1 },
+      ],
+    },
+  ]),
+  outpost: T([
+    {
+      rolls: [3, 6],
+      entries: [
+        { item: 'arrow', weight: 10, count: [4, 16] },
+        { item: 'bow', weight: 4, wear: [0.1, 0.6] },
+        { item: 'iron_ingot', weight: 6, count: [1, 4] },
+        { item: 'wheat', weight: 6, count: [3, 8] },
+        { item: 'string', weight: 5, count: [1, 4] },
+        { item: 'bread', weight: 5, count: [1, 3] },
+        { item: 'verdant', weight: 2, count: [1, 2] },
+        { item: 'iron_sword', weight: 2, wear: [0.2, 0.7] },
+      ],
+    },
+  ]),
+  campsite: T([
+    {
+      rolls: [2, 4],
+      entries: [
+        { item: 'bread', weight: 8, count: [1, 3] },
+        { item: 'apple', weight: 8, count: [1, 3] },
+        { item: 'stick', weight: 6, count: [2, 6] },
+        { item: 'coal', weight: 6, count: [1, 4] },
+        { item: 'raw_mutton', weight: 4, count: [1, 3] },
+        { item: 'flint', weight: 4, count: [1, 3] },
+        { item: 'string', weight: 3, count: [1, 3] },
+      ],
+    },
+  ]),
+  igloo: T([
+    {
+      rolls: [2, 4],
+      entries: [
+        { item: 'apple', weight: 8, count: [1, 3] },
+        { item: 'coal', weight: 8, count: [1, 4] },
+        { item: 'bread', weight: 6, count: [1, 3] },
+        { item: 'gold_nugget', weight: 5, count: [1, 4] },
+        { item: 'phase_dust', weight: 2, count: [1, 2] },
+        { item: 'blue_ice', weight: 2, count: [1, 4] },
+      ],
+    },
+  ]),
+  witch_hut: T([
+    {
+      rolls: [3, 6],
+      entries: [
+        { item: 'phase_dust', weight: 8, count: [1, 4] },
+        { item: 'glow_scale', weight: 6, count: [1, 3] },
+        { item: 'magma_cream', weight: 4, count: [1, 2] },
+        { item: 'slime_ball', weight: 6, count: [1, 4] },
+        { item: 'ink_sac', weight: 6, count: [1, 4] },
+        { item: 'bone', weight: 6, count: [1, 4] },
+        { item: 'string', weight: 5, count: [1, 4] },
+        { item: 'amethyst_shard', weight: 4, count: [1, 3] },
+        { item: 'red_mushroom', weight: 4, count: [1, 3] },
+      ],
+    },
+  ]),
+  fossil_site: T([
+    {
+      rolls: [2, 4],
+      entries: [
+        { item: 'bone', weight: 12, count: [2, 8] },
+        { item: 'bone_block', weight: 6, count: [1, 3] },
+        { item: 'coal', weight: 6, count: [1, 4] },
+        { item: 'amethyst_shard', weight: 4, count: [1, 3] },
+        { item: 'fossil_stone', weight: 4, count: [1, 4] },
+      ],
+    },
+  ]),
+  sky_tower: T([
+    {
+      rolls: [3, 6],
+      entries: [
+        { item: 'phase_dust', weight: 10, count: [2, 6] },
+        { item: 'feather', weight: 8, count: [2, 6] },
+        { item: 'echo_shard', weight: 4, count: [1, 2] },
+        { item: 'glow_scale', weight: 5, count: [1, 3] },
+        { item: 'azurite', weight: 5, count: [1, 3] },
+        { item: 'verdant', weight: 5, count: [1, 3] },
+        { item: 'hyperite', weight: 2 },
+        { item: 'vault_atlas', weight: 1 },
+      ],
+    },
+  ]),
+  windmill: T([
+    {
+      rolls: [2, 5],
+      entries: [
+        { item: 'wheat', weight: 12, count: [4, 12] },
+        { item: 'bread', weight: 8, count: [2, 5] },
+        { item: 'hay_bale', weight: 4, count: [1, 3] },
+        { item: 'apple', weight: 5, count: [1, 3] },
+      ],
+    },
+  ]),
+  stone_circle: T([
+    {
+      rolls: [1, 3],
+      entries: [
+        { item: 'phase_dust', weight: 8, count: [1, 4] },
+        { item: 'amethyst_shard', weight: 6, count: [1, 3] },
+        { item: 'echo_shard', weight: 1 },
+        { item: 'verdant', weight: 2 },
+      ],
+    },
+  ]),
+};

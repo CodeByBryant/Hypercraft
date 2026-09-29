@@ -21,6 +21,7 @@ import { createGenerator, type WorldGenerator } from '../world/gen/generators';
 import { VOID_VOXEL } from '../world/constants';
 import { COLLISION_NONE } from '../content/registry';
 import { IREG } from '../content/itemRegistry';
+import { MOB_REG } from '../content/mobRegistry';
 import { Inventory, HOTBAR_SIZE } from './items/Inventory';
 import { ItemEntities } from './items/ItemEntities';
 import { BlockEntities } from './items/BlockEntities';
@@ -29,6 +30,10 @@ import { countIn, removeFrom, type ItemStack } from './items/ItemStack';
 import { MobManager, type Mob, type MobHost } from './mobs/MobManager';
 import { Projectiles, type ProjectileHost } from './mobs/Projectiles';
 import { MAX_AIR, MAX_HEALTH, Vitals } from './Vitals';
+import { newVillager, offend, price, recordTrade, restock, soldOut, type VillagerData } from './Trading';
+import { LEVEL_NAMES } from '../content/trades';
+import type { SavedMob } from './mobs/MobManager';
+import type { Column } from '../world/World';
 import { ARROW_SPEED, CRIT_MULTIPLIER, arrowDamage, attackCooldown, attackDamage, bowPower, hitWear, swingStrength } from './combat';
 import type { BiomeDef } from '../content/types';
 import type { FurnaceKind } from '../content/types';
@@ -38,6 +43,14 @@ import type { WeatherKind } from '../content/types';
 import type { Persistence } from '../save/Persistence';
 import type { SavedState, WorldInfo } from '../save/WorldInfo';
 import type { GameMode } from '../physics/Player';
+import type { Located } from '../world/gen/protocol';
+
+/** Blocks tagged 'bed' (sleep through the night, set your respawn point). */
+const BED_IDS = new Uint8Array(REG.count);
+REG.blocks.forEach((b, i) => {
+  if (b.tags?.includes('bed')) BED_IDS[i] = 1;
+});
+const isBed = (v: number): boolean => v !== VOID_VOXEL && BED_IDS[voxelId(v)] === 1;
 
 /** Creative starter inventory (hotbar first). Survival worlds start empty. */
 export const CREATIVE_KIT: [string, number][] = [
@@ -72,12 +85,21 @@ export type ScreenRequest =
   | { kind: 'inventory' }
   | { kind: 'crafting'; pos: [number, number, number, number] }
   | { kind: 'chest'; pos: [number, number, number, number] }
-  | { kind: 'furnace'; pos: [number, number, number, number]; furnace: FurnaceKind };
+  | { kind: 'furnace'; pos: [number, number, number, number]; furnace: FurnaceKind }
+  | { kind: 'trade'; mob: number };
 
 const WEATHER_CYCLE: WeatherKind[] = ['clear', 'rain', 'snow', 'thunder', 'phase_storm'];
 const DIFFICULTY: Record<string, number> = { peaceful: 0, easy: 1, normal: 2, hard: 3 };
 /** Attack reach (blocks) in survival and creative. */
 const REACH_ATTACK = [3.5, 5];
+/** How far an atlas looks for structures (blocks, 4D distance in x, z, w). */
+export const ATLAS_RANGE = 1600;
+/** Beds work from dusk to just before dawn (Minecraft: ticks 12542..23459 of its day). */
+const SLEEP_FROM = 12500;
+const SLEEP_UNTIL = 23450;
+/** Seconds to fall asleep (the screen fades out) and to wake up once the night has passed. */
+const SLEEP_FADE = 2.2;
+const WAKE_FADE = 1.3;
 const HOTBAR_ACTIONS = ['hotbar1', 'hotbar2', 'hotbar3', 'hotbar4', 'hotbar5', 'hotbar6', 'hotbar7', 'hotbar8', 'hotbar9'] as const;
 
 export interface GameOptions {
@@ -174,6 +196,15 @@ export class Game {
   readonly threats: Mob[] = [];
   /** Seconds the bow has been drawn (0 = not drawing). */
   bowDraw = 0;
+  /** Your respawn point, set by using a bed (null: the world spawn). */
+  bed: [number, number, number, number] | null = null;
+  /** Asleep in a bed: seconds so far, and whether the night has been skipped yet. */
+  sleeping: { t: number; skipped: boolean } | null = null;
+  /** After respawning at a bed, check it is still there once its column has loaded. */
+  private checkBed = false;
+  /** The held atlas's target: the nearest structure it marks (searched by a worker). */
+  atlas: { item: number; target: Located | null; at: [number, number, number] } | null = null;
+  private atlasPending = false;
   /** Called once when the player dies (death screen); `respawn()` brings them back. */
   onDeath: ((cause: string) => void) | null = null;
   private readonly pickOut: { mob: Mob | null } = { mob: null };
@@ -259,10 +290,12 @@ export class Game {
     this.world.columnAdded = (c) => {
       this.renderer.gpu.onColumnAdded(c);
       this.blockEntities.onColumnAdded(c);
+      this.columnMobsIn(c);
     };
     this.world.columnRemoved = (c) => {
       this.renderer.gpu.onColumnRemoved(c);
       this.blockEntities.onColumnRemoved(c);
+      this.columnMobsOut(c);
       if (this.persistence && c.dirty) void this.persistence.saveColumn(c);
     };
     this.world.retainEdited = !this.persistence;
@@ -277,6 +310,19 @@ export class Game {
     // Mobs: natural spawning is off in test worlds (tests spawn what they need).
     this.mobs = new MobManager(this.world);
     this.mobs.enabled = !opts.test && !this.demo;
+    // Spawners (dungeons, outposts) work while natural spawning does.
+    this.blockEntities.playerPos = this.player.pos;
+    this.blockEntities.spawnMob = (name, x, y, z, w) => {
+      if (!this.mobs.enabled || this.demo) return false;
+      const hostile = MOB_REG.get(name).def.hostile;
+      if (hostile && (DIFFICULTY[this.info.difficulty] ?? 2) === 0) return false;
+      return this.mobs.spawn(name, x, y, z, w) !== null;
+    };
+    this.blockEntities.countNear = (name, x, y, z, w, r) => {
+      let n = 0;
+      for (const m of this.mobs.list) if (m.def.name === name && Math.hypot(m.pos[0]! - x, m.pos[1]! - y, m.pos[2]! - z, m.pos[3]! - w) < r) n++;
+      return n;
+    };
     this.caveFn = gen.caveBiomeAt ? (x, y, z, w) => gen.caveBiomeAt!(x, y, z, w) : null;
     const game = this;
     this.mobHost = {
@@ -377,6 +423,8 @@ export class Game {
     this.env.weatherLeft = st.weatherLeft;
     const inv = sp.data?.inventory;
     this.vitals.load(sp.data?.vitals);
+    const bed = sp.data?.bed;
+    if (Array.isArray(bed) && bed.length === 4 && bed.every((v) => Number.isInteger(v))) this.bed = bed as [number, number, number, number];
     if (inv) this.inv.load(inv);
     else if (st.hotbar) {
       // 0.1.x saves had a creative block palette instead of an inventory.
@@ -402,14 +450,14 @@ export class Game {
     return {
       realm: this.world.realm.name,
       player: {
-        pos: dead ? [...this.spawn] : Array.from(p.pos),
+        pos: dead ? this.respawnPoint() : Array.from(p.pos),
         F: Array.from(p.cam.F),
         R: Array.from(p.cam.R),
         H: Array.from(p.cam.H),
         pitch: p.cam.pitch,
         mode: dead && this.info.hardcore ? 'spectator' : p.mode,
         flying: p.flying,
-        data: { inventory: this.inv.save(), vitals: dead ? { health: MAX_HEALTH, air: MAX_AIR } : this.vitals.save() },
+        data: { inventory: this.inv.save(), vitals: dead ? { health: MAX_HEALTH, air: MAX_AIR } : this.vitals.save(), bed: this.bed },
       },
       ticks: this.env.ticks,
       weather: this.env.weather,
@@ -422,6 +470,7 @@ export class Game {
   async saveAll(): Promise<void> {
     const ps = this.persistence;
     if (!ps || this.demo) return;
+    this.snapshotMobs();
     ps.saveDirty(this.world);
     ps.info.state = this.snapshot();
     await ps.saveMeta();
@@ -483,7 +532,8 @@ export class Game {
     const input = this.input;
     const active = !this.paused && input.enabled;
 
-    if (active && !this.demo && !this.vitals.dead) this.handleInput(dt);
+    if (this.sleeping) this.updateSleep(dt, active);
+    else if (active && !this.demo && !this.vitals.dead) this.handleInput(dt);
     else this.stopMoving();
     if (this.demo) this.demoCamera(dt);
     // Autosave.
@@ -504,6 +554,12 @@ export class Game {
       p.eye(this.eyePos);
       this.mobs.update(dt, this.mobHost, this.biomeFn, this.caveFn);
       this.projectiles.update(dt, this.world, this.mobs, this.projHost);
+      this.villageTimer -= dt;
+      if (this.villageTimer <= 0) {
+        this.villageTimer = 1;
+        this.villageTick();
+      }
+      this.updateAtlas();
     }
 
     // Fixed-rate world ticks.
@@ -622,6 +678,18 @@ export class Game {
         const v2 = this.world.getBlock(Math.floor(p.pos[0]!), Math.floor(p.pos[up]!) + 1, Math.floor(p.pos[2]!), Math.floor(p.pos[3]!));
         if (REG.collision[v & 0xfff] === COLLISION_NONE && REG.collision[v2 & 0xfff] === COLLISION_NONE) break;
         p.pos[up] = Math.floor(p.pos[up]!) + 1.001;
+      }
+      if (this.checkBed) {
+        this.checkBed = false;
+        const b = this.bed;
+        if (b && !isBed(this.world.getBlock(b[0], b[1], b[2], b[3]))) {
+          this.bed = null;
+          this.message?.('Your bed was missing, so you woke up at the world spawn');
+          p.setPosition(...this.spawn);
+          this.loaded = false;
+          p.frozen = true;
+          this.streamer.invalidate();
+        }
       }
     }
   }
@@ -745,7 +813,9 @@ export class Game {
       }
     } else {
       this.bowDraw = 0;
-      if (mode !== 'spectator' && (input.buttonPressed(2) || (input.buttonHeld(2) && this.placeCooldown <= 0))) {
+      if (mode !== 'spectator' && input.buttonPressed(2) && this.targetMob && this.talkTo(this.targetMob)) {
+        // Right click on a villager: trade.
+      } else if (mode !== 'spectator' && (input.buttonPressed(2) || (input.buttonHeld(2) && this.placeCooldown <= 0))) {
         this.useHeld(input.held('sneak'));
         this.placeCooldown = 0.25;
       }
@@ -801,10 +871,240 @@ export class Game {
   private interact(sneaking: boolean): void {
     if (this.player.mode === 'spectator') return;
     if (this.targetMob) {
-      this.attack(this.targetMob);
+      if (!this.talkTo(this.targetMob)) this.attack(this.targetMob);
       return;
     }
     this.useHeld(sneaking);
+  }
+
+  // ------------------------------------------------------------------ villagers & persistence
+
+  /**
+   * A column arrived: bring back the villagers saved in it, and spawn the villagers its
+   * structures generated (once: the column is then marked edited so it is saved without them).
+   */
+  private columnMobsIn(c: Column): void {
+    if (this.demo) return;
+    const ex = c.extra as { mobs?: SavedMob[]; npcs?: { mob: string; x: number; y: number; z: number; w: number; data?: Record<string, unknown> }[] };
+    if (ex.mobs) {
+      for (const sm of ex.mobs) this.mobs.restore(sm);
+      delete ex.mobs;
+    }
+    if (ex.npcs) {
+      for (const n of ex.npcs) {
+        if (!MOB_REG.has(n.mob)) continue;
+        const m = this.mobs.spawn(n.mob, n.x, n.y, n.z, n.w);
+        if (!m) continue;
+        const prof = m.def.profession;
+        if (prof) {
+          const d = newVillager(prof, (Math.imul(Math.floor(n.x), 73856093) ^ Math.imul(Math.floor(n.z), 19349663) ^ Math.imul(Math.floor(n.w), 83492791)) >>> 0);
+          d.home = [n.x, n.y, n.z, n.w];
+          d.village = String(n.data?.village ?? '');
+          m.data = d;
+        } else m.data = { profession: 'none', level: 0, xp: 0, offers: [], rep: 0, restock: -1, seed: 0, home: [n.x, n.y, n.z, n.w], village: String(n.data?.village ?? '') };
+      }
+      delete ex.npcs;
+      c.edited = true;
+      c.dirty = true;
+    }
+  }
+
+  /** A column is leaving: persistent mobs standing in it are saved into its data. */
+  private columnMobsOut(c: Column): void {
+    const out: SavedMob[] = [];
+    for (let i = this.mobs.list.length - 1; i >= 0; i--) {
+      const m = this.mobs.list[i]!;
+      if (!m.def.persistent) continue;
+      if (Math.floor(m.pos[0]! / 16) !== c.cx || Math.floor(m.pos[2]! / 16) !== c.cz || Math.floor(m.pos[3]! / 16) !== c.cw) continue;
+      out.push(this.mobs.serialize(m));
+      this.mobs.list.splice(i, 1);
+    }
+    if (out.length) {
+      (c.extra as { mobs?: SavedMob[] }).mobs = out;
+      c.edited = true;
+      c.dirty = true;
+    }
+  }
+
+  /** Before a save: write every loaded column's persistent mobs into its data (they stay live). */
+  private snapshotMobs(): void {
+    const byCol = new Map<Column, SavedMob[]>();
+    for (const m of this.mobs.list) {
+      if (!m.def.persistent) continue;
+      const c = this.world.column(Math.floor(m.pos[0]! / 16), Math.floor(m.pos[2]! / 16), Math.floor(m.pos[3]! / 16));
+      if (!c) continue;
+      let l = byCol.get(c);
+      if (!l) byCol.set(c, (l = []));
+      l.push(this.mobs.serialize(m));
+    }
+    for (const c of this.world.columns.values()) {
+      const ex = c.extra as { mobs?: SavedMob[] };
+      const now = byCol.get(c);
+      if (!now && !ex.mobs) continue;
+      if (now) ex.mobs = now;
+      else delete ex.mobs;
+      c.dirty = true;
+    }
+  }
+
+  /** Right click / tap on a villager: open trading (their data is created on first contact). */
+  talkTo(m: Mob): boolean {
+    const prof = m.def.profession;
+    if (!prof) return false;
+    m.data ??= newVillager(prof, m.id * 2654435761);
+    if (!m.data.home) m.data.home = [m.pos[0]!, m.pos[1]!, m.pos[2]!, m.pos[3]!];
+    this.onOpenScreen?.({ kind: 'trade', mob: m.id });
+    return true;
+  }
+
+  /** The villager behind a trade screen (or null if it has gone). */
+  villager(id: number): { mob: Mob; data: VillagerData } | null {
+    const m = this.mobs.list.find((x) => x.id === id);
+    return m?.data ? { mob: m, data: m.data } : null;
+  }
+
+  /**
+   * Trade once with offer `i` of villager `id`: pays the (reputation- and demand-adjusted)
+   * price from the inventory and hands over the result. Returns false if it cannot.
+   */
+  trade(id: number, i: number): boolean {
+    const v = this.villager(id);
+    if (!v) return false;
+    const o = v.data.offers[i];
+    if (!o || soldOut(o)) return false;
+    const prices = o.cost.map((c, k) => [IREG.id(c[0]), price(o, k, v.data.rep)] as [number, number]);
+    const creative = this.player.mode === 'creative';
+    if (!creative) {
+      for (const [item, n] of prices) if (countIn(this.inv, item) < n) return false;
+      for (const [item, n] of prices) removeFrom(this.inv, (st) => st.id === item, n);
+    }
+    const res: ItemStack = { id: IREG.id(o.result[0]), count: o.result[1], damage: 0 };
+    const left = this.inv.add(res);
+    if (left > 0) this.throwStack({ ...res, count: left });
+    const up = recordTrade(v.data, o);
+    const m = v.mob;
+    this.particles.burst(m.pos[0]!, m.pos[1]! + m.height + 0.2, m.pos[2]!, m.pos[3]!, this.player.cam, 'spark', '#6aff8a', 8, 1.2, 0.3, true);
+    if (up) this.message?.(`${m.def.displayName} is now ${LEVEL_NAMES[v.data.level]}`);
+    return true;
+  }
+
+  /** Twice a day villagers restock; now and then a Wandering Merchant turns up. */
+  private villageTick(): void {
+    const half = Math.floor(this.env.ticks / (TICKS_PER_DAY / 2));
+    for (const m of this.mobs.list) if (m.data && m.def.profession && m.def.profession !== 'merchant') restock(m.data, half);
+    // Merchants leave after about a day and a half.
+    const life = (TICKS_PER_DAY / 20) * 1.5;
+    for (let i = this.mobs.list.length - 1; i >= 0; i--) {
+      const m = this.mobs.list[i]!;
+      if (m.def.profession === 'merchant' && m.age > life) this.mobs.list.splice(i, 1);
+    }
+    const day = this.env.day;
+    if (!this.mobs.enabled || day === this.merchantDay || this.env.timeOfDay > 4000) return;
+    this.merchantDay = day;
+    if (this.mobs.list.some((m) => m.def.profession === 'merchant') || Math.random() > 0.35) return;
+    const p = this.player, F = p.cam.F, R = p.cam.R;
+    const a = Math.random() * Math.PI * 2, d = 14 + Math.random() * 10;
+    const x = p.pos[0]! + (Math.cos(a) * F[0]! + Math.sin(a) * R[0]!) * d, z = p.pos[2]! + (Math.cos(a) * F[2]! + Math.sin(a) * R[2]!) * d, w = p.pos[3]! + (Math.cos(a) * F[3]! + Math.sin(a) * R[3]!) * d;
+    const y = this.world.skyHeight(Math.floor(x), Math.floor(z), Math.floor(w));
+    const m = this.mobs.spawn('wandering_merchant', x, y, z, w);
+    if (m) {
+      m.data = newVillager('merchant', (Math.random() * 2 ** 32) >>> 0);
+      m.data.home = [x, y, z, w];
+      this.message?.('A Wandering Merchant has arrived nearby');
+    }
+  }
+  private merchantDay = -1;
+  private villageTimer = 0;
+
+  /** Keep the held atlas pointing at the nearest marked structure (new search on travel). */
+  private updateAtlas(): void {
+    const st = this.held;
+    const names = st ? IREG.def(st.id).atlas : undefined;
+    if (!st || !names || this.atlasPending) return;
+    const e = this.player.pos, a = this.atlas;
+    if (a && a.item === st.id && Math.hypot(a.at[0] - e[0]!, a.at[1] - e[2]!, a.at[2] - e[3]!) < 48) return;
+    const item = st.id, at: [number, number, number] = [e[0]!, e[2]!, e[3]!];
+    this.atlasPending = true;
+    void this.pool.locate(names, at[0], at[1], at[2], ATLAS_RANGE).then((target) => {
+      this.atlasPending = false;
+      this.atlas = { item, target, at };
+    });
+  }
+
+  // ------------------------------------------------------------------ beds & sleeping
+
+  /**
+   * Use a bed: it becomes your respawn point, and at night (or in a thunderstorm) you sleep
+   * until morning, unless monsters are near. R2: the refusal names the monster and where it
+   * is, including how far kata/ana of your slice, since you may not be able to see it.
+   */
+  useBed(x: number, y: number, z: number, w: number): boolean {
+    const say = (t: string) => this.message?.(t);
+    if (!this.world.realm.dayCycle) {
+      say('You can’t sleep here: this realm has no nights');
+      return false;
+    }
+    const b = this.bed;
+    const moved = !b || b[0] !== x || b[1] !== y || b[2] !== z || b[3] !== w;
+    this.bed = [x, y, z, w];
+    const tod = this.env.timeOfDay;
+    const storm = this.env.weather === 'thunder' || this.env.weather === 'phase_storm';
+    if ((tod < SLEEP_FROM || tod > SLEEP_UNTIL) && !storm) {
+      say(moved ? 'Respawn point set · you can only sleep at night or in a thunderstorm' : 'You can only sleep at night or in a thunderstorm');
+      return false;
+    }
+    const p = this.player;
+    if (p.mode === 'survival' || p.mode === 'adventure') {
+      const c = [x + 0.5, y + 0.5, z + 0.5, w + 0.5];
+      for (const m of this.mobs.list) {
+        if (!m.def.hostile) continue;
+        // Minecraft's rule: 8 blocks horizontally (here x, z and w) and 5 vertically.
+        const dx = m.pos[0]! - c[0]!, dz = m.pos[2]! - c[2]!, dw = m.pos[3]! - c[3]!;
+        if (dx * dx + dz * dz + dw * dw > 64 || Math.abs(m.pos[1]! - c[1]!) > 5) continue;
+        let dh = 0;
+        for (let k = 0; k < 4; k++) dh += (m.pos[k]! - this.eyePos[k]!) * p.cam.H[k]!;
+        const where = Math.abs(dh) < 0.5 ? 'in your slice' : `${Math.round(Math.abs(dh))} m ${dh > 0 ? 'ana' : 'kata'} of your slice`;
+        say(`You may not rest now: a ${m.def.displayName} is nearby (${where})`);
+        return false;
+      }
+    }
+    this.sleeping = { t: 0, skipped: false };
+    this.resetMining();
+    this.bowDraw = 0;
+    if (moved) say('Respawn point set');
+    return true;
+  }
+
+  /** 0..1 darkness of the sleep fade (the HUD draws it). */
+  get sleepFade(): number {
+    const s = this.sleeping;
+    if (!s) return 0;
+    return s.skipped ? Math.max(0, 1 - (s.t - SLEEP_FADE) / WAKE_FADE) : Math.min(1, s.t / SLEEP_FADE);
+  }
+
+  /** Get out of bed (before the screen is dark, the night does not pass). */
+  wake(): void {
+    this.sleeping = null;
+  }
+
+  /** Asleep: fade out, then the night passes (storms clear) and the screen fades back in. */
+  private updateSleep(dt: number, active: boolean): void {
+    const s = this.sleeping!;
+    this.stopMoving();
+    if (!active || this.vitals.dead) return;
+    if (!s.skipped && (this.input.pressed('jump') || this.input.pressed('sneak'))) {
+      this.wake();
+      return;
+    }
+    s.t += dt;
+    if (!s.skipped && s.t >= SLEEP_FADE) {
+      s.skipped = true;
+      const tod = this.env.timeOfDay;
+      if (tod >= TICKS_PER_DAY / 2) this.env.ticks += TICKS_PER_DAY - tod;
+      if (this.env.weather !== 'clear') this.env.setWeather('clear', false);
+      this.message?.(`Good morning! Day ${this.env.day + 1}`);
+    }
+    if (s.t >= SLEEP_FADE + WAKE_FADE) this.sleeping = null;
   }
 
   /** No movement input (paused, dead, a screen is open). */
@@ -823,7 +1123,7 @@ export class Game {
   private stationTargeted(): boolean {
     if (!this.hasTarget || this.input.held('sneak')) return false;
     const tid = voxelId(this.target.voxel);
-    return REG.blocks[tid]!.name === 'crafting_table' || this.blockEntities.hasEntity(tid);
+    return REG.blocks[tid]!.name === 'crafting_table' || this.blockEntities.hasEntity(tid) || isBed(this.target.voxel);
   }
 
   // ------------------------------------------------------------------ combat & health
@@ -845,6 +1145,11 @@ export class Game {
     const F = p.cam.F;
     for (let k = 0; k < 4; k++) from[k] = m.pos[k]! - F[k]!;
     if (!this.mobs.damage(m, dmg, from, this.eyePos, p.cam.H)) return false;
+    if (m.data && m.def.profession) {
+      // Hitting a villager: it and its neighbours think less of you (prices go up).
+      offend(m.data, 5);
+      for (const o of this.mobs.list) if (o !== m && o.data?.village && o.data.village === m.data.village) offend(o.data, 2);
+    }
     // Hit particles where the ray met the body.
     const e = this.eyePos, f = this.pickDir;
     let t = 0;
@@ -904,6 +1209,7 @@ export class Game {
    * never shifts your view kata/ana.
    */
   hurtPlayer(amount: number, from: ArrayLike<number> | null, cause: string): boolean {
+    if (this.sleeping && amount > 0) this.wake();
     const p = this.player;
     const vulnerable = this.loaded && (p.mode === 'survival' || p.mode === 'adventure');
     if (this.vitals.damage(amount, cause, !vulnerable) <= 0) return false;
@@ -991,13 +1297,22 @@ export class Game {
     return best;
   }
 
+  /** Where you come back after dying: on your bed if you slept in one, else the world spawn. */
+  respawnPoint(): number[] {
+    const b = this.bed;
+    return b ? [b[0] + 0.5, b[1] + 0.6, b[2] + 0.5, b[3] + 0.5] : [...this.spawn];
+  }
+
   /** Back to the spawn point with full health (hardcore worlds turn into spectator mode). */
   respawn(): void {
     const p = this.player;
     this.vitals.respawn();
     this.deathHandled = false;
     if (this.info.hardcore) p.mode = 'spectator';
-    p.setPosition(...this.spawn);
+    const [x, y, z, w] = this.respawnPoint();
+    p.setPosition(x!, y!, z!, w!);
+    this.checkBed = this.bed !== null;
+    this.sleeping = null;
     p.lastFall = 0;
     this.params.damage = 0;
     // Wait for the spawn column again (checkLoaded also lifts us out of any terrain).
@@ -1222,6 +1537,10 @@ export class Game {
       const name = REG.blocks[tid]!.name;
       if (name === 'crafting_table') {
         this.onOpenScreen?.({ kind: 'crafting', pos });
+        return;
+      }
+      if (isBed(t.voxel)) {
+        this.useBed(t.x, t.y, t.z, t.w);
         return;
       }
       if (this.blockEntities.hasEntity(tid)) {

@@ -114,7 +114,9 @@ export type TexturePattern =
   | 'metal'
   | 'cage'
   | 'shelf'
-  | 'thatch';
+  | 'thatch'
+  | 'quilt'
+  | 'bed_side';
 
 /** Procedural 16x16x16 solid texture (sampled on the 3D facets of tesseracts). */
 export interface TextureDef {
@@ -262,7 +264,8 @@ export type IconShape =
   | 'lantern'
   | 'fence'
   | 'campfire'
-  | 'web';
+  | 'web'
+  | 'bed';
 
 /** Procedural 16x16 pixel icon: a shape painted with a small palette (main, shade, accent). */
 export interface IconDef {

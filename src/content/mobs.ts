@@ -7,6 +7,7 @@
 // each of ±w. Rotating the slice brings those into view and hides others.
 
 import type { Hex, MobDef, MobPart } from './types';
+import { PROFESSIONS } from './trades';
 
 type V4 = [number, number, number, number];
 
@@ -555,3 +556,61 @@ export const MOBS: MobDef[] = [
     drops: [{ item: 'raw_iron', count: [1, 3] }, { item: 'raw_gold', count: [0, 2] }, { item: 'azurite', count: [0, 4] }],
   },
 ];
+
+// ---------------------------------------------------------------- villagers (Phase 5)
+
+/** A villager body in a profession's robe: tall head with a long nose, folded arms, robe. */
+function villagerBody(robe: Hex, trim: Hex): MobPart[] {
+  const skin = '#c8a07a';
+  return [
+    box([0, 1.0, 0, 0], [0.22, 0.42, 0.14, 0.16], robe),
+    box([0, 0.6, 0, 0], [0.24, 0.06, 0.16, 0.18], trim),
+    box([0, 1.64, 0, 0], [0.19, 0.24, 0.19, 0.19], skin, 'head'),
+    box([0, 1.58, 0.22, 0], [0.04, 0.09, 0.05, 0.04], '#b08060', 'head'),
+    box([0, 1.12, 0.18, 0], [0.24, 0.08, 0.07, 0.1], trim),
+    ...bipedLegs(robe, 0.6, 0.1, 0.07),
+  ];
+}
+
+for (const p of PROFESSIONS) {
+  MOBS.push({
+    name: `villager_${p.name}`,
+    displayName: p.displayName,
+    hostile: false,
+    ai: 'villager',
+    health: 20,
+    speed: 1.3,
+    width: 0.3,
+    height: 1.95,
+    parts: villagerBody(p.robe, p.trim),
+    profession: p.name,
+    persistent: true,
+  });
+}
+MOBS.push(
+  {
+    // Unemployed villager: no trades.
+    name: 'villager',
+    displayName: 'Villager',
+    hostile: false,
+    ai: 'villager',
+    health: 20,
+    speed: 1.3,
+    width: 0.3,
+    height: 1.95,
+    parts: villagerBody('#6a5a4a', '#8a7a6a'),
+    persistent: true,
+  },
+  {
+    name: 'wandering_merchant',
+    displayName: 'Wandering Merchant',
+    hostile: false,
+    ai: 'villager',
+    health: 20,
+    speed: 1.4,
+    width: 0.3,
+    height: 1.95,
+    parts: [...villagerBody('#2a4a8a', '#e8c85a'), box([0, 1.95, 0, 0], [0.26, 0.04, 0.26, 0.26], '#2a4a8a', 'head')],
+    profession: 'merchant',
+  },
+);

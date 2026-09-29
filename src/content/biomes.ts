@@ -30,7 +30,7 @@ const WATER: MobSpawn[] = [
   { mob: 'reef_squid', weight: 10, group: [2, 4] },
   { mob: 'lantern_fish', weight: 12, group: [3, 6] },
 ];
-const STRUCT_COMMON = ['ruined_portal', 'ancient_ruins', 'stone_circle', 'campsite', 'standing_slabs', 'dungeon', 'hypermine', 'buried_treasure', 'ana_vault'];
+const STRUCT_COMMON = ['ruined_portal', 'ancient_ruins', 'stone_circle', 'campsite', 'standing_slabs', 'dungeon', 'hypermine', 'buried_treasure', 'ana_vault', 'library_ruins'];
 
 export const BIOMES: BiomeDef[] = [
   // ---------------------------------------------------------------- temperate

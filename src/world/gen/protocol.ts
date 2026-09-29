@@ -16,7 +16,32 @@ export interface GenMsg {
   cw: number;
 }
 
-export type ToWorker = InitMsg | GenMsg;
+/** Find the nearest start of any of the named structures (atlases); answered with 'located'. */
+export interface LocateMsg {
+  type: 'locate';
+  id: number;
+  names: string[];
+  x: number;
+  z: number;
+  w: number;
+  maxDist: number;
+}
+
+export type ToWorker = InitMsg | GenMsg | LocateMsg;
+
+export interface Located {
+  name: string;
+  x: number;
+  y: number;
+  z: number;
+  w: number;
+}
+
+export interface LocatedMsg {
+  type: 'located';
+  id: number;
+  result: Located | null;
+}
 
 export interface ColumnMsg {
   type: 'column';
@@ -27,6 +52,8 @@ export interface ColumnMsg {
   chunks: PackedChunk[];
   heightmap: Uint8Array;
   surface: Uint8Array;
+  /** Per-column data from generation (structure chests, spawners, villager spawns). */
+  extra?: Record<string, unknown>;
   /** [generate, light, pack] milliseconds. */
   times: [number, number, number];
 }
@@ -41,4 +68,4 @@ export interface ErrorMsg {
   message: string;
 }
 
-export type FromWorker = ColumnMsg | ReadyMsg | ErrorMsg;
+export type FromWorker = ColumnMsg | ReadyMsg | ErrorMsg | LocatedMsg;

@@ -18,6 +18,10 @@ export const RECIPES: RecipeDef[] = [
   { type: 'shaped', pattern: ['##', '##'], key: { '#': '#planks' }, result: 'crafting_table' },
   { type: 'shaped', pattern: ['###', '# #', '###'], key: { '#': '#planks' }, result: 'chest' },
   { type: 'shaped', pattern: ['s s', 'sss', 's s'], key: { s: 'stick' }, result: 'ladder', count: 3 },
+  // Beds: sleep through the night, and set where you respawn.
+  { type: 'shaped', pattern: ['www', 'ppp'], key: { w: 'wool', p: '#planks' }, result: 'white_bed' },
+  { type: 'shaped', pattern: ['www', 'ppp'], key: { w: 'red_wool', p: '#planks' }, result: 'red_bed' },
+  { type: 'shaped', pattern: ['www', 'ppp'], key: { w: 'blue_wool', p: '#planks' }, result: 'blue_bed' },
 
   // Light and stations.
   { type: 'shaped', pattern: ['c', 's'], key: { c: '#coal', s: 'stick' }, result: 'torch', count: 4 },

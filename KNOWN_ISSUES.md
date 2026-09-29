@@ -1,6 +1,6 @@
 # Known issues
 
-Honest list as of Phase 4 (mobs, combat, health). Items tagged with the phase expected to address them.
+Honest list as of Phase 5 (structures, villages, trading, beds). Items tagged with the phase expected to address them.
 
 ## Unverified / performance
 - **R5 not measured on real GPUs.** Development ran in a GPU-less container (SwiftShader
@@ -44,8 +44,7 @@ Honest list as of Phase 4 (mobs, combat, health). Items tagged with the phase ex
 - The **engine test garden** only exists in test worlds (`?test=1`); it is a flat plateau
   on the nearest flat dry site (x −12..12, z −8..28, w −4..4 around it) used by the R6 views
   and the e2e walk test.
-- Worldgen: structures are Phase 5 (biomes already list their structure names).
-  Underground biomes are chosen by two noise fields in
+- Worldgen: underground biomes are chosen by two noise fields in
   `caveBiome()`, so a new underground biome needs a selection rule there (its decoration is
   data-driven).
 - Lakes take their level from the direct climate sample rather than the column lattice, so a
@@ -68,8 +67,9 @@ Honest list as of Phase 4 (mobs, combat, health). Items tagged with the phase ex
   budget, so a large edit can take a few frames to settle. No coloured block light.
 
 ## Mobs and combat (Phase 4)
-- **Mobs are not saved.** Leaving or reloading a world clears them; they spawn again
-  naturally. Persistent mobs (named, tamed, bosses) come with husbandry (Phase 7).
+- **Most mobs are not saved.** Leaving or reloading a world clears them, and they spawn again
+  naturally. Villagers are the exception (Phase 5). Named, tamed and boss mobs come with
+  husbandry (Phase 7).
 - **No audio cues yet** (Phase 12). R2 warnings are visual: the violet screen edge, the radar
   dots and the warning line.
 - **Hitboxes.** Hitboxes are axis-aligned boxes: `width` along x, z and w. Picking and
@@ -97,6 +97,32 @@ Honest list as of Phase 4 (mobs, combat, health). Items tagged with the phase ex
   Hyperbats are passive, like Minecraft bats. Swarm attacks are planned for the Hollow Void.
 - **Difficulty.** Difficulty scales mob damage (easy ×0.5, hard ×1.5); peaceful removes
   hostiles. There is no UI to change it after world creation yet (Phase 12 settings).
+
+## Structures, villagers and beds (Phase 5)
+- **Structures are generated per column**, from a cached plan. A structure whose radius is
+  set too small in its data would be cut at column borders; the unit tests check that every
+  structure stays within its radius for one seed.
+- **Structure generation cost.** It adds about 10–13 ms per column in structure-dense areas
+  (a village area measured 35 ms per column against 22 ms without). That only affects
+  streaming speed, on worker threads.
+- **Terrain features ignore structures.** Trees and plants generated before the structure
+  pass can poke through roofs and floors. Houses cut hills back only where their footprint
+  is.
+- **Villagers** have simple AI:
+  - no schedules beyond "home at night";
+  - no workstations or gossip, and no breeding (Phase 7);
+  - no zombie villagers.
+
+  Only villagers are saved with the world. Other mobs still respawn naturally.
+- **Hitting any villager** lowers your reputation with every villager of its village, not
+  only the ones that saw it.
+- **Beds**:
+  - a bed is one cell, not two blocks like Minecraft's; there is no lying-down pose;
+  - sleeping skips the time in one step, so furnaces and crops do not catch up;
+  - using a bed in a realm without nights (Phase 6+) only says you can't sleep there.
+- **Atlases** search up to 1600 blocks (4D distance in x, z and w), and only the Surface has
+  structures so far.
+- Dungeons, hypermines and vaults are dark inside: bring torches.
 
 ## Gameplay / UX
 - Items: armour slots exist but no armour until Phase 7; food items (apples) cannot be

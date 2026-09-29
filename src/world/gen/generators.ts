@@ -8,11 +8,16 @@ export type { GenOptions };
 
 export interface WorldGenerator {
   readonly height: number;
-  /** Fill a dense column (index x + 16z + 256w + 4096y) and its per-(x,z,w) surface RGBA. */
-  generate(cx: number, cz: number, cw: number, blocks: Uint16Array, surface: Uint8Array): void;
+  /**
+   * Fill a dense column (index x + 16z + 256w + 4096y) and its per-(x,z,w) surface RGBA.
+   * `extra` receives per-column data such as structure chests and villager spawns.
+   */
+  generate(cx: number, cz: number, cw: number, blocks: Uint16Array, surface: Uint8Array, extra?: Record<string, unknown>): void;
   spawnPoint(): [number, number, number, number];
   /** Underground biome index at a position, or -1 (optional). */
   caveBiomeAt?(x: number, y: number, z: number, w: number): number;
+  /** Nearest structure start of any of the named kinds (optional). */
+  nearestStructure?(names: string[], x: number, z: number, w: number, maxDist?: number): { name: string; x: number; y: number; z: number; w: number } | null;
 }
 
 export const GENERATORS: Record<string, (seed: number, realm: RealmDef, options: GenOptions) => WorldGenerator> = {

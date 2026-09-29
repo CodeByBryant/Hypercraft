@@ -1,7 +1,7 @@
 // Phase 5 blocks: building materials for structures (villages, dungeons, temples, ruins),
 // decoration (lanterns, bookshelves, fences, hay) and the mob spawner.
 
-import type { BlockDef, TextureDef } from './types';
+import type { BlockDef, Hex, TextureDef } from './types';
 
 export const STRUCTURE_TEXTURES: TextureDef[] = [
   { name: 'stone_bricks', pattern: 'bricks', colors: ['#8c8c8c', '#808080', '#5c5c5c'] },
@@ -24,6 +24,17 @@ export const STRUCTURE_TEXTURES: TextureDef[] = [
   { name: 'gilded_bricks', pattern: 'bricks', colors: ['#e8c048', '#c8a030', '#8a6a1a'] },
 ];
 
+/** Beds (sleep through the night, set your respawn point): colour, stitch shade. */
+export const BED_COLORS: [string, Hex, Hex][] = [
+  ['red_bed', '#b83232', '#8e2424'],
+  ['blue_bed', '#3a4ec0', '#2a3a96'],
+  ['white_bed', '#e8e8e2', '#c8c8c0'],
+];
+for (const [name, c0, c1] of BED_COLORS) {
+  STRUCTURE_TEXTURES.push({ name: `${name}_top`, pattern: 'quilt', colors: [c0, c1, '#f4f4f0'] });
+  STRUCTURE_TEXTURES.push({ name: `${name}_side`, pattern: 'bed_side', colors: [c0, c1, '#8a6a3c'] });
+}
+
 export const STRUCTURE_BLOCKS: BlockDef[] = [
   { name: 'stone_bricks', render: 'opaque', solid: true, textures: { all: 'stone_bricks' }, hardness: 3, tags: ['stone_bricks'] },
   { name: 'mossy_stone_bricks', render: 'opaque', solid: true, textures: { all: 'mossy_stone_bricks' }, hardness: 3, tags: ['stone_bricks'] },
@@ -45,3 +56,5 @@ export const STRUCTURE_BLOCKS: BlockDef[] = [
   { name: 'blue_wool', render: 'opaque', solid: true, textures: { all: 'blue_wool' }, hardness: 0.8, tags: ['wool'] },
   { name: 'gilded_bricks', render: 'opaque', solid: true, textures: { all: 'gilded_bricks' }, hardness: 3 },
 ];
+for (const [name] of BED_COLORS)
+  STRUCTURE_BLOCKS.push({ name, render: 'opaque', solid: true, shape: 'bed', opaque: false, textures: { top: `${name}_top`, side: `${name}_side`, bottom: 'planks' }, hardness: 0.3, tags: ['bed'] });

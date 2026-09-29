@@ -9,6 +9,10 @@ import { HOTBAR_SIZE } from '../game/items/Inventory';
 import { VOID_VOXEL } from '../world/constants';
 import { MAX_AIR, MAX_HEALTH } from '../game/Vitals';
 import { bowPower } from '../game/combat';
+import { ATLAS_RANGE } from '../game/Game';
+import { STRUCTURES } from '../content/structures';
+
+const STRUCT_NAMES = new Map(STRUCTURES.map((s) => [s.name, s.displayName]));
 
 // 9x8 pixel heart and bubble masks (1 = outline, 2 = fill, 3 = highlight).
 const HEART = ['011000110', '122101221', '123212221', '122222221', '012222210', '001222100', '000121000', '000010000'];
@@ -43,6 +47,8 @@ export class Hud {
   private readonly slotBars: HTMLDivElement[] = [];
   private readonly readout: HTMLDivElement;
   private readonly toast: HTMLDivElement;
+  private readonly sleepBox: HTMLDivElement;
+  private readonly sleepLeave: HTMLButtonElement;
   private readonly loading: HTMLDivElement;
   private readonly loadingText: HTMLDivElement;
   private readonly radar: HTMLCanvasElement;
@@ -91,6 +97,14 @@ export class Hud {
     this.hotbar = el('div', 'hotbar', this.root);
     this.readout = el('div', 'readout', this.root);
     this.toast = el('div', 'toast', this.root);
+    // Sleeping in a bed: the screen fades to night-blue; you can get up before the night passes.
+    this.sleepBox = el('div', 'sleep', this.root);
+    el('div', 'sleep-text', this.sleepBox, 'Z z z');
+    this.sleepLeave = el('button', 'sleep-leave', this.sleepBox, 'Leave bed');
+    this.sleepLeave.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.game.wake();
+    });
     this.mode = el('div', 'mode', this.root);
 
     // Hidden-axis compass + radar (bottom right).
@@ -217,6 +231,12 @@ export class Hud {
     const v = g.vitals;
     this.hitL.style.opacity = v.lastHitSide < 0 ? String(v.flash) : '0';
     this.hitR.style.opacity = v.lastHitSide > 0 ? String(v.flash) : '0';
+    const fade = g.sleepFade;
+    if (fade > 0 || this.sleepBox.style.display === 'flex') {
+      this.sleepBox.style.display = fade > 0 ? 'flex' : 'none';
+      this.sleepBox.style.opacity = fade.toFixed(3);
+      this.sleepLeave.style.visibility = g.sleeping && !g.sleeping.skipped ? 'visible' : 'hidden';
+    }
     this.slowTimer -= dt;
     if (this.slowTimer > 0) return;
     this.slowTimer = 0.1;
@@ -325,9 +345,25 @@ export class Hud {
       this.readout.textContent = `${g.env.sky.daylight > 0.3 ? '☀' : '☾'} ${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}  day ${g.env.day}`;
       return;
     }
-    // Hypercompass: spawn direction within the slice, plus the kata/ana offset.
-    const e = g.eye(), cam = g.player.cam, sp = g.spawn;
-    const d = [sp[0] - e[0]!, 0, sp[2] - e[2]!, sp[3] - e[3]!];
+    // Hypercompass: spawn (or your bed) direction within the slice, plus the kata/ana offset.
+    // Atlases point the same way at the nearest structure they mark.
+    let label = g.bed ? 'Bed' : 'Spawn';
+    let sp: ArrayLike<number> = g.bed ? [g.bed[0] + 0.5, 0, g.bed[2] + 0.5, g.bed[3] + 0.5] : g.spawn;
+    if (kind === 'atlas') {
+      const a = g.atlas;
+      if (!a || a.item !== st!.id) {
+        this.readout.textContent = '🗺 Reading the atlas…';
+        return;
+      }
+      if (!a.target) {
+        this.readout.textContent = `🗺 Nothing marked within ${ATLAS_RANGE} m`;
+        return;
+      }
+      label = `🗺 ${STRUCT_NAMES.get(a.target.name) ?? a.target.name}`;
+      sp = [a.target.x + 0.5, 0, a.target.z + 0.5, a.target.w + 0.5];
+    }
+    const e = g.eye(), cam = g.player.cam;
+    const d = [sp[0]! - e[0]!, 0, sp[2]! - e[2]!, sp[3]! - e[3]!];
     let f = 0, r = 0, h = 0, dist = 0;
     for (let i = 0; i < 4; i++) {
       f += d[i]! * cam.F[i]!;
@@ -338,7 +374,7 @@ export class Hud {
     const ang = Math.round((Math.atan2(r, f) * 180) / Math.PI);
     const arrows = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'];
     const arrow = arrows[((Math.round(ang / 45) % 8) + 8) % 8]!;
-    this.readout.textContent = `Spawn ${arrow} ${Math.round(Math.sqrt(dist))} m  (${Math.abs(h) < 0.5 ? 'in this slice' : `${Math.round(Math.abs(h))} m ${h > 0 ? 'ana' : 'kata'}`})`;
+    this.readout.textContent = `${label} ${arrow} ${Math.round(Math.sqrt(dist))} m  (${Math.abs(h) < 0.5 ? 'in this slice' : `${Math.round(Math.abs(h))} m ${h > 0 ? 'ana' : 'kata'}`})`;
   }
 
   private updateCompass(): void {
@@ -523,6 +559,10 @@ export class Hud {
     let hostile = 0;
     for (const m of g.mobs.list) if (m.def.hostile) hostile++;
     lines.push(`mobs ${g.mobs.list.length} (${hostile} hostile)  in slice ${g.mobs.packed}  arrows ${g.projectiles.list.length}  health ${g.vitals.health.toFixed(1)}  air ${g.vitals.air.toFixed(1)}`);
+    let villagers = 0;
+    for (const m of g.mobs.list) if (m.def.ai === 'villager') villagers++;
+    const bed = g.bed ? `bed ${g.bed.join(' ')}` : 'no bed';
+    lines.push(`villagers ${villagers}  spawners ${g.blockEntities.spawnerCount}  ${bed}${g.sleeping ? '  asleep' : ''}`);
     if (g.targetMob) {
       const m = g.targetMob;
       lines.push(`target mob ${m.def.displayName} #${m.id}  hp ${m.health.toFixed(1)}/${m.def.health}  ai ${m.def.ai}/${m.mode}`);

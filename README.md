@@ -3,10 +3,10 @@
 A 4D voxel survival sandbox for the browser. The world is made of tesseracts; you see a true
 3D cross-section of it, and every system is built around a fourth spatial axis.
 
-**Status: Phase 4 (mobs, combat, health) complete.** Phase reports (what works, what's
-broken, what's next): [Phase 1 — engine](docs/phases/phase-1.md) ·
+**Status: Phase 5 (structures, villages, trading, beds) complete.** Phase reports (what
+works, what's broken, what's next): [Phase 1 — engine](docs/phases/phase-1.md) ·
 [Phase 2 — surface terrain](docs/phases/phase-2.md) · [Phase 3 — items](docs/phases/phase-3.md) ·
-[Phase 4 — mobs](docs/phases/phase-4.md).
+[Phase 4 — mobs](docs/phases/phase-4.md) · [Phase 5 — structures](docs/phases/phase-5.md).
 
 | Axis-aligned slice | 30° XW tilt | 45° XW + 45° ZW tilt |
 |---|---|---|
@@ -14,6 +14,8 @@ broken, what's next): [Phase 1 — engine](docs/phases/phase-1.md) ·
 | cubes | stretched/split boxes | triangular & hexagonal prisms |
 | ![](docs/screenshots/phase-4/mobs-1-axis-aligned.png) | ![](docs/screenshots/phase-4/mobs-2-xw-30.png) | ![](docs/screenshots/phase-4/mobs-3-xw45-zw45.png) |
 | mobs: their own 3D sections | oblique cuts: bodies stretch, legs slip out of the slice | other legs cross it (sheep: two, chicken: one) |
+| ![](docs/screenshots/phase-5/village-1-axis-aligned.png) | ![](docs/screenshots/phase-5/village-2-xw-30.png) | ![](docs/screenshots/phase-5/village-3-xw45-zw45.png) |
+| a village road, lamp post and houses | the same village, tilted through W | oblique cuts through 4D houses on stilts |
 
 ## Run it
 
@@ -80,12 +82,23 @@ makes it pulse violet and is named at the top of the screen.
 damage, death drops your inventory and shows a respawn screen (hardcore: spectator). Mobs spawn
 from each biome's tables all around you in 4D, not only in your slice.
 
+**Beds**: craft one from 3 wool over 3 planks, or use one in a village house. Right click it at
+night (or in a thunderstorm) to sleep until morning. Any bed you use becomes your respawn
+point, by day too. Monsters within 8 blocks stop you from sleeping; the message says which one
+and where, even if it is kata or ana of your slice.
+
+**Structures and villages**: 32 structures generate on a 4D grid: villages in seven styles,
+temples, dungeons, hypermines, vaults, shipwrecks, ruins and more. Villages are crosses of
+streets along ±X, ±Z and ±W, so walk kata/ana to see the rest. Right click a villager to trade
+(the currency is Verdant). Trading levels villagers up and unlocks better offers. Atlases point
+to the nearest village, temple, vault or ruin.
+
 ## Develop
 
 ```bash
 npm test               # unit tests (vitest)
 npm run typecheck
-npm run ci             # typecheck + unit + Playwright smoke test + R6 views
+npm run ci             # typecheck + unit + the Playwright e2e specs (smoke, R6 views, worlds, items, mobs, touch, structures)
 BENCH=1 npx playwright test bench   # engine benchmarks (writes test-results/bench/)
 node scripts/alloc-profile.mjs      # sample per-frame allocations (needs `npm run dev`)
 ```
@@ -98,6 +111,6 @@ node scripts/alloc-profile.mjs      # sample per-frame allocations (needs `npm r
 - [Data formats](docs/data-formats.md)
 - How to add a [block](docs/how-to/add-a-block.md), [item / recipe / tool tier](docs/how-to/add-an-item.md), [biome](docs/how-to/add-a-biome.md),
   [realm](docs/how-to/add-a-realm.md), [mob](docs/how-to/add-a-mob.md),
-  [structure](docs/how-to/add-a-structure.md) (planned)
+  [structure](docs/how-to/add-a-structure.md)
 - Benchmarks: [Phase 1](docs/benchmarks/phase-1.md), [Phase 2](docs/benchmarks/phase-2.md) ·
   [Changelog](CHANGELOG.md) · [Known issues](KNOWN_ISSUES.md)

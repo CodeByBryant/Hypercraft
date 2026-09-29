@@ -313,6 +313,22 @@ export function generateTexture(def: TextureDef, index: number): Uint8Array {
             }
             break;
           }
+          case 'quilt': {
+            // Bed top: a stitched blanket (c0/c1) with a white sheet border (c2) and a pillow
+            // band along one edge (the icon and the blanket fold read as "bed" in any slice).
+            const edge = u <= 1 || u >= 14 || s <= 1 || s >= 14;
+            const pillow = u >= 10 && u <= 13 && s >= 3 && s <= 12;
+            const stitch = (u + s) % 6 === 0 || (u - s + 32) % 6 === 0;
+            col = edge || pillow ? scale(c2, 0.92 + j * 0.08) : scale(stitch ? c1 : c0, 1 + (j - 0.5) * 0.08);
+            break;
+          }
+          case 'bed_side': {
+            // Bed side (v = up): wooden base (c2), white sheet line, blanket (c0) folding over.
+            if (v <= 2) col = scale(c2, 0.9 + j * 0.15);
+            else if (v === 3 || v === 4) col = scale([0.93, 0.93, 0.9], 0.95 + j * 0.05);
+            else col = scale(v >= 8 ? c1 : c0, 1 + (j - 0.5) * 0.08);
+            break;
+          }
           case 'thatch': {
             // Straw: long streaks along u with dark gaps.
             const st = hash4f(0, v, s, 28, seed) * 16 + u * 0.4;

@@ -113,6 +113,9 @@ export const BLOCK_ITEM_EXTRAS: Record<string, Partial<ItemDef>> = {
   campfire: { group: 'functional', icon: { shape: 'campfire', colors: ['#7a5a32', '#ff8a2a', '#ffe08a'] } },
   cobweb: { icon: { shape: 'web', colors: ['#f0f0f6', '#c8c8d6'] } },
   hay_bale: { fuel: 5 },
+  red_bed: { maxStack: 1, group: 'functional', icon: { shape: 'bed', colors: ['#c83a3a', '#8e2424', '#8a6a3c'] } },
+  blue_bed: { maxStack: 1, group: 'functional', icon: { shape: 'bed', colors: ['#4a5ed0', '#2a3a96', '#8a6a3c'] } },
+  white_bed: { maxStack: 1, group: 'functional', icon: { shape: 'bed', colors: ['#ecece6', '#b8b8b0', '#8a6a3c'] } },
 };
 
 /** Furnace fuel for block items by block tag (seconds). */

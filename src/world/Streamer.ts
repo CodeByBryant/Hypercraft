@@ -175,7 +175,9 @@ export class Streamer {
     const w = this.world;
     if (!w.inWindow(m.cx, m.cz, m.cw) || w.column(m.cx, m.cz, m.cw) !== null) return;
     const chunks = m.chunks.map((p) => new Chunk(p));
-    this.addColumn(new Column(m.cx, m.cz, m.cw, chunks, m.heightmap, m.surface));
+    const col = new Column(m.cx, m.cz, m.cw, chunks, m.heightmap, m.surface);
+    if (m.extra) col.extra = m.extra;
+    this.addColumn(col);
   }
 
   private addColumn(c: Column): void {

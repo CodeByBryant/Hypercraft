@@ -3,10 +3,12 @@
 
 import { makeTiltedFrame } from '../math/frame';
 import { REG } from '../content/registry';
+import { makeRayHit, raycast } from '../world/raycast';
 import type { Game } from '../game/Game';
 import type { WeatherKind } from '../content/types';
 import { IREG } from '../content/itemRegistry';
 import type { InventoryScreen } from '../ui/InventoryScreen';
+import { STRUCTURES } from '../content/structures';
 
 export interface ViewSpec {
   yaw?: number;
@@ -127,6 +129,20 @@ export function installTestApi(game: Game, screen?: InventoryScreen): void {
     teleport(x: number, y: number, z: number, w: number): void {
       game.player.setPosition(x, y, z, w);
       game.streamer.invalidate();
+    },
+    /** Teleport far away: frozen until the destination has streamed in (then lifted out of terrain). */
+    travel(x: number, y: number, z: number, w: number): void {
+      game.player.setPosition(x, y, z, w);
+      game.player.vel.fill(0);
+      game.loaded = false;
+      game.player.frozen = true;
+      game.streamer.invalidate();
+    },
+    setBlock: (x: number, y: number, z: number, w: number, name: string) => game.world.setBlock(x, y, z, w, REG.id(name)),
+    /** Distance along the view direction to the first block (-1: none within `max`). */
+    rayDist(max = 64): number {
+      const hit = makeRayHit();
+      return raycast(game.world, game.eye(), game.player.cam.fwd, max, hit) ? hit.t : -1;
     },
     /** Set the view: base frame, then XW and ZW slice tilts (degrees), then yaw/pitch. */
     setView(v: ViewSpec): void {
@@ -289,6 +305,32 @@ export function installTestApi(game: Game, screen?: InventoryScreen): void {
       game.info.difficulty = d;
     },
     setTime: (t: number) => game.env.setTime(t),
+    time: () => ({ ticks: game.env.ticks, timeOfDay: game.env.timeOfDay, day: game.env.day, weather: game.env.weather }),
+    // ---- Phase 5: structures, villagers, trading, beds
+    /** Nearest start of any of the named structures (main-thread search). */
+    locate: (names: string[], maxDist = 2000) => {
+      const e = game.player.pos;
+      return game.generator.nearestStructure?.(names, e[0]!, e[2]!, e[3]!, maxDist) ?? null;
+    },
+    /** Every structure name (data-driven list). */
+    structureNames: () => STRUCTURES.map((s) => s.name),
+    villagers: () =>
+      game.mobs.list
+        .filter((m) => m.def.ai === 'villager')
+        .map((m) => ({ id: m.id, name: m.def.name, pos: Array.from(m.pos), profession: m.data?.profession ?? m.def.profession ?? null, level: m.data?.level ?? 0, offers: m.data?.offers.map((o) => ({ cost: o.cost, result: o.result, uses: o.uses, maxUses: o.maxUses })) ?? [] })),
+    /** Talk to a villager (opens the trade screen); false if it is not a trader. */
+    talk(id: number): boolean {
+      const m = game.mobs.list.find((x) => x.id === id);
+      return m ? game.talkTo(m) : false;
+    },
+    trade: (id: number, i: number) => game.trade(id, i),
+    spawnerCount: () => game.blockEntities.spawnerCount,
+    atlas: () => (game.atlas ? { item: IREG.name(game.atlas.item), target: game.atlas.target } : null),
+    readout: () => document.querySelector('.readout')?.textContent ?? '',
+    useBed: (x: number, y: number, z: number, w: number) => game.useBed(x, y, z, w),
+    bed: () => game.bed,
+    sleeping: () => (game.sleeping ? { ...game.sleeping } : null),
+    wake: () => game.wake(),
     setWeather: (w: WeatherKind) => game.env.setWeather(w),
     setResolution(h: number | 'auto'): void {
       if (h === 'auto') game.scaler.mode = 'auto';

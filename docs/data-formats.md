@@ -229,6 +229,88 @@ startup:
 At most 48 mobs are uploaded per frame: those whose bounding 4-ball crosses the view
 hyperplane.
 
+## Structures (`src/content/structures.ts`)
+
+```ts
+{ name: 'dungeon', displayName: 'Dungeon', placement: 'underground', spacing: 44, chance: 0.3,
+  builder: 'dungeon', radius: 5, y: [12, 44], salt: 0x5301 }
+```
+
+* **`placement`**: one of `surface`, `beach`, `underwater`, `underground` (the start height
+  is drawn from `y`), or `sheet` (on an Ana Sheet).
+* **The grid.** Each structure gets one attempt per `spacing`³ cell of (x, z, w). The
+  attempt happens with probability `chance`, and the start is jittered inside the cell.
+* **Biomes.** The biome at the start must list the structure in `BiomeDef.structures`.
+* **`radius`** bounds every write, horizontally. A column only builds the starts that can
+  reach it.
+* **`salt`** keeps the grids of different structures independent.
+* **`params`** is passed to the builder. Villages use `{ style }`: meadow, orchard,
+  marsh, taiga, snow, savanna or desert.
+
+**Builders** live in `src/world/gen/structures/builders` (`BUILDERS`). They write in a local
+frame, (a, y, b, c) = right, up, forward and the piece's own ana axis. Each start picks
+one of the 48 horizontal orientations of (x, z, w). Markers carry data that is not blocks:
+* `chest(loot)`: a chest filled from a loot table;
+* `spawner(mob)`: a mob spawner;
+* `npc(mob, data)`: a villager that spawns once.
+
+`docs/how-to/add-a-structure.md` walks through adding one.
+
+**Per-column data** (`ColumnMsg.extra`, kept on `Column.extra` and saved with edited columns):
+
+```ts
+{ be: { 'x,y,z,w': { type: 'chest', slots: [...] } | { type: 'spawner', mob, delay } },
+  npcs: [{ mob, x, y, z, w, data: { village, profession } }],   // consumed on first load
+  mobs: [SavedMob, ...] }                                        // persistent mobs (villagers)
+```
+
+## Loot tables (`src/content/loot.ts`)
+
+```ts
+dungeon: { pools: [
+  { rolls: [2, 4], entries: [{ item: 'bone', weight: 10, count: [1, 6] },
+                             { item: 'iron_pickaxe', weight: 2, wear: [0.3, 0.9] }] },
+] }
+```
+
+Each pool is rolled `rolls` times (an inclusive range) and picks entries by `weight`.
+* `count` is an inclusive range (default 1).
+* `wear` pre-damages tools by a fraction of their durability.
+
+Stacks land in random free slots of the 27-slot chest. The roll is deterministic from the
+world seed and the chest position (`LootRegistry.roll`). Unknown items fail at startup.
+
+## Trades and professions (`src/content/trades.ts`)
+
+```ts
+{ name: 'smith', displayName: 'Smith', robe: '#3a3a42', trim: '#a8a8b0',
+  levels: [ [t([['coal', 15]], ['verdant', 1], 16, 2), ...],   // Novice
+            ...5 levels ] }
+// t(cost: [item, count][], result: [item, count], maxUses, xp)
+```
+
+**Offers and levels.**
+* A villager starts with 2 random offers from level 0, seeded per villager.
+* Trade experience levels it up: `TRADE_LEVEL_XP = [0, 10, 70, 150, 250]`, for Novice,
+  Apprentice, Journeyman, Expert and Master. Each level adds 2 more offers.
+
+**Price** = `round(base × (1 + 0.05 × demand) × repFactor)`, clamped to 1..max stack, where
+`repFactor = 1 − clamp(rep × 0.03, −0.5, 0.35)`.
+* Reputation (`rep`, −20..20) rises by 1 per trade. It falls by 5 when you hit the
+  villager, and by 2 for every other villager of the same village.
+* Demand rises when an offer sells out between restocks (twice per in-game day).
+
+**Mobs.** Each profession has a mob, `villager_<name>` (robe and trim colours, `ai:
+'villager'`, `persistent`). `MERCHANT_TRADES` stocks the Wandering Merchant: 6 random offers,
+no levels, and it leaves after about a day and a half.
+
+**Saved villager** (`SavedMob.data`): the villager's trading state, saved in
+`Column.extra.mobs`.
+
+```ts
+{ profession, level, xp, offers: [{ cost, result, maxUses, xp, uses, demand }], rep, restock, seed, home, village }
+```
+
 ## Realms (`src/content/realms.ts`)
 
 ```ts
@@ -246,6 +328,14 @@ hyperplane.
   (`bIdx: Int32Array(256)`, `bData: Uint16Array(n·256)`, `lIdx`, `lData: Uint8Array`) plus
   `heightmap: Uint8Array(4096)` and `surface: Uint8Array(4096·4)`; all buffers transferred.
 * **Dense column** (worker only): `index = x + 16z + 256w + 4096y`.
+* **Main → worker `locate`** / **worker → main `located`**: the nearest start of a list of
+  structures (atlases). It is searched in a worker because a search can scan thousands of
+  grid cells.
 * **Saves** (IndexedDB, see `src/save/`): edited columns with a block-name palette, world
-  metadata and `SavedState.player.data` (`inventory`, and since Phase 4 `vitals: { health,
-  air }`). Mobs are not saved yet (they respawn naturally).
+  metadata, and `SavedState.player.data`:
+  * `inventory`;
+  * since Phase 4, `vitals: { health, air }`;
+  * since Phase 5, `bed: [x, y, z, w] | null`, your respawn point.
+
+  Since Phase 5, persistent mobs (villagers) are saved in their column's `extra.mobs`.
+  Other mobs respawn naturally.

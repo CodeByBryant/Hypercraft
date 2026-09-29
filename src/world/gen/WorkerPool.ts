@@ -1,6 +1,6 @@
 // Pool of generation workers with a bounded number of jobs in flight per worker.
 
-import type { ColumnMsg, FromWorker, ToWorker } from './protocol';
+import type { ColumnMsg, FromWorker, Located, ToWorker } from './protocol';
 
 export interface GenStats {
   done: number;
@@ -17,6 +17,8 @@ export class WorkerPool {
   private nextId = 1;
   readonly perWorker = 2;
   onColumn: ((msg: ColumnMsg) => void) | null = null;
+  private readonly locates = new Map<number, (r: Located | null) => void>();
+  private nextLocate = 1;
   readonly stats: GenStats = { done: 0, errors: 0, genMs: 0, lightMs: 0, packMs: 0 };
   lastError = '';
 
@@ -66,8 +68,28 @@ export class WorkerPool {
     return id;
   }
 
+  /**
+   * Nearest start of any of the named structures, searched off the main thread (a search can
+   * scan thousands of grid cells). Resolves null when none is within `maxDist`.
+   */
+  locate(names: string[], x: number, z: number, w: number, maxDist = 1200): Promise<Located | null> {
+    const wk = this.workers[(this.nextLocate - 1) % Math.max(1, this.workers.length)];
+    if (!wk) return Promise.resolve(null);
+    const id = this.nextLocate++;
+    return new Promise((resolve) => {
+      this.locates.set(id, resolve);
+      const msg: ToWorker = { type: 'locate', id, names, x, z, w, maxDist };
+      wk.postMessage(msg);
+    });
+  }
+
   private handle(worker: number, msg: FromWorker): void {
     if (msg.type === 'ready') return;
+    if (msg.type === 'located') {
+      this.locates.get(msg.id)?.(msg.result);
+      this.locates.delete(msg.id);
+      return;
+    }
     const w = this.jobWorker.get(msg.id);
     if (w !== undefined) {
       this.jobWorker.delete(msg.id);
@@ -95,5 +117,7 @@ export class WorkerPool {
     for (const w of this.workers) w.terminate();
     this.workers.length = 0;
     this.jobWorker.clear();
+    for (const r of this.locates.values()) r(null);
+    this.locates.clear();
   }
 }

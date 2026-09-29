@@ -110,5 +110,6 @@ set(['campfire'], { drops: [{ item: 'charcoal', count: [1, 2] }] });
 set(['thatch', 'hay_bale'], { tool: 'hoe' });
 set(['dirt_path'], { tool: 'shovel', drops: [{ item: 'dirt' }] });
 set(['plaster'], { tool: 'pickaxe' });
+set(['red_bed', 'blue_bed', 'white_bed'], { tool: 'axe' });
 set(['wild_wheat'], { drops: [{ item: 'wheat', count: [1, 2] }] });
 set(['reeds'], { shears: false, drops: [{ item: 'reeds' }] });

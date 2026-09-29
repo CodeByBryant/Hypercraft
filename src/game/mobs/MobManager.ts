@@ -14,6 +14,16 @@ import type { World } from '../../world/World';
 import { Pathfinder } from './Pathfinder';
 import { rayBall, rayBox, rayCapsule } from './intersect';
 import type { ItemStack } from '../items/ItemStack';
+import type { VillagerData } from '../Trading';
+
+/** A persistent mob as saved in its column's data. */
+export interface SavedMob {
+  name: string;
+  pos: number[];
+  health: number;
+  scale: number;
+  data?: VillagerData | null;
+}
 
 export const MAX_GPU_MOBS = 48;
 /** Texels per mob record and per part record in the entity texture. */
@@ -79,6 +89,8 @@ export class Mob {
   noiseAt: Float64Array | null = null;
   /** Within 32 blocks of the player this frame: faces and wanders relative to their slice. */
   near = false;
+  /** Villagers: profession, trades, reputation, home (saved with the mob). */
+  data: VillagerData | null = null;
   constructor(id: number, cm: CompiledMob, scale: number) {
     this.id = id;
     this.cm = cm;
@@ -187,6 +199,21 @@ export class MobManager {
     }
     if (cm.def.lays) m.layTimer = cm.def.lays.every[0] + Math.random() * (cm.def.lays.every[1] - cm.def.lays.every[0]);
     this.list.push(m);
+    return m;
+  }
+
+  /** Saved form of a persistent mob (villagers). */
+  serialize(m: Mob): SavedMob {
+    return { name: m.def.name, pos: Array.from(m.pos), health: m.health, scale: m.scale, data: m.data };
+  }
+
+  /** Bring back a saved mob; null if its kind no longer exists or the list is full. */
+  restore(s: SavedMob): Mob | null {
+    if (!MOB_REG.has(s.name) || !Array.isArray(s.pos) || s.pos.length !== 4) return null;
+    const m = this.spawn(s.name, s.pos[0]!, s.pos[1]!, s.pos[2]!, s.pos[3]!, s.scale);
+    if (!m) return null;
+    if (typeof s.health === 'number' && s.health > 0) m.health = s.health;
+    m.data = s.data ?? null;
     return m;
   }
 
@@ -432,8 +459,8 @@ export class MobManager {
     for (let k = 0; k < 4; k++) out[k] = m.pos[k]! - along * H[k]!;
   }
 
-  /** Run away from the player; near their slice, inside it (so it stays in view). */
-  private flee(m: Mob, p: Float64Array, speed: number): void {
+  /** Run away from a point (the player); near the player's slice, inside it (stays in view). */
+  private flee(m: Mob, p: ArrayLike<number>, speed: number): void {
     const d = this.pb;
     for (let k = 0; k < 4; k++) d[k] = k === 1 ? 0 : m.pos[k]! - p[k]!;
     const t = this.pa;
@@ -693,6 +720,40 @@ export class MobManager {
           } else this.brake(m);
         }
         this.meleeReach(m, p, h);
+        break;
+      }
+      case 'villager': {
+        // Flee from hostiles nearby.
+        let threat: Mob | null = null;
+        for (const o of this.list) {
+          if (o.def.hostile && dist4(o.pos, m.pos) < 6) {
+            threat = o;
+            break;
+          }
+        }
+        if (threat) {
+          this.flee(m, threat.pos, sp * 1.6);
+          break;
+        }
+        const home = m.data?.home;
+        const toHome = home ? Math.hypot(home[0] - m.pos[0]!, home[2] - m.pos[2]!, home[3] - m.pos[3]!) : 0;
+        if (home && (toHome > 12 || (h.daylight < 0.25 && toHome > 1.5))) {
+          // Wandered too far, or it is night: walk home.
+          this.steer(m, home[0], home[2], home[3], sp);
+          break;
+        }
+        if (d4 < 3.5) {
+          // Someone to talk to: stop and look at them.
+          this.brake(m);
+          m.face(p[0]! - m.pos[0]!, p[2]! - m.pos[2]!, p[3]! - m.pos[3]!, h.playerHidden);
+          m.mode = 'idle';
+          break;
+        }
+        if (h.daylight < 0.25) {
+          this.brake(m);
+          break;
+        }
+        this.wander(m, dt, sp * 0.6);
         break;
       }
       case 'lurker': {
