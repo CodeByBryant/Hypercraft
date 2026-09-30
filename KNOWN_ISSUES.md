@@ -1,6 +1,6 @@
 # Known issues
 
-Honest list as of Phase 5 (structures, villages, trading, beds). Items tagged with the phase expected to address them.
+Honest list as of Phase 6 (the Ember Depths, portals, the Magma Regent). Items tagged with the phase expected to address them.
 
 ## Unverified / performance
 - **R5 not measured on real GPUs.** Development ran in a GPU-less container (SwiftShader
@@ -117,17 +117,41 @@ Honest list as of Phase 5 (structures, villages, trading, beds). Items tagged wi
 - **Hitting any villager** lowers your reputation with every villager of its village, not
   only the ones that saw it.
 - **Beds**:
-  - a bed is one cell, not two blocks like Minecraft's; there is no lying-down pose;
+  - there is no lying-down pose;
   - sleeping skips the time in one step, so furnaces and crops do not catch up;
-  - using a bed in a realm without nights (Phase 6+) only says you can't sleep there.
+  - in the Ember Depths beds explode, as in Minecraft's Nether.
 - **Atlases** search up to 1600 blocks (4D distance in x, z and w), and only the Surface has
   structures so far.
 - Dungeons, hypermines and vaults are dark inside: bring torches.
 
+## Ember Depths, portals, bosses (Phase 6)
+- **A realm trip reloads the page.** Game, world, workers and GPU state are rebuilt for the
+  destination, which takes a few seconds (the loading screen says "Entering…"). Saved worlds
+  keep both realms' edits. Test worlds carry the player over, but not the edited columns, so a
+  portal built in a test world is gone when you come back; the arrival then builds a new one.
+- **Arrival portals are always 2 × 3 × 2 obsidian.** You arrive in a known portal of the
+  destination realm within 128 blocks (Surface) or 16 (Ember Depths), or a new one is built
+  on the nearest free ground within 8 blocks. Failing that, it is carved into the terrain
+  with a platform, so it can end up floating or inside a cliff.
+- **Portal membranes are full translucent cells**, not thin sheets. Walking along the
+  normal, you are inside the membrane for one cell.
+- **Fire doesn't spread**, and fire you light never goes out on its own; punch it out.
+- **The Magma Regent** always spawns from its caldera, once. It doesn't respawn after it
+  dies, and there is only one per caldera.
+- **Lava pillars** only replace air and plants, so a pillar under a roof is shorter. They
+  last 3 s.
+- **Soul sand and ash slow you**, but mobs ignore it. Nothing in the Ember Depths flows
+  faster than on the Surface (Minecraft's Nether lava does).
+- **Basalt prism columns** are hashed per W layer, so they only line up in slices whose
+  hidden axis is W. This is by design (the spec's "only fully visible along one slice
+  orientation"), but walking kata/ana through them is bumpy.
+- **Ember generation** costs about 42 ms per column in Node (the Surface about 63 ms there).
+- **Not yet:** striders or riding on lava, bartering, Slag Armor (Phase 7 smithing), and
+  Ember advancements (Phase 8).
+
 ## Gameplay / UX
 - Items: armour slots exist but no armour until Phase 7; food items (apples) cannot be
-  eaten until hunger exists (Phase 7); flint and steel has nothing to light until portals
-  (Phase 6). Enchanting, anvils, smithing are Phase 7.
+  eaten until hunger exists (Phase 7). Enchanting, anvils, smithing are Phase 7.
 - Dropped items are only visible while your slice passes through them (by design: they are
   4D objects). They can still be picked up from up to 1.6 blocks away in 4D, and the
   hypercompass-style indicator for items is not implemented.

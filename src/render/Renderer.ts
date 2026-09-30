@@ -24,6 +24,8 @@ export interface SkyState {
   blockLight: Float32Array;
   waterFog: Float32Array;
   ambient: number;
+  /** Ambient light colour (realms tint it: the Ember Depths glow red). */
+  ambientTint: Float32Array;
   daylight: number;
   time: number;
   moonPhase: number;
@@ -236,6 +238,7 @@ export class Renderer {
     gl.uniform3fv(m.loc('uBlockLight'), sky.blockLight);
     gl.uniform3fv(m.loc('uWaterFog'), sky.waterFog);
     gl.uniform1f(m.loc('uAmbient'), sky.ambient);
+    gl.uniform3fv(m.loc('uAmbientTint'), sky.ambientTint);
     gl.uniform1f(m.loc('uDaylight'), sky.daylight);
     gl.uniform1f(m.loc('uTime'), sky.time);
     gl.uniform1f(m.loc('uMoonPhase'), sky.moonPhase);

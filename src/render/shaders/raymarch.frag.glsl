@@ -56,6 +56,7 @@ uniform vec3 uSkyLight;
 uniform vec3 uBlockLight;
 uniform vec3 uWaterFog;
 uniform float uAmbient;
+uniform vec3 uAmbientTint;
 uniform float uDaylight;
 uniform float uTime;
 uniform float uMoonPhase;
@@ -644,7 +645,7 @@ vec3 shade(Surf s, vec4 d, uint vox, uvec4 bi, float t, out float alpha) {
   float fs = s.axis == uUpAxis ? (s.ns > 0.0 ? 1.0 : 0.5) : (s.axis == 0 ? 0.8 : (s.axis == 2 ? 0.7 : 0.62));
   if (s.kind == 1) fs = 0.85;
   float sunTerm = 0.78 + 0.22 * max(0.0, dot(n, uSunDir));
-  vec3 light = uSkyLight * lightCurve(sky) * sunTerm + uBlockLight * lightCurve(blk) + vec3(uAmbient);
+  vec3 light = uSkyLight * lightCurve(sky) * sunTerm + uBlockLight * lightCurve(blk) + uAmbient * uAmbientTint;
   float ao = 1.0 - 0.62 * occ;
   vec3 c = albedo * light * fs * ao;
   float e = emissionOf(bi);
@@ -836,7 +837,7 @@ vec3 shadeEntity(EntHit h, vec4 o, vec4 d, inout Cache k) {
   }
   float facet = 0.62 + 0.38 * max(0.0, dot(h.n, uUpVec)) + 0.12 * abs(dot(h.n, uHidden));
   float sunTerm = 0.78 + 0.22 * max(0.0, dot(h.n, uSunDir));
-  vec3 light = uSkyLight * lightCurve(sky) * sunTerm + uBlockLight * lightCurve(blk) + vec3(uAmbient);
+  vec3 light = uSkyLight * lightCurve(sky) * sunTerm + uBlockLight * lightCurve(blk) + uAmbient * uAmbientTint;
   vec3 col = h.col * light * facet;
   if (h.glow > 0.5) col = h.col * 1.15;
   if (h.hurt > 0.5) col = mix(col, vec3(0.95, 0.12, 0.08), 0.5);

@@ -23,6 +23,8 @@ export interface SavedMob {
   health: number;
   scale: number;
   data?: VillagerData | null;
+  /** Bosses: their arena. */
+  home?: number[];
 }
 
 export const MAX_GPU_MOBS = 48;
@@ -87,6 +89,10 @@ export class Mob {
   spinTimer = 4;
   burnTimer = 0;
   noiseAt: Float64Array | null = null;
+  /** Bosses: where the arena is (they return there and heal when you flee). */
+  home: Float64Array | null = null;
+  /** Bosses: 1 or 2 (enraged below half health). */
+  phase = 1;
   /** Within 32 blocks of the player this frame: faces and wanders relative to their slice. */
   near = false;
   /** Villagers: profession, trades, reputation, home (saved with the mob). */
@@ -204,7 +210,9 @@ export class MobManager {
 
   /** Saved form of a persistent mob (villagers). */
   serialize(m: Mob): SavedMob {
-    return { name: m.def.name, pos: Array.from(m.pos), health: m.health, scale: m.scale, data: m.data };
+    const s: SavedMob = { name: m.def.name, pos: Array.from(m.pos), health: m.health, scale: m.scale, data: m.data };
+    if (m.home) s.home = Array.from(m.home);
+    return s;
   }
 
   /** Bring back a saved mob; null if its kind no longer exists or the list is full. */
@@ -214,6 +222,7 @@ export class MobManager {
     if (!m) return null;
     if (typeof s.health === 'number' && s.health > 0) m.health = s.health;
     m.data = s.data ?? null;
+    if (Array.isArray(s.home) && s.home.length === 4) m.home = Float64Array.from(s.home);
     return m;
   }
 
@@ -249,7 +258,14 @@ export class MobManager {
       const underground = Math.random() < (inSlice ? 0.25 : 0.45);
       let y = sky;
       let table: MobSpawn[] | undefined;
-      if (underground) {
+      const realm = this.world.realm;
+      if (realm.cavernSpawns) {
+        // Enclosed realms (Ember Depths): any cavern floor above the sea, whatever the light.
+        y = realm.seaLevel + 2 + Math.floor(Math.random() * Math.max(1, this.world.height - realm.seaLevel - 24));
+        if (!this.findFloor(x, y, z, w, 40)) continue;
+        y = this.floorY;
+        table = biome.mobs.day;
+      } else if (underground) {
         y = 6 + Math.floor(Math.random() * Math.max(1, sky - 14));
         if (!this.findFloor(x, y, z, w)) continue;
         y = this.floorY;
@@ -293,8 +309,8 @@ export class MobManager {
   }
 
   private floorY = 0;
-  private findFloor(x: number, y: number, z: number, w: number): boolean {
-    for (let yy = y; yy > 2 && yy > y - 12; yy--) {
+  private findFloor(x: number, y: number, z: number, w: number, depth = 12): boolean {
+    for (let yy = y; yy > 2 && yy > y - depth; yy--) {
       const a = this.world.getBlock(x, yy, z, w) & 0xfff;
       const a2 = this.world.getBlock(x, yy + 1, z, w) & 0xfff;
       const b = this.world.getBlock(x, yy - 1, z, w) & 0xfff;
@@ -400,7 +416,7 @@ export class MobManager {
     m.vel[3] = (dw / l) * speed * k;
     m.walk += speed * 0.016 * 6;
     // Jump over one-block steps.
-    if (m.hitWall && m.onGround && m.def.ai !== 'flyer' && m.def.ai !== 'swimmer') m.vel[1] = 7.8;
+    if (m.hitWall && m.onGround && m.def.ai !== 'flyer' && m.def.ai !== 'swimmer' && !m.def.floats) m.vel[1] = 7.8;
   }
 
   private brake(m: Mob): void {
@@ -527,6 +543,23 @@ export class MobManager {
     for (let k = 0; k < 2; k++) if (this.world.getBlock(x, y + k, z, w) === 0) this.world.setBlock(x, y + k, z, w, block);
   }
 
+  /** Fire the mob's projectile at the player (bone archers, magma drakes). */
+  private shootAt(m: Mob, p: Float64Array, h: MobHost, d4: number, range: number, speed = 22): void {
+    const pr = m.def.projectile!;
+    if (m.attackCd > 0 || d4 > range || !this.lineOfSight(m, p)) return;
+    m.attackCd = pr.cooldown;
+    const from = Float64Array.from([m.pos[0]!, m.pos[1]! + m.height * 0.8, m.pos[2]!, m.pos[3]!]);
+    const v = new Float64Array(4);
+    let l = 0;
+    for (let k = 0; k < 4; k++) {
+      v[k] = p[k]! + (k === 1 ? 1.2 + d4 * 0.06 : 0) - from[k]!;
+      l += v[k]! * v[k]!;
+    }
+    l = Math.sqrt(l);
+    for (let k = 0; k < 4; k++) v[k] = (v[k]! / l) * speed + (Math.random() - 0.5) * 0.8;
+    h.shoot(from, v, pr.damage * (h.difficulty === 1 ? 0.5 : h.difficulty === 3 ? 1.5 : 1), IREG.id(pr.item), false);
+  }
+
   private think(m: Mob, dt: number, h: MobHost, d4: number): void {
     const def = m.def;
     const p = h.playerPos;
@@ -566,20 +599,7 @@ export class MobManager {
           this.brake(m);
           m.face(p[0]! - m.pos[0]!, p[2]! - m.pos[2]!, p[3]! - m.pos[3]!);
         }
-        const pr = def.projectile!;
-        if (m.attackCd <= 0 && d4 < 16 && this.lineOfSight(m, p)) {
-          m.attackCd = pr.cooldown;
-          const from = Float64Array.from([m.pos[0]!, m.pos[1]! + m.height * 0.8, m.pos[2]!, m.pos[3]!]);
-          const v = new Float64Array(4);
-          let l = 0;
-          for (let k = 0; k < 4; k++) {
-            v[k] = p[k]! + (k === 1 ? 1.2 + d4 * 0.06 : 0) - from[k]!;
-            l += v[k]! * v[k]!;
-          }
-          l = Math.sqrt(l);
-          for (let k = 0; k < 4; k++) v[k] = (v[k]! / l) * 22 + (Math.random() - 0.5) * 0.8;
-          h.shoot(from, v, pr.damage * (h.difficulty === 1 ? 0.5 : h.difficulty === 3 ? 1.5 : 1), IREG.id(pr.item), false);
-        }
+        this.shootAt(m, p, h, d4, 16);
         break;
       }
       case 'exploder': {
@@ -676,7 +696,20 @@ export class MobManager {
         break;
       }
       case 'flyer': {
-        if (def.hostile && seePlayer) {
+        if (def.hostile && seePlayer && def.projectile) {
+          // Magma Drakes: hover above you at a distance and spit fire charges.
+          const keep = def.keepAway ?? 8;
+          const dx = p[0]! - m.pos[0]!, dz = p[2]! - m.pos[2]!, dw = p[3]! - m.pos[3]!;
+          const hd = Math.hypot(dx, dz, dw) || 1;
+          if (hd > keep + 2) this.steer(m, p[0]!, p[2]!, p[3]!, sp);
+          else if (hd < keep - 2) this.steer(m, m.pos[0]! - dx, m.pos[2]! - dz, m.pos[3]! - dw, sp);
+          else {
+            this.brake(m);
+            m.face(dx, dz, dw, m.near ? h.playerHidden : undefined);
+          }
+          m.vel[1] = (p[1]! + 4 - m.pos[1]!) * 1.2;
+          this.shootAt(m, p, h, d4, 24, 14);
+        } else if (def.hostile && seePlayer) {
           this.steer(m, p[0]!, p[2]!, p[3]!, sp);
           m.vel[1] = (p[1]! + 1 - m.pos[1]!) * 1.5;
           this.meleeReach(m, p, h);
@@ -684,6 +717,77 @@ export class MobManager {
           this.wander(m, dt, sp, true);
           if (def.name === 'glass_moth') this.seekLight(m, dt);
         }
+        break;
+      }
+      case 'brute': {
+        // Ember Brutes charge: a dash at you (a harder hit), then a pause to recover.
+        if (!seePlayer || !def.hostile) {
+          this.wander(m, dt, sp * 0.5);
+          break;
+        }
+        if (m.mode === 'strike') {
+          m.timer -= dt;
+          this.meleeReach(m, p, h, 1.4);
+          if (m.timer <= 0 || m.hitWall) {
+            m.mode = 'chase';
+            m.fuse = 2.5 + Math.random() * 1.5;
+          }
+          break;
+        }
+        m.fuse -= dt;
+        if (m.fuse <= 0 && d4 > 3 && d4 < 10 && m.onGround) {
+          m.mode = 'strike';
+          m.timer = 0.9;
+          const dx = p[0]! - m.pos[0]!, dz = p[2]! - m.pos[2]!, dw = p[3]! - m.pos[3]!;
+          const l = Math.hypot(dx, dz, dw) || 1;
+          m.face(dx, dz, dw, m.near ? h.playerHidden : undefined);
+          m.vel[0] = (dx / l) * sp * 2.8;
+          m.vel[2] = (dz / l) * sp * 2.8;
+          m.vel[3] = (dw / l) * sp * 2.8;
+          break;
+        }
+        m.mode = 'chase';
+        this.chase(m, dt, p, sp);
+        this.meleeReach(m, p, h);
+        break;
+      }
+      case 'regent': {
+        // The Magma Regent hovers 7 blocks from you, a little above, and keeps to your slice:
+        // it drifts along your hidden axis toward you and, when you are far kata/ana, steps
+        // through W to you. You cannot hide from it along W. If you leave its arena (28
+        // blocks), it returns to its throne and heals.
+        const home = m.home;
+        const away = home ? Math.hypot(p[0]! - home[0]!, p[2]! - home[2]!, p[3]! - home[3]!) : 0;
+        if (!h.playerTargetable || away > 28) {
+          if (home) this.steer(m, home[0]!, home[2]!, home[3]!, sp);
+          else this.brake(m);
+          m.vel[1] = ((home ? home[1]! : m.pos[1]!) + 1 - m.pos[1]!) * 1.2;
+          m.health = Math.min(def.health, m.health + 8 * dt);
+          m.mode = 'idle';
+          break;
+        }
+        m.mode = 'chase';
+        const dx = p[0]! - m.pos[0]!, dz = p[2]! - m.pos[2]!, dw = p[3]! - m.pos[3]!;
+        const hd = Math.hypot(dx, dz, dw) || 1;
+        const keep = m.phase === 2 ? 5 : 7;
+        const H = h.playerHidden;
+        let dh = 0;
+        for (let k = 0; k < 4; k++) dh += (m.pos[k]! - p[k]!) * H[k]!;
+        if (hd > keep + 1.5) this.steer(m, p[0]!, p[2]!, p[3]!, sp);
+        else if (hd < keep - 1.5) this.steer(m, m.pos[0]! - dx, m.pos[2]! - dz, m.pos[3]! - dw, sp * 0.7);
+        else {
+          this.brake(m);
+          m.face(dx, dz, dw, H);
+        }
+        // Pull toward the player's slice along the hidden axis.
+        for (const k of [0, 2, 3]) m.vel[k] = m.vel[k]! - dh * H[k]! * 1.5;
+        m.timer -= dt;
+        if (Math.abs(dh) > 3 && m.timer <= 0) {
+          for (const k of [0, 2, 3]) m.pos[k] = m.pos[k]! - dh * H[k]!;
+          m.timer = 2;
+        }
+        m.vel[1] = (p[1]! + 2.2 - m.pos[1]!) * 1.2;
+        this.meleeReach(m, p, h);
         break;
       }
       case 'swimmer': {
@@ -811,7 +915,7 @@ export class MobManager {
   // ---------------------------------------------------------------- physics
 
   private physics(m: Mob, dt: number): void {
-    const flyer = m.def.ai === 'flyer';
+    const flyer = m.def.ai === 'flyer' || m.def.floats === true;
     const swimmer = m.def.ai === 'swimmer';
     this.sampleFluids(m);
     if (flyer) {
@@ -900,11 +1004,11 @@ export class MobManager {
       m.hurt = 0.45;
       const dx = m.pos[0]! - from[0]!, dz = m.pos[2]! - from[2]!, dw = m.pos[3]! - from[3]!;
       const l = Math.hypot(dx, dz, dw) || 1;
-      const kb = m.def.ai === 'golem' ? 1.2 : 3.6;
+      const kb = m.def.boss ? 0 : m.def.ai === 'golem' || m.def.ai === 'brute' ? 1.2 : 3.6;
       m.vel[0] = (dx / l) * kb;
       m.vel[2] = (dz / l) * kb;
       m.vel[3] = (dw / l) * kb;
-      m.vel[1] = 3.6;
+      if (!m.def.boss && !m.def.floats) m.vel[1] = 3.6;
       if (!m.def.hostile) {
         m.mode = 'flee';
         m.timer = 5;

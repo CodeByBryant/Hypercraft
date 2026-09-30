@@ -116,7 +116,10 @@ export type TexturePattern =
   | 'shelf'
   | 'thatch'
   | 'quilt'
-  | 'bed_side';
+  | 'bed_side'
+  | 'cracks'
+  | 'columns'
+  | 'flame';
 
 /** Procedural 16x16x16 solid texture (sampled on the 3D facets of tesseracts). */
 export interface TextureDef {
@@ -131,7 +134,7 @@ export interface TextureDef {
   seed?: number;
 }
 
-export type TreeShape = 'ball' | 'birch' | 'cone' | 'acacia' | 'wide' | 'bamboo' | 'mushroom' | 'dead' | 'cactus' | 'kelp';
+export type TreeShape = 'ball' | 'birch' | 'cone' | 'acacia' | 'wide' | 'bamboo' | 'mushroom' | 'dead' | 'cactus' | 'kelp' | 'fungus' | 'crystal' | 'tesseract';
 
 /** A tree / large-plant archetype (logs, leaves and the procedural 4D shape). */
 export interface TreeDef {
@@ -202,7 +205,19 @@ export interface BiomeDef {
   mobs?: { day?: MobSpawn[]; night?: MobSpawn[]; water?: MobSpawn[]; cave?: MobSpawn[] };
   /** Structure names that may generate here (Phase 5). */
   structures?: string[];
+  /** Realm the biome belongs to (default 'surface'); each realm's generator picks its own. */
+  realm?: string;
+  /** Ember Depths terrain style (EmberGen). */
+  ember?: EmberStyle;
+  /** Damaging / slowing features the biome is known for (docs, F3). */
+  hazards?: string[];
 }
+
+/**
+ * Ember Depths terrain styles: how the cavern floor and ceiling are shaped and which
+ * features grow (see src/world/gen/EmberGen.ts).
+ */
+export type EmberStyle = 'plains' | 'prisms' | 'fungal' | 'sea' | 'ash' | 'canyons' | 'grove' | 'shattered';
 
 // ------------------------------------------------------------------ items (Phase 3)
 
@@ -391,7 +406,9 @@ export type MobAI =
   | 'climber'
   | 'mimic'
   | 'lurker'
-  | 'villager';
+  | 'villager'
+  | 'brute'
+  | 'regent';
 
 export interface MobDef {
   name: string;
@@ -433,6 +450,12 @@ export interface MobDef {
   profession?: string;
   /** Saved with the column it stands in (villagers), instead of despawning. */
   persistent?: boolean;
+  /** Bosses: a health bar, no despawning, no knockback. */
+  boss?: boolean;
+  /** Floats (ignores gravity): wisps, drakes, the Magma Regent. */
+  floats?: boolean;
+  /** Keeps this distance from the player while it shoots (flyers with projectiles). */
+  keepAway?: number;
 }
 
 // ------------------------------------------------------------------ loot (Phase 5)
@@ -457,7 +480,13 @@ export interface LootTable {
 
 // ------------------------------------------------------------------ structures (Phase 5)
 
-export type StructurePlacement = 'surface' | 'underground' | 'underwater' | 'beach' | 'sheet';
+/**
+ * surface: on dry ground; beach / underwater: shores and sea floors; underground: at a depth;
+ * sheet: on an Ana Sheet. Ember Depths: surface is the cavern floor above the lava sea,
+ * `lava` is on the magma sea (bridges), `cavern` hangs in the open air between floor and
+ * ceiling.
+ */
+export type StructurePlacement = 'surface' | 'underground' | 'underwater' | 'beach' | 'sheet' | 'lava' | 'cavern';
 
 export interface StructureDef {
   name: string;
@@ -477,6 +506,8 @@ export interface StructureDef {
   y?: [number, number];
   /** Hash salt: keeps grids of different structures independent. */
   salt: number;
+  /** Realm (default 'surface'). */
+  realm?: string;
 }
 
 // ------------------------------------------------------------------ trading (Phase 5)
@@ -528,4 +559,14 @@ export interface RealmDef {
   /** Bedrock floor block and ceiling (null = open sky). */
   floorBlock: string;
   ceilingBlock: string | null;
+  /** Fluid of the realm's sea (default water). */
+  seaFluid?: 'water' | 'lava';
+  /** Tint of the ambient light (default white). */
+  ambientColor?: Hex;
+  /** Water poured here boils away (Ember Depths). */
+  waterEvaporates?: boolean;
+  /** Beds explode instead of letting you sleep. */
+  bedsExplode?: boolean;
+  /** Mob spawning looks for cavern floors (enclosed realms) instead of the sky surface. */
+  cavernSpawns?: boolean;
 }

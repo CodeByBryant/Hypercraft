@@ -74,6 +74,7 @@ export class Environment {
     blockLight: new Float32Array([1.0, 0.8, 0.55]),
     waterFog: new Float32Array(3),
     ambient: 0.03,
+    ambientTint: new Float32Array([1, 1, 1]),
     daylight: 1,
     time: 0,
     moonPhase: 0,
@@ -100,6 +101,12 @@ export class Environment {
     this.realm = realm;
     this.rng = new Rng(seed ^ 0x5eed);
     this.sky.ambient = realm.ambient;
+    if (realm.ambientColor) this.sky.ambientTint.set(hexToRgb(realm.ambientColor));
+  }
+
+  /** Under a ceiling (Ember Depths): no sun, moon, stars, clouds or weather; biome haze. */
+  get enclosed(): boolean {
+    return this.realm.ceilingBlock !== null;
   }
 
   get timeOfDay(): number {
@@ -253,5 +260,24 @@ export class Environment {
       }
     }
     s.flash = this.flash * (thunder > 0 ? 1 : 0.6);
+    if (this.enclosed) {
+      // The "sky" is the biome's haze: rays that escape end in fog, and distant terrain fades
+      // into it. No sky light (the ceiling blocks it anyway), no sun, moon or stars.
+      for (let i = 0; i < 3; i++) {
+        s.fog[i] = this.bFog[i]!;
+        s.zenith[i] = this.bFog[i]! * 0.7;
+        s.horizon[i] = this.bFog[i]!;
+        s.skyLight[i] = 0;
+      }
+      s.sunDir.set([0, -1, 0, 0]);
+      s.moonDir.set([0, -1, 0, 0]);
+      s.stars = 0;
+      s.cloudCover = 0;
+      s.daylight = 0;
+      s.weatherFog = 0.3;
+      s.rain = 0;
+      s.snow = 0;
+      s.flash = 0;
+    }
   }
 }

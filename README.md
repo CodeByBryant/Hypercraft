@@ -3,10 +3,11 @@
 A 4D voxel survival sandbox for the browser. The world is made of tesseracts; you see a true
 3D cross-section of it, and every system is built around a fourth spatial axis.
 
-**Status: Phase 5 (structures, villages, trading, beds) complete.** Phase reports (what
-works, what's broken, what's next): [Phase 1 — engine](docs/phases/phase-1.md) ·
+**Status: Phase 6 (the Ember Depths, 4D portals, the Magma Regent) complete.** Phase reports
+(what works, what's broken, what's next): [Phase 1 — engine](docs/phases/phase-1.md) ·
 [Phase 2 — surface terrain](docs/phases/phase-2.md) · [Phase 3 — items](docs/phases/phase-3.md) ·
-[Phase 4 — mobs](docs/phases/phase-4.md) · [Phase 5 — structures](docs/phases/phase-5.md).
+[Phase 4 — mobs](docs/phases/phase-4.md) · [Phase 5 — structures](docs/phases/phase-5.md) ·
+[Phase 6 — Ember Depths](docs/phases/phase-6.md).
 
 | Axis-aligned slice | 30° XW tilt | 45° XW + 45° ZW tilt |
 |---|---|---|
@@ -16,6 +17,8 @@ works, what's broken, what's next): [Phase 1 — engine](docs/phases/phase-1.md)
 | mobs: their own 3D sections | oblique cuts: bodies stretch, legs slip out of the slice | other legs cross it (sheep: two, chicken: one) |
 | ![](docs/screenshots/phase-5/village-1-axis-aligned.png) | ![](docs/screenshots/phase-5/village-2-xw-30.png) | ![](docs/screenshots/phase-5/village-3-xw45-zw45.png) |
 | a village road, lamp post and houses | the same village, tilted through W | oblique cuts through 4D houses on stilts |
+| ![](docs/screenshots/phase-6/portal-1-axis-aligned.png) | ![](docs/screenshots/phase-6/portal-2-xw-30.png) | ![](docs/screenshots/phase-6/portal-3-xw45-zw45.png) |
+| a lit 4D portal (a 3D hyper-frame, normal along x) | tilted: the frame is cut obliquely | the membrane's 3D box cut by a doubly tilted slice |
 
 ## Run it
 
@@ -81,6 +84,12 @@ makes it pulse violet and is named at the top of the screen.
 **Survival**: 10 hearts (natural regeneration), air underwater, fall/lava/cactus/drowning/void
 damage, death drops your inventory and shows a respawn screen (hardcore: spectator). Mobs spawn
 from each biome's tables all around you in 4D, not only in your slice.
+
+**The Ember Depths**: build a 4D portal frame of obsidian (the faces around a box of air at
+least 1 wide, 2 tall and 1 deep; 10 blocks at minimum) and light it with flint and steel.
+Stand in it for 4 s. One block in the Ember Depths is 8 on the Surface, along x, z **and** w.
+Down there are eight biomes, citadels you climb by walking through W, and the Magma Regent
+in its caldera on the lava sea. Its lava pillars erupt along W, so sidestep in your slice.
 
 **Beds**: craft one from 3 wool over 3 planks, or use one in a village house. Right click it at
 night (or in a thunderstorm) to sleep until morning. Any bed you use becomes your respawn

@@ -9,6 +9,9 @@ import type { Column, World } from '../../world/World';
 import { CRAFTING } from './Crafting';
 import { loadStack, saveStack, type Container, type ItemStack, type SavedStack } from './ItemStack';
 
+
+/** Hypercinder makes furnaces cook twice as fast. */
+const HYPERCINDER = IREG.has('hypercinder') ? IREG.id('hypercinder') : -1;
 export interface ChestData {
   type: 'chest';
   slots: (SavedStack | null)[];
@@ -25,6 +28,8 @@ export interface FurnaceData {
   /** Seconds cooked of the current item / needed. */
   cook: number;
   cookMax: number;
+  /** Cooking speed of the current fuel (hypercinder: 2x). */
+  boost?: number;
 }
 
 /** Mob spawner (dungeons, outposts...): spawns its mob near itself while a player is close. */
@@ -292,13 +297,14 @@ export class BlockEntities {
     if (d.burn > 0) d.burn -= dt;
     if (d.burn <= 0 && canOut && fuel && CRAFTING.fuel(fuel.id) > 0) {
       d.burnMax = d.burn = CRAFTING.fuel(fuel.id) * (fast ? 0.5 : 1);
+      d.boost = fuel.id === HYPERCINDER ? 2 : 1;
       const rem = IREG.def(fuel.id).fuelRemainder;
       fuel.count--;
       d.slots[1] = fuel.count > 0 ? saveStack(fuel) : rem ? [rem, 1] : null;
     }
     if (d.burn > 0 && canOut && recipe && input) {
       d.cookMax = recipe.time * (fast ? 0.5 : 1);
-      d.cook += dt;
+      d.cook += dt * (d.boost ?? 1);
       if (d.cook >= d.cookMax) {
         d.cook = 0;
         input.count--;

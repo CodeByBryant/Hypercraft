@@ -466,4 +466,117 @@ export const LOOT_TABLES: Record<string, LootTable> = {
       ],
     },
   ]),
+
+  // ---------------------------------------------------------------- Ember Depths (Phase 6)
+  citadel_treasure: T([
+    {
+      rolls: [4, 7],
+      entries: [
+        { item: 'gold_ingot', weight: 12, count: [2, 6] },
+        { item: 'ember_quartz', weight: 12, count: [4, 12] },
+        { item: 'hypercinder', weight: 8, count: [2, 6] },
+        { item: 'slag_scrap', weight: 4, count: [1, 2] },
+        { item: 'ancient_slag_ingot', weight: 1 },
+        { item: 'hyperite', weight: 3, count: [1, 2] },
+        { item: 'gold_block', weight: 2 },
+        { item: 'obsidian', weight: 4, count: [2, 6] },
+        { item: 'flint_and_steel', weight: 3, wear: [0.1, 0.5] },
+        { item: 'hyperite_sword', weight: 2, wear: [0.2, 0.7] },
+      ],
+    },
+  ]),
+  citadel_barracks: T([
+    {
+      rolls: [3, 6],
+      entries: [
+        { item: 'iron_sword', weight: 6, wear: [0.3, 0.9] },
+        { item: 'bow', weight: 4, wear: [0.2, 0.8] },
+        { item: 'arrow', weight: 10, count: [4, 16] },
+        { item: 'hound_fang', weight: 8, count: [1, 3] },
+        { item: 'gold_nugget', weight: 10, count: [3, 10] },
+        { item: 'cinder_bricks', weight: 6, count: [4, 12] },
+        { item: 'fire_charge', weight: 5, count: [1, 4] },
+      ],
+    },
+  ]),
+  citadel_storage: T([
+    {
+      rolls: [3, 6],
+      entries: [
+        { item: 'cinder_brick', weight: 10, count: [4, 16] },
+        { item: 'sulfur', weight: 8, count: [2, 8] },
+        { item: 'magma_cream', weight: 6, count: [1, 3] },
+        { item: 'raw_beef', weight: 6, count: [1, 4] },
+        { item: 'gold_nugget', weight: 8, count: [2, 8] },
+        { item: 'obsidian', weight: 3, count: [1, 4] },
+      ],
+    },
+  ]),
+  forge: T([
+    {
+      rolls: [3, 6],
+      entries: [
+        { item: 'iron_ingot', weight: 10, count: [2, 6] },
+        { item: 'gold_ingot', weight: 8, count: [1, 4] },
+        { item: 'hypercinder', weight: 10, count: [2, 8] },
+        { item: 'slag_scrap', weight: 3 },
+        { item: 'iron_pickaxe', weight: 3, wear: [0.1, 0.6] },
+        { item: 'hyperite_pickaxe', weight: 1, wear: [0.3, 0.8] },
+        { item: 'coal', weight: 8, count: [4, 12] },
+        { item: 'ember_quartz', weight: 6, count: [2, 8] },
+      ],
+    },
+  ]),
+  ziggurat: T([
+    {
+      rolls: [3, 5],
+      entries: [
+        { item: 'ember_quartz', weight: 10, count: [4, 10] },
+        { item: 'gold_ingot', weight: 6, count: [1, 3] },
+        { item: 'magma_cream', weight: 6, count: [1, 4] },
+        { item: 'slag_scrap', weight: 3, count: [1, 2] },
+        { item: 'drake_scale', weight: 4, count: [1, 3] },
+        { item: 'obsidian', weight: 4, count: [2, 5] },
+      ],
+    },
+  ]),
+  magma_bridge: T([
+    {
+      rolls: [2, 4],
+      entries: [
+        { item: 'gold_nugget', weight: 10, count: [2, 8] },
+        { item: 'fire_charge', weight: 6, count: [1, 3] },
+        { item: 'hypercinder', weight: 6, count: [1, 4] },
+        { item: 'cinder_brick', weight: 8, count: [2, 8] },
+        { item: 'ember_atlas', weight: 2 },
+      ],
+    },
+  ]),
+  ember_ruined_portal: T([
+    {
+      rolls: [3, 6],
+      entries: [
+        { item: 'obsidian', weight: 12, count: [2, 6] },
+        { item: 'flint_and_steel', weight: 6, wear: [0, 0.4] },
+        { item: 'fire_charge', weight: 6, count: [1, 3] },
+        { item: 'gold_ingot', weight: 6, count: [1, 3] },
+        { item: 'gold_nugget', weight: 8, count: [4, 12] },
+        { item: 'ember_atlas', weight: 3 },
+        { item: 'gold_sword', weight: 3, wear: [0.2, 0.8] },
+      ],
+    },
+  ]),
+  regent_caldera: T([
+    {
+      rolls: [4, 6],
+      entries: [
+        { item: 'ancient_slag_ingot', weight: 3 },
+        { item: 'slag_scrap', weight: 6, count: [1, 3] },
+        { item: 'hyperite', weight: 5, count: [1, 3] },
+        { item: 'gold_block', weight: 5, count: [1, 2] },
+        { item: 'ember_quartz', weight: 10, count: [6, 16] },
+        { item: 'hypercinder', weight: 10, count: [4, 10] },
+      ],
+    },
+  ]),
 };

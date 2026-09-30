@@ -19,6 +19,9 @@ const canvas = document.getElementById('game') as HTMLCanvasElement;
 const uiRoot = document.getElementById('ui')!;
 const q = new URLSearchParams(location.search);
 
+/** Session key carrying a test world across a realm trip (the page reloads). */
+const TRAVEL_KEY = 'hypercraft.travel';
+
 function workerCount(): number {
   return q.has('workers') ? Math.max(1, Number(q.get('workers'))) : Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
 }
@@ -79,7 +82,8 @@ function touchWanted(s: Settings): boolean {
 function startGame(info: WorldInfo, persistence: Persistence | null, settings: Settings, test: boolean): Game | null {
   let game: Game;
   try {
-    game = new Game(canvas, { settings, test, workers: workerCount(), world: info, persistence });
+    const realm = test && q.get('realm') && !info.state ? q.get('realm')! : undefined;
+    game = new Game(canvas, { settings, test, workers: workerCount(), world: info, persistence, realm });
   } catch (err) {
     fail(err);
     return null;
@@ -88,6 +92,22 @@ function startGame(info: WorldInfo, persistence: Persistence | null, settings: S
   const menus = new Menus(uiRoot);
   const invScreen = new InventoryScreen(uiRoot, game);
   game.message = (t) => hud.showMessage(t);
+  // Realm travel (portals, respawning on the Surface): save, then reload into the new state.
+  game.onTravel = (state) => {
+    void (async () => {
+      if (persistence) {
+        await game.saveAll(true);
+        info.state = state;
+        persistence.info.state = state;
+        await persistence.saveMeta();
+        await persistence.flush();
+      } else {
+        info.state = state;
+        sessionStorage.setItem(test ? TRAVEL_KEY : 'hypercraft.ephemeral', JSON.stringify(info));
+      }
+      location.reload();
+    })();
+  };
   game.onPickup = (id, n) => hud.showMessage(`+${n} ${IREG.displayName(id)}`);
   let lastHud = performance.now();
   game.onFrame = () => {
@@ -220,7 +240,11 @@ async function boot(): Promise<void> {
     // Deterministic screenshots: no ambient particles unless asked for (?particles=1).
     if (!q.has('particles')) settings.particles = 'off';
     if (q.has('touch')) settings.touch = 'on';
-    const game = startGame(ephemeralWorld(q.get('seed') ?? 'hypercraft', 'creative'), null, settings, true);
+    // A realm trip in a test world reloads the page with the world carried in session storage.
+    const carried = sessionStorage.getItem(TRAVEL_KEY);
+    if (carried) sessionStorage.removeItem(TRAVEL_KEY);
+    const info = carried ? (JSON.parse(carried) as WorldInfo) : ephemeralWorld(q.get('seed') ?? 'hypercraft', 'creative');
+    const game = startGame(info, null, settings, true);
     if (game && bench) {
       const overlay = document.createElement('div');
       uiRoot.appendChild(overlay);

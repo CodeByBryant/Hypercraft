@@ -89,7 +89,7 @@ describe('Surface generator (Phase 2)', () => {
     const s = sample();
     const seen = new Set<number>();
     for (let x = -9000; x <= 9000; x += 180) for (let w = -9000; w <= 9000; w += 180) seen.add(g.sample(x, 333, w, s).biome);
-    const missing = REG.biomes.filter((b, i) => b.kind !== 'underground' && !seen.has(i)).map((b) => b.name);
+    const missing = REG.biomes.filter((b, i) => b.kind !== 'underground' && (b.realm ?? 'surface') === 'surface' && !seen.has(i)).map((b) => b.name);
     expect(missing).toEqual([]);
   });
 

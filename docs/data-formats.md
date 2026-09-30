@@ -237,7 +237,10 @@ hyperplane.
 ```
 
 * **`placement`**: one of `surface`, `beach`, `underwater`, `underground` (the start height
-  is drawn from `y`), or `sheet` (on an Ana Sheet).
+  is drawn from `y`), or `sheet` (on an Ana Sheet). Two more are for the Ember Depths:
+  `lava` sits on the lava sea (bridges, the Regent's Caldera), and `cavern` hangs in the open
+  air between floor and ceiling.
+* **`realm`**: which realm's generator places it (default `surface`).
 * **The grid.** Each structure gets one attempt per `spacing`³ cell of (x, z, w). The
   attempt happens with probability `chance`, and the start is jittered inside the cell.
 * **Biomes.** The biome at the start must list the structure in `BiomeDef.structures`.
@@ -322,6 +325,38 @@ no levels, and it leaves after about a day and a half.
 
 `generator` names an entry in `src/world/gen/generators.ts`.
 
+Since Phase 6 there is a second realm, `ember` (the Ember Depths). Its extra fields:
+
+| field | meaning |
+| ----- | ------- |
+| `seaFluid` | `'lava'` |
+| `ambientColor` | the ambient light tint |
+| `ceilingBlock: 'bedrock'` | makes the realm enclosed: no sun, stars, clouds or weather; the sky is the biome's haze |
+| `waterEvaporates`, `bedsExplode` | Nether rules |
+| `cavernSpawns` | mobs spawn on cavern floors at any light |
+| `coordinateScale: 8` | the portal ratio, applied to x, z **and** w |
+
+`docs/how-to/add-a-realm.md` has the details.
+
+**Ember biomes** (`src/content/ember.ts`) are ordinary `BiomeDef`s with three extra fields:
+* `realm: 'ember'`;
+* `ember`, the terrain style: `plains | prisms | fungal | sea | ash | canyons | grove | shattered`;
+* `hazards`, a list of words for the docs.
+
+Their `climate` is `[heat, vapour, soul, 0]`, and `ceiling` is the block under the cavern
+roof. Ember mobs spawn from the `day` table.
+
+**Portal records** (saved in `SavedState.data.portals`):
+
+```ts
+{ realm: 'ember', axis: 0, min: [x, y, z, w], max: [x, y, z, w] }
+```
+
+`axis` is the normal (0 x, 2 z, 3 w). `min` and `max` bound the interior, with
+`min[axis] === max[axis]`. A realm trip saves the destination state with
+`data.arrival = { kind: 'portal', axis }` (or `{ kind: 'respawn' }`), which the next load
+consumes.
+
 ## Runtime / wire formats
 
 * **Worker → main** (`src/world/gen/protocol.ts`): per column, one `PackedChunk` per chunk
@@ -335,7 +370,9 @@ no levels, and it leaves after about a day and a half.
   metadata, and `SavedState.player.data`:
   * `inventory`;
   * since Phase 4, `vitals: { health, air }`;
-  * since Phase 5, `bed: [x, y, z, w] | null`, your respawn point.
+  * since Phase 5, `bed: [x, y, z, w] | null`, your respawn point (Surface coordinates);
+  * since Phase 6, `SavedState.realm` is the realm you are in; `SavedState.data.portals`
+    holds the lit portals and `data.arrival` a pending arrival. Columns are saved per realm.
 
-  Since Phase 5, persistent mobs (villagers) are saved in their column's `extra.mobs`.
-  Other mobs respawn naturally.
+  Since Phase 5, persistent mobs (villagers) are saved in their column's `extra.mobs`, and
+  since Phase 6 bosses too, with their arena (`SavedMob.home`). Other mobs respawn naturally.

@@ -100,5 +100,21 @@ non-uniform) before the next render.
 
 A realm (`src/content/realms.ts`) names its generator, height, gravity axis and strength,
 sea level, sky/weather lists and portal coordinate scale. The physics and camera already take
-the gravity axis as a parameter (the Mirror Realm will use W). Only the Surface exists in
-Phase 1.
+the gravity axis as a parameter (the Mirror Realm will use W).
+
+Two realms exist since Phase 6: the Surface (`SurfaceGen`) and the Ember Depths
+(`EmberGen`, enclosed under a bedrock roof).
+
+**One realm is live at a time.** The `Game` is built for the realm named in the saved state,
+with its world, workers, generator, environment and mobs. Portal travel (`src/game/Portals.ts`)
+works like this:
+1. `Game.beginTravel` snapshots the player into the destination realm at the scaled position
+   (x, z and w × `coordinateScale` ratio), with an `arrival` record.
+2. `main.ts` saves (or, for test worlds, puts the world in session storage) and reloads the
+   page.
+3. On load, `checkLoaded` waits for the columns around the player, then `arrive()` steps into
+   a known portal or builds one.
+
+Columns are saved per realm (`Persistence.realm`), and so are the portal records
+(`SavedState.data.portals`). Structures are per realm (`StructureDef.realm`) through the
+`StructureTerrain` interface.

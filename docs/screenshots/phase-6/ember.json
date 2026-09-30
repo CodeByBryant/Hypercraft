@@ -1,0 +1,82 @@
+{
+  "mobShots": {
+    "1-axis-aligned": 7,
+    "2-xw-30": 6,
+    "3-xw45-zw45": 1
+  },
+  "cinder_plains": [
+    0.5,
+    41,
+    0.5,
+    0.5
+  ],
+  "basalt_prisms": [
+    -35.5,
+    45,
+    0.5,
+    0.5
+  ],
+  "sulfur_fungal_forest": [
+    -16.5,
+    44,
+    0.5,
+    -130.5
+  ],
+  "magma_sea": [
+    -196.5,
+    36,
+    0.5,
+    9.5
+  ],
+  "ash_wastes": [
+    -148.5,
+    37,
+    0.5,
+    9.5
+  ],
+  "soul_glass_canyons": [
+    -216.5,
+    49,
+    0.5,
+    -58.5
+  ],
+  "emberglass_grove": [
+    -268.5,
+    44,
+    0.5,
+    -124.5
+  ],
+  "shattered_tesseracts": [
+    -249.5,
+    46,
+    0.5,
+    -181.5
+  ],
+  "caldera": {
+    "name": "regent_caldera",
+    "x": -279,
+    "y": 33,
+    "z": -85,
+    "w": -231
+  },
+  "bossSpawned": {
+    "id": 22,
+    "name": "magma_regent",
+    "health": 300,
+    "max": 300,
+    "phase": 1,
+    "mode": "idle",
+    "pillars": [],
+    "warning": ""
+  },
+  "telegraph": {
+    "pillars": 6,
+    "warning": "⚠ Lava pillars erupting: 1 in your slice, 5 kata/ana along W · sidestep in your slice!"
+  },
+  "bossLoot": [
+    "regent_heart",
+    "ancient_slag_ingot",
+    "ember_quartz",
+    "hypercinder"
+  ]
+}

@@ -6,6 +6,7 @@ import { buriedTreasure, cabin, campsite, fossilSite, igloo, lighthouse, outpost
 import { desertTemple, jungleShrine, ruinedPortal, ruins, skyTower, tesseractTemple } from './temples';
 import { anaVault, dungeon, hypermine, library, silentVault } from './underground';
 import { village } from './village';
+import { citadel, emberRuinedPortal, forge, magmaBridge, regentCaldera, ziggurat } from './ember';
 import { shipwreck, sunkenMonument } from './water';
 
 export const BUILDERS: Record<string, BuilderFn> = {
@@ -35,4 +36,10 @@ export const BUILDERS: Record<string, BuilderFn> = {
   library,
   silent_vault: silentVault,
   ana_vault: anaVault,
+  citadel,
+  forge,
+  ziggurat,
+  magma_bridge: magmaBridge,
+  ember_ruined_portal: emberRuinedPortal,
+  regent_caldera: regentCaldera,
 };

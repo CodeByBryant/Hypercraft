@@ -44,6 +44,15 @@ import type { Persistence } from '../save/Persistence';
 import type { SavedState, WorldInfo } from '../save/WorldInfo';
 import type { GameMode } from '../physics/Player';
 import type { Located } from '../world/gen/protocol';
+import { BossDirector } from './Boss';
+import { findPortal, planeAxes, portalCenter, portalDestination, scalePosition, frameCells, interiorCells, type PortalBox, type PortalRecord } from './Portals';
+
+/** How the player arrives in a realm: through a portal (find or build its twin) or a respawn. */
+export interface Arrival {
+  kind: 'portal' | 'respawn';
+  /** Normal axis of the portal left behind (the arrival portal uses the same). */
+  axis?: number;
+}
 
 /**
  * Beds (sleep through the night, set your respawn point) are two cells: a foot (the item)
@@ -60,6 +69,13 @@ REG.blocks.forEach((b, i) => {
   if (REG.has(other)) BED_OTHER[i] = REG.id(other);
 });
 const isBed = (v: number): boolean => v !== VOID_VOXEL && BED_IDS[voxelId(v)]! > 0;
+/** Portal frame blocks (obsidian, voidstone) and fire (a portal can be lit through it). */
+const PORTAL_FRAME = new Uint8Array(REG.count);
+const FIRE_IDS = new Uint8Array(REG.count);
+REG.blocks.forEach((b, i) => {
+  if (b.name === 'obsidian' || b.tags?.includes('portal_frame')) PORTAL_FRAME[i] = 1;
+  if (b.tags?.includes('fire')) FIRE_IDS[i] = 1;
+});
 
 /** Creative starter inventory (hotbar first). Survival worlds start empty. */
 export const CREATIVE_KIT: [string, number][] = [
@@ -119,6 +135,8 @@ export interface GameOptions {
   persistence: Persistence | null;
   /** Title-screen background: no input, automatic camera. */
   demo?: boolean;
+  /** Start in this realm (test worlds: ?realm=ember); saves carry their own realm. */
+  realm?: string;
 }
 
 export class Game {
@@ -211,6 +229,22 @@ export class Game {
   sleeping: { t: number; skipped: boolean } | null = null;
   /** After respawning at a bed, check it is still there once its column has loaded. */
   private checkBed = false;
+  /** Boss fights: attacks, telegraphs and the HUD boss bar. */
+  readonly bosses: BossDirector;
+  /** Lit portals in every realm (saved with the world): arrivals look for their twins. */
+  portals: PortalRecord[] = [];
+  /** Seconds spent standing in a portal (the trip starts at 4 s, 1 s in creative). */
+  portalTime = 0;
+  /** Just arrived through a portal: no trip back until you step out of it. */
+  private portalCooldown = false;
+  /** A realm trip is under way (the page reloads into the destination): its display name. */
+  traveling: string | null = null;
+  /** Pending arrival in this realm (handled once the columns around the player load). */
+  arrival: Arrival | null = null;
+  private arrivalWait = 0;
+  /** Change realms: save `state` and reload into it (main.ts). */
+  onTravel: ((state: SavedState) => void) | null = null;
+  private collapsing = false;
   /** The held atlas's target: the nearest structure it marks (searched by a worker). */
   atlas: { item: number; target: Located | null; at: [number, number, number] } | null = null;
   private atlasPending = false;
@@ -268,7 +302,7 @@ export class Game {
     this.info = opts.world;
     this.persistence = opts.persistence;
     this.seed = opts.world.seed >>> 0;
-    const realm = REG.realm(opts.world.state?.realm ?? 'surface');
+    const realm = REG.realm(opts.realm ?? opts.world.state?.realm ?? 'surface');
     this.world = new World(realm, opts.settings.renderDistance);
     this.light = new LightEngine(this.world);
     this.genOptions = { garden: opts.test && !opts.demo };
@@ -291,6 +325,7 @@ export class Game {
 
     this.world.onBlockChange((x, y, z, w, o, n) => {
       this.light.onBlockChanged(x, y, z, w, o, n);
+      this.portalBlockChanged(x, y, z, w, o, n);
       this.fluids.onBlockChanged(x, y, z, w, o, n);
       // Breaking a chest or furnace spills its contents.
       const spill = this.blockEntities.onBlockChanged(x, y, z, w, o, n);
@@ -358,8 +393,24 @@ export class Game {
       mobDied: (m) => {
         const h = m.height * 0.5;
         this.particles.burst(m.pos[0]!, m.pos[1]! + h, m.pos[2]!, m.pos[3]!, this.player.cam, 'poof', '#e8e8e8', 14, 1.6, m.width);
+        if (m.def.boss) {
+          this.particles.burst(m.pos[0]!, m.pos[1]! + h, m.pos[2]!, m.pos[3]!, this.player.cam, 'spark', '#ffb030', 60, 5, 1.2, true);
+          this.bosses.clear();
+          this.message?.(`${m.def.displayName} is defeated!`);
+        }
       },
     };
+    this.bosses = new BossDirector({
+      world: this.world,
+      mobs: this.mobs,
+      playerPos: this.player.pos,
+      playerRight: this.player.cam.R,
+      playerHidden: this.player.cam.H,
+      playerTargetable: () => this.mobHost.playerTargetable,
+      shoot: (from, vel, damage, item, byPlayer) => this.projectiles.spawn(from, vel, damage, item, byPlayer),
+      flame: (x, y, z, w) => this.particles.burst(x, y, z, w, this.player.cam, 'spark', '#ff8a1a', 3, 2.4, 0.3, true),
+      message: (t) => this.message?.(t),
+    });
     this.projHost = {
       playerPos: this.player.pos,
       get playerHeight() {
@@ -434,6 +485,12 @@ export class Game {
     this.vitals.load(sp.data?.vitals);
     const bed = sp.data?.bed;
     if (Array.isArray(bed) && bed.length === 4 && bed.every((v) => Number.isInteger(v))) this.bed = bed as [number, number, number, number];
+    const wd = st.data ?? {};
+    if (Array.isArray(wd.portals)) this.portals = wd.portals as PortalRecord[];
+    if (wd.arrival && typeof wd.arrival === 'object') {
+      this.arrival = wd.arrival as Arrival;
+      delete wd.arrival;
+    }
     if (inv) this.inv.load(inv);
     else if (st.hotbar) {
       // 0.1.x saves had a creative block palette instead of an inventory.
@@ -456,10 +513,12 @@ export class Game {
     // Quitting from the death screen saves the player as respawned (the inventory has
     // already spilled where they died).
     const dead = this.vitals.dead;
+    const away = dead && this.world.realm.name !== 'surface';
     return {
-      realm: this.world.realm.name,
+      realm: away ? 'surface' : this.world.realm.name,
+      data: away ? { portals: this.portals, arrival: { kind: 'respawn' } } : { portals: this.portals },
       player: {
-        pos: dead ? this.respawnPoint() : Array.from(p.pos),
+        pos: dead ? (away ? this.surfaceRespawnPoint() : this.respawnPoint()) : Array.from(p.pos),
         F: Array.from(p.cam.F),
         R: Array.from(p.cam.R),
         H: Array.from(p.cam.H),
@@ -476,9 +535,11 @@ export class Game {
   }
 
   /** Save dirty columns and the world metadata. */
-  async saveAll(): Promise<void> {
+  async saveAll(force = false): Promise<void> {
     const ps = this.persistence;
     if (!ps || this.demo) return;
+    // Mid-trip the destination state is already saved: do not overwrite it on unload.
+    if (this.traveling && !force) return;
     this.snapshotMobs();
     ps.saveDirty(this.world);
     ps.info.state = this.snapshot();
@@ -563,12 +624,14 @@ export class Game {
       p.eye(this.eyePos);
       this.mobs.update(dt, this.mobHost, this.biomeFn, this.caveFn);
       this.projectiles.update(dt, this.world, this.mobs, this.projHost);
+      this.bosses.update(dt);
       this.villageTimer -= dt;
       if (this.villageTimer <= 0) {
         this.villageTimer = 1;
         this.villageTick();
       }
       this.updateAtlas();
+      if (!this.traveling) this.updatePortal(dt);
     }
 
     // Fixed-rate world ticks.
@@ -678,6 +741,12 @@ export class Game {
     const cx = Math.floor(p.pos[0]! / 16), cz = Math.floor(p.pos[2]! / 16), cw = Math.floor(p.pos[3]! / 16);
     const col = this.world.column(cx, cz, cw);
     if (col && this.light.pending() === 0) {
+      if (this.arrival) {
+        // Arriving: wait for the columns around (an arrival portal can straddle borders).
+        this.arrivalWait++;
+        if (!this.neighboursLoaded(cx, cz, cw) && this.arrivalWait < 900) return;
+        if (!this.arrive()) return; // moved to a portal farther away: wait for its columns
+      }
       this.loaded = true;
       p.frozen = false;
       // Make sure we are not inside terrain.
@@ -904,6 +973,11 @@ export class Game {
         if (!MOB_REG.has(n.mob)) continue;
         const m = this.mobs.spawn(n.mob, n.x, n.y, n.z, n.w);
         if (!m) continue;
+        if (m.def.hostile) {
+          // Guards and bosses from structures; bosses remember their arena.
+          if (m.def.boss) m.home = Float64Array.from([n.x, n.y, n.z, n.w]);
+          continue;
+        }
         const prof = m.def.profession;
         if (prof) {
           const d = newVillager(prof, (Math.imul(Math.floor(n.x), 73856093) ^ Math.imul(Math.floor(n.z), 19349663) ^ Math.imul(Math.floor(n.w), 83492791)) >>> 0);
@@ -1049,6 +1123,15 @@ export class Game {
    */
   useBed(x: number, y: number, z: number, w: number): boolean {
     const say = (t: string) => this.message?.(t);
+    if (this.world.realm.bedsExplode) {
+      // Like the Nether: beds blow up here.
+      const bv = this.world.getBlock(x, y, z, w);
+      this.world.setBlock(x, y, z, w, 0);
+      this.removeBedPartner(x, y, z, w, bv);
+      this.explode(x + 0.5, y + 0.5, z + 0.5, w + 0.5, 3.5);
+      say('The bed explodes! Beds don’t work in this realm');
+      return false;
+    }
     if (!this.world.realm.dayCycle) {
       say('You can’t sleep here: this realm has no nights');
       return false;
@@ -1100,6 +1183,290 @@ export class Game {
   /** Get out of bed (before the screen is dark, the night does not pass). */
   wake(): void {
     this.sleeping = null;
+  }
+
+  // ------------------------------------------------------------------ portals & realm travel
+
+  private isPortalFrame(v: number): boolean {
+    return v !== VOID_VOXEL && PORTAL_FRAME[voxelId(v)] === 1;
+  }
+
+  /** Flint and steel / fire charge on a block: light a portal frame there, or start a fire. */
+  ignite(): boolean {
+    if (!this.hasTarget) return false;
+    const t = this.target;
+    const c = [t.x, t.y, t.z, t.w];
+    c[t.axis] = c[t.axis]! + t.sign;
+    if (this.lightPortal(c[0]!, c[1]!, c[2]!, c[3]!)) return true;
+    // A fire on top of a solid block (soul fire on soul sand and soul soil).
+    if (t.axis !== 1 || t.sign < 0) return false;
+    if (this.world.getBlock(c[0]!, c[1]!, c[2]!, c[3]!) !== 0) return false;
+    const below = voxelId(t.voxel);
+    if (!REG.solid[below]) return false;
+    const soul = below === REG.id('soul_sand') || below === REG.id('soul_soil');
+    return this.world.setBlock(c[0]!, c[1]!, c[2]!, c[3]!, REG.id(soul ? 'soul_fire' : 'fire'));
+  }
+
+  /** Fill a valid portal frame around (x, y, z, w) with portal membrane. */
+  lightPortal(x: number, y: number, z: number, w: number): boolean {
+    const get = (a: number, b: number, c: number, d: number) => this.world.getBlock(a, b, c, d);
+    const open = (v: number) => v === 0 || FIRE_IDS[voxelId(v)] === 1;
+    const box = findPortal(get, x, y, z, w, open, (v) => this.isPortalFrame(v));
+    if (!box) return false;
+    const portal = REG.id('portal');
+    for (const c of interiorCells(box)) this.world.setBlock(c[0]!, c[1]!, c[2]!, c[3]!, portal);
+    this.portals.push({ realm: this.world.realm.name, ...box });
+    const ctr = portalCenter(box);
+    this.particles.burst(ctr[0], ctr[1] + 1, ctr[2], ctr[3], this.player.cam, 'spark', '#c86aff', 24, 2.5, 0.8, true);
+    this.message?.(`The portal opens · it leads to ${REG.realm(portalDestination(this.world.realm.name)).displayName}`);
+    return true;
+  }
+
+  /** The portal (box) whose membrane contains the cell, if any. */
+  portalAt(x: number, y: number, z: number, w: number): PortalBox | null {
+    const portal = REG.id('portal');
+    const get = (a: number, b: number, c: number, d: number) => this.world.getBlock(a, b, c, d);
+    return findPortal(get, x, y, z, w, (v) => voxelId(v) === portal && v !== VOID_VOXEL, (v) => this.isPortalFrame(v));
+  }
+
+  /** Is the player's body inside portal membrane? */
+  private inPortal(): number[] | null {
+    const p = this.player.pos, portal = REG.id('portal');
+    for (const dy of [0.2, 1.4]) {
+      const c = [Math.floor(p[0]!), Math.floor(p[1]! + dy), Math.floor(p[2]!), Math.floor(p[3]!)];
+      if ((this.world.getBlock(c[0]!, c[1]!, c[2]!, c[3]!) & 0xfff) === portal) return c;
+    }
+    return null;
+  }
+
+  /** Standing in a portal: the view swirls, and after 4 s (1 s in creative) you travel. */
+  private updatePortal(dt: number): void {
+    const cell = this.inPortal();
+    if (!cell) {
+      this.portalCooldown = false;
+      this.portalTime = Math.max(0, this.portalTime - dt * 2);
+      return;
+    }
+    if (this.portalCooldown || this.vitals.dead) return;
+    this.portalTime += dt;
+    const need = this.player.mode === 'creative' || this.player.mode === 'spectator' ? 1 : 4;
+    if (this.portalTime < need) return;
+    this.portalTime = 0;
+    const from = this.world.realm, to = REG.realm(portalDestination(from.name));
+    const box = this.portalAt(cell[0]!, cell[1]!, cell[2]!, cell[3]!);
+    this.beginTravel(to.name, scalePosition(this.player.pos, from, to), { kind: 'portal', axis: box?.axis ?? 0 });
+  }
+
+  /** Save and hand over to main.ts, which reloads the game in the destination realm. */
+  beginTravel(realm: string, pos: ArrayLike<number>, arrival: Arrival): void {
+    if (this.traveling) return;
+    const dest = REG.realm(realm);
+    this.traveling = dest.displayName;
+    this.player.frozen = true;
+    this.message?.(`Entering ${dest.displayName}…`);
+    const st = this.snapshot();
+    st.realm = realm;
+    st.player.pos = Array.from(pos);
+    st.data = { ...(st.data ?? {}), portals: this.portals, arrival };
+    this.onTravel?.(st);
+  }
+
+  private neighboursLoaded(cx: number, cz: number, cw: number): boolean {
+    for (let dw = -1; dw <= 1; dw++)
+      for (let dz = -1; dz <= 1; dz++)
+        for (let dx = -1; dx <= 1; dx++) if (!this.world.column(cx + dx, cz + dz, cw + dw)) return false;
+    return true;
+  }
+
+  /**
+   * Arrive in this realm. Through a portal: step into a known portal near the scaled point
+   * (within 128 blocks on the Surface, 16 in the Ember Depths, like Minecraft), or build a new
+   * one on the nearest free ground. Returns false if the player moved to columns that are not
+   * loaded yet (a known portal farther away): the caller waits again.
+   */
+  private arrive(): boolean {
+    const a = this.arrival!;
+    this.arrival = null;
+    this.arrivalWait = 0;
+    if (a.kind === 'respawn') {
+      this.checkBed = this.bed !== null;
+      return true;
+    }
+    const realm = this.world.realm.name;
+    const p = this.player.pos;
+    const R = realm === 'surface' ? 128 : 16;
+    let best: PortalRecord | null = null, bd = R;
+    for (const r of this.portals) {
+      if (r.realm !== realm) continue;
+      const c = portalCenter(r);
+      const d = Math.hypot(c[0] - p[0]!, c[2] - p[2]!, c[3] - p[3]!);
+      if (d < bd) {
+        bd = d;
+        best = r;
+      }
+    }
+    const portal = REG.id('portal');
+    if (best) {
+      let intact: boolean | null = true;
+      for (const c of interiorCells(best)) {
+        const v = this.world.getBlock(c[0]!, c[1]!, c[2]!, c[3]!);
+        if (v === VOID_VOXEL) {
+          intact = null;
+          break;
+        }
+        if ((v & 0xfff) !== portal) {
+          intact = false;
+          break;
+        }
+      }
+      if (intact !== false) {
+        const c = portalCenter(best);
+        this.player.setPosition(c[0], c[1], c[2], c[3]);
+        this.portalCooldown = true;
+        if (intact === null) {
+          this.streamer.invalidate();
+          return false;
+        }
+        return true;
+      }
+      this.portals = this.portals.filter((r) => r !== best);
+    }
+    const box = this.buildArrivalPortal(p, a.axis ?? 0);
+    this.portals.push({ realm, ...box });
+    const c = portalCenter(box);
+    this.player.setPosition(c[0], c[1], c[2], c[3]);
+    this.portalCooldown = true;
+    return true;
+  }
+
+  /**
+   * Build an arrival portal (2 x 3 x 2 interior, obsidian frame, a platform to step out on)
+   * near `at`: on free ground within a few blocks if there is some, else carved in place.
+   */
+  private buildArrivalPortal(at: ArrayLike<number>, axis: number): PortalBox {
+    const [ha, , hb] = planeAxes(axis);
+    const world = this.world;
+    const realm = world.realm;
+    const make = (x: number, y: number, z: number, w: number): PortalBox => {
+      const min: PortalBox['min'] = [x, y, z, w];
+      const max: PortalBox['max'] = [x, y + 2, z, w];
+      max[ha] = min[ha] + 1;
+      max[hb] = min[hb] + 1;
+      return { axis, min, max };
+    };
+    // The volume a portal needs: frame box plus a slab of air on both sides of the membrane.
+    const volume = (box: PortalBox, f: (x: number, y: number, z: number, w: number, floor: boolean) => boolean): boolean => {
+      for (let n = -1; n <= 1; n++)
+        for (let i = box.min[ha] - 1; i <= box.max[ha] + 1; i++)
+          for (let k = box.min[hb] - 1; k <= box.max[hb] + 1; k++)
+            for (let y = box.min[1] - 1; y <= box.max[1] + 1; y++) {
+              const q = [0, y, 0, 0];
+              q[axis] = box.min[axis] + n;
+              q[ha] = i;
+              q[hb] = k;
+              if (!f(q[0]!, y, q[2]!, q[3]!, y === box.min[1] - 1)) return false;
+            }
+      return true;
+    };
+    const free = (box: PortalBox) =>
+      volume(box, (x, y, z, w, floor) => {
+        const v = world.getBlock(x, y, z, w);
+        if (v === VOID_VOXEL) return false;
+        const id = v & 0xfff;
+        if (floor) return REG.fluid[id] === 0; // the floor row may be solid (or air: we build it)
+        return !REG.solid[id] && REG.fluid[id] === 0;
+      });
+    const grounded = (box: PortalBox) => {
+      let solid = 0;
+      for (let i = box.min[ha] - 1; i <= box.max[ha] + 1; i++)
+        for (let k = box.min[hb] - 1; k <= box.max[hb] + 1; k++) {
+          const q = [0, box.min[1] - 2, 0, 0];
+          q[axis] = box.min[axis];
+          q[ha] = i;
+          q[hb] = k;
+          if (REG.solid[world.getBlock(q[0]!, q[1]!, q[2]!, q[3]!) & 0xfff]) solid++;
+        }
+      return solid >= 10;
+    };
+    const top = realm.heightChunks * 16 - 8;
+    const x0 = Math.floor(at[0]!), y0 = Math.max(realm.seaLevel + 2, Math.min(top - 6, Math.floor(at[1]!))), z0 = Math.floor(at[2]!), w0 = Math.floor(at[3]!);
+    let pick: PortalBox | null = null;
+    let floating: PortalBox | null = null;
+    search: for (let r = 0; r <= 8 && !pick; r += 2)
+      for (let dy = 0; dy <= 60; dy++) {
+        const yy = y0 + (dy % 2 === 0 ? -dy / 2 : (dy + 1) / 2);
+        if (yy < realm.seaLevel + 2 || yy > top - 6) continue;
+        for (let s = 0; s < (r === 0 ? 1 : 8); s++) {
+          const q = [x0, yy, z0, w0];
+          if (r > 0) {
+            q[ha] = q[ha]! + Math.round(Math.cos((s * Math.PI) / 4) * r);
+            q[hb] = q[hb]! + Math.round(Math.sin((s * Math.PI) / 4) * r);
+          }
+          const box = make(q[0]!, q[1]!, q[2]!, q[3]!);
+          if (!free(box)) continue;
+          if (grounded(box)) {
+            pick = box;
+            break search;
+          }
+          floating ??= box;
+        }
+      }
+    const box = pick ?? floating ?? make(x0, y0, z0, w0);
+    // Carve, then build: platform, frame, membrane.
+    const obs = REG.id('obsidian'), portal = REG.id('portal');
+    volume(box, (x, y, z, w, floor) => {
+      world.setBlock(x, y, z, w, floor ? obs : 0);
+      return true;
+    });
+    for (const c of frameCells(box)) world.setBlock(c[0]!, c[1]!, c[2]!, c[3]!, obs);
+    for (const c of interiorCells(box)) world.setBlock(c[0]!, c[1]!, c[2]!, c[3]!, portal);
+    return box;
+  }
+
+  /**
+   * A portal cell or frame block changed: if membrane is gone or the frame is broken, the
+   * whole portal collapses (every connected membrane cell), like Minecraft's.
+   */
+  private portalBlockChanged(x: number, y: number, z: number, w: number, o: number, n: number): void {
+    if (this.collapsing) return;
+    const portal = REG.id('portal');
+    const wasPortal = (o & 0xfff) === portal && (n & 0xfff) !== portal;
+    const wasFrame = this.isPortalFrame(o) && !this.isPortalFrame(n);
+    if (!wasPortal && !wasFrame) return;
+    const seeds: number[][] = [];
+    const around = [
+      [1, 0, 0, 0],
+      [-1, 0, 0, 0],
+      [0, 1, 0, 0],
+      [0, -1, 0, 0],
+      [0, 0, 1, 0],
+      [0, 0, -1, 0],
+      [0, 0, 0, 1],
+      [0, 0, 0, -1],
+    ];
+    for (const d of around) {
+      const c = [x + d[0]!, y + d[1]!, z + d[2]!, w + d[3]!];
+      if ((this.world.getBlock(c[0]!, c[1]!, c[2]!, c[3]!) & 0xfff) === portal) seeds.push(c);
+    }
+    if (!seeds.length) return;
+    const seen = new Set<string>();
+    const cells: number[][] = [];
+    while (seeds.length && cells.length < 4000) {
+      const c = seeds.pop()!;
+      const k = c.join();
+      if (seen.has(k)) continue;
+      seen.add(k);
+      if ((this.world.getBlock(c[0]!, c[1]!, c[2]!, c[3]!) & 0xfff) !== portal) continue;
+      cells.push(c);
+      for (const d of around) seeds.push([c[0]! + d[0]!, c[1]! + d[1]!, c[2]! + d[2]!, c[3]! + d[3]!]);
+    }
+    this.collapsing = true;
+    for (const c of cells) this.world.setBlock(c[0]!, c[1]!, c[2]!, c[3]!, 0);
+    this.collapsing = false;
+    const realm = this.world.realm.name;
+    this.portals = this.portals.filter(
+      (r) => r.realm !== realm || !cells.some((c) => c[0]! >= r.min[0] && c[0]! <= r.max[0] && c[1]! >= r.min[1] && c[1]! <= r.max[1] && c[2]! >= r.min[2] && c[2]! <= r.max[2] && c[3]! >= r.min[3] && c[3]! <= r.max[3]),
+    );
   }
 
   /** Asleep: fade out, then the night passes (storms clear) and the screen fades back in. */
@@ -1312,6 +1679,15 @@ export class Game {
     return best;
   }
 
+  /** The Surface respawn point from any realm (your bed, else the Surface's spawn point). */
+  surfaceRespawnPoint(): number[] {
+    if (this.world.realm.name === 'surface') return this.respawnPoint();
+    if (this.bed) return this.respawnPoint();
+    this.surfaceSpawn ??= createGenerator(this.seed, REG.realm('surface'), this.genOptions).spawnPoint();
+    return [...this.surfaceSpawn];
+  }
+  private surfaceSpawn: [number, number, number, number] | null = null;
+
   /** Where you come back after dying: on your bed if you slept in one, else the world spawn. */
   respawnPoint(): number[] {
     const b = this.bed;
@@ -1321,6 +1697,13 @@ export class Game {
   /** Back to the spawn point with full health (hardcore worlds turn into spectator mode). */
   respawn(): void {
     const p = this.player;
+    if (this.world.realm.name !== 'surface' && !this.info.hardcore) {
+      // Like Minecraft: dying in another realm sends you back to your bed / spawn on the Surface.
+      this.vitals.respawn();
+      this.deathHandled = false;
+      this.beginTravel('surface', this.surfaceRespawnPoint(), { kind: 'respawn' });
+      return;
+    }
     this.vitals.respawn();
     this.deathHandled = false;
     if (this.info.hardcore) p.mode = 'spectator';
@@ -1600,6 +1983,14 @@ export class Game {
       }
       return;
     }
+    if (use === 'water_bucket' && this.world.realm.waterEvaporates) {
+      if (!this.hasTarget) return;
+      const t = this.target;
+      this.particles.burst(t.x + 0.5, t.y + 1.2, t.z + 0.5, t.w + 0.5, this.player.cam, 'smoke', '#e8e8f0', 16, 1.5, 0.7, false);
+      this.message?.('The water boils away');
+      if (survival) this.inv.set(this.hotbarIndex, { id: IREG.id('bucket'), count: 1, damage: 0 });
+      return;
+    }
     if (use === 'water_bucket' || use === 'lava_bucket') {
       if (!this.hasTarget) return;
       const placed = this.placeAtTarget(use === 'water_bucket' ? REG.id('water') : REG.id('lava'));
@@ -1607,7 +1998,11 @@ export class Game {
       return;
     }
     if (use === 'flint_and_steel') {
-      this.message?.('Nothing to light here yet (portals arrive with the Ember Depths).');
+      if (!this.ignite() || !survival) return;
+      if (IREG.name(held.id) === 'fire_charge') held.count--;
+      else held.damage++;
+      const gone = held.count <= 0 || held.damage >= (IREG.durability[held.id] || Infinity);
+      this.inv.set(this.hotbarIndex, gone ? null : held);
     }
   }
 

@@ -48,6 +48,11 @@ export class Hud {
   private readonly readout: HTMLDivElement;
   private readonly toast: HTMLDivElement;
   private readonly sleepBox: HTMLDivElement;
+  private readonly portalFx: HTMLDivElement;
+  private readonly bossBar: HTMLDivElement;
+  private readonly bossName: HTMLDivElement;
+  private readonly bossFill: HTMLDivElement;
+  private readonly bossWarn: HTMLDivElement;
   private readonly sleepLeave: HTMLButtonElement;
   private readonly loading: HTMLDivElement;
   private readonly loadingText: HTMLDivElement;
@@ -97,6 +102,14 @@ export class Hud {
     this.hotbar = el('div', 'hotbar', this.root);
     this.readout = el('div', 'readout', this.root);
     this.toast = el('div', 'toast', this.root);
+    // Boss fights: a health bar at the top, and the R2 warning for telegraphed attacks.
+    this.bossBar = el('div', 'boss-bar', this.root);
+    this.bossName = el('div', 'name', this.bossBar);
+    const track = el('div', 'track', this.bossBar);
+    this.bossFill = el('div', 'fill', track);
+    this.bossWarn = el('div', 'boss-warning', this.root);
+    // Standing in a portal: the view swirls violet as the trip approaches.
+    this.portalFx = el('div', 'portal-fx', this.root);
     // Sleeping in a bed: the screen fades to night-blue; you can get up before the night passes.
     this.sleepBox = el('div', 'sleep', this.root);
     el('div', 'sleep-text', this.sleepBox, 'Z z z');
@@ -215,10 +228,25 @@ export class Hud {
       const st = g.held;
       if (st) this.showMessage(IREG.displayName(st.id));
     }
-    this.loading.style.display = g.loaded ? 'none' : 'flex';
-    if (!g.loaded) {
-      this.loadingText.textContent = `Generating 4D terrain… ${g.world.columns.size} columns`;
+    const busy = !g.loaded || g.traveling !== null;
+    this.loading.style.display = busy ? 'flex' : 'none';
+    if (g.traveling) this.loadingText.textContent = `Entering ${g.traveling}…`;
+    else if (!g.loaded) this.loadingText.textContent = g.arrival ? `Arriving in ${g.world.realm.displayName}… ${g.world.columns.size} columns` : `Generating 4D terrain… ${g.world.columns.size} columns`;
+    const boss = g.bosses.boss;
+    this.bossBar.style.display = boss ? 'block' : 'none';
+    if (boss) {
+      const text = `${boss.def.displayName.toUpperCase()}${boss.phase === 2 ? ' · ENRAGED' : ''}`;
+      if (this.bossName.textContent !== text) this.bossName.textContent = text;
+      this.bossFill.style.width = `${Math.max(0, Math.round((boss.health / boss.def.health) * 1000) / 10)}%`;
+      this.bossBar.classList.toggle('enraged', boss.phase === 2);
     }
+    const warn = g.bosses.warning;
+    if (this.bossWarn.textContent !== warn) {
+      this.bossWarn.textContent = warn;
+      this.bossWarn.style.display = warn ? 'block' : 'none';
+    }
+    const swirl = Math.min(1, g.portalTime / (g.player.mode === 'creative' || g.player.mode === 'spectator' ? 1 : 4));
+    this.portalFx.style.opacity = swirl > 0 ? (0.25 + 0.6 * swirl).toFixed(3) : '0';
     // Per-frame combat feedback.
     const onMob = g.targetMob !== null;
     if (this.crosshair.classList.contains('mob') !== onMob) this.crosshair.classList.toggle('mob', onMob);
@@ -338,6 +366,14 @@ export class Hud {
       return;
     }
     this.readout.style.display = 'block';
+    if (kind === 'clock' && !g.world.realm.dayCycle) {
+      this.readout.textContent = '🕐 The hands spin: there are no days here';
+      return;
+    }
+    if (kind === 'compass' && g.world.realm.name !== 'surface') {
+      this.readout.textContent = '🧭 The needle spins wildly';
+      return;
+    }
     if (kind === 'clock') {
       const tod = g.env.timeOfDay;
       const hours = Math.floor(((tod / TICKS_PER_DAY) * 24 + 6) % 24);
@@ -514,6 +550,20 @@ export class Hud {
       }
       d[o + 3] = 255;
     }
+    // Boss telegraphs (R2): pending lava pillars blink orange where they will erupt, even the
+    // ones kata/ana of your slice; erupted ones show solid.
+    const blink = Math.floor(performance.now() / 150) % 2 === 0;
+    for (const pl of g.bosses.pillars) {
+      const a = (pl.x + 0.5 - pos[0]!) * R[0]! + (pl.z + 0.5 - pos[2]!) * R[2]! + (pl.w + 0.5 - pos[3]!) * R[3]!;
+      const b = (pl.x + 0.5 - pos[0]!) * H[0]! + (pl.z + 0.5 - pos[2]!) * H[2]! + (pl.w + 0.5 - pos[3]!) * H[3]!;
+      if (Math.abs(a) > 12.5 || Math.abs(b) > 12.5) continue;
+      if (pl.erupt > 0 && !blink) continue;
+      const o = ((12 - Math.round(b)) * 25 + 12 + Math.round(a)) * 4;
+      d[o] = 255;
+      d[o + 1] = pl.erupt > 0 ? 170 : 90;
+      d[o + 2] = 20;
+      d[o + 3] = 255;
+    }
     this.radarCtx.putImageData(this.radarImg, 0, 0);
   }
 
@@ -537,7 +587,7 @@ export class Hud {
     for (const c of g.world.columns.values()) chunks += c.chunks.length;
     const v4 = (v: Float64Array) => `(${fmt(v[0]!)},${fmt(v[1]!)},${fmt(v[2]!)},${fmt(v[3]!)})`;
     const lines = [
-      `HYPERCRAFT · seed ${g.info.seedText}`,
+      `HYPERCRAFT · seed ${g.info.seedText} · ${g.world.realm.displayName}`,
       `fps ${g.fps.toFixed(0)}  frame ${g.frameMs.toFixed(1)} ms  cpu ${g.cpuMs.toFixed(1)} ms  gpu ${g.renderer.hasGpuTimer ? rs.gpuMs.toFixed(2) + ' ms' : 'n/a'}`,
       `internal ${rs.internalW}x${rs.internalH} (${g.scaler.mode === 'auto' ? 'auto' : 'fixed'})  canvas ${g.canvas.width}x${g.canvas.height}`,
       `ray steps avg ${rs.avgSteps.toFixed(1)}  max ${rs.maxSteps}  (cap ${g.settings.maxSteps})`,

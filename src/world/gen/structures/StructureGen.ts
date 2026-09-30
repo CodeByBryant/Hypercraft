@@ -7,11 +7,11 @@ import { REG } from '../../../content/registry';
 import { LOOT } from '../../../content/lootRegistry';
 import type { StructureDef } from '../../../content/types';
 import { Rng, hash4 } from '../../../math/rng';
-import type { ColumnSample, SurfaceGenerator } from '../SurfaceGen';
+import type { ColumnSample } from '../SurfaceGen';
 import { ORIENTS, Builder } from './Builder';
 import { BUILDERS } from './builders';
 import { IF_AIR, IF_SOFT, StructurePlan } from './Plan';
-import { StructurePlacer, type Start } from './Placement';
+import { StructurePlacer, type Start, type StructureTerrain } from './Placement';
 
 /** Per-column data produced by generation (merged into Column.extra). */
 export interface GenExtra {
@@ -21,13 +21,13 @@ export interface GenExtra {
 
 export class StructureGen {
   readonly placer: StructurePlacer;
-  private readonly gen: SurfaceGenerator;
+  private readonly gen: StructureTerrain;
   private readonly plans = new Map<string, StructurePlan>();
   private readonly starts: Start[] = [];
   private readonly s: ColumnSample = { height: 0, biome: 0, grass: [0, 0, 0] };
   private readonly soft: Uint8Array;
 
-  constructor(gen: SurfaceGenerator) {
+  constructor(gen: StructureTerrain) {
     this.gen = gen;
     this.placer = new StructurePlacer(gen);
     for (const d of this.placer.defs) if (!BUILDERS[d.builder]) throw new Error(`structure "${d.name}": unknown builder "${d.builder}"`);

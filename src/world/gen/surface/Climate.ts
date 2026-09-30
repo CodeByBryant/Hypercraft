@@ -72,6 +72,7 @@ export class Climate {
     this.nHills = new SimplexNoise(seed ^ 0x8808);
     this.nDetail = new SimplexNoise(seed ^ 0x9909);
     biomes.forEach((b, i) => {
+      if ((b.realm ?? 'surface') !== 'surface') return; // other realms pick their own biomes
       if (b.kind === 'land') this.land.push(i);
       else if (b.kind === 'ocean') this.oceans.push(i);
     });

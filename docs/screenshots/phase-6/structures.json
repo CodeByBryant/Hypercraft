@@ -1,0 +1,99 @@
+{
+  "village": {
+    "name": "village_marsh",
+    "x": 77,
+    "y": 56,
+    "z": -78,
+    "w": -96
+  },
+  "plazaPathBlocks": 375,
+  "villagers": [
+    "villager_w_walker (w_walker)",
+    "villager_farmer (farmer)",
+    "villager_smith (smith)",
+    "villager_mason (mason)",
+    "villager_farmer (farmer)",
+    "villager_w_walker (w_walker)",
+    "villager_farmer (farmer)",
+    "villager_farmer (farmer)",
+    "villager_farmer (farmer)",
+    "villager_smith (smith)",
+    "villager_farmer (farmer)",
+    "villager_mason (mason)",
+    "villager_farmer (farmer)"
+  ],
+  "trade": {
+    "villager": "villager_w_walker",
+    "cost": [
+      [
+        "phase_dust",
+        8
+      ]
+    ],
+    "result": [
+      "verdant",
+      1
+    ]
+  },
+  "bedRefusal": "You may not rest now: a Shambler is nearby (3 m kata of your slice)",
+  "sleep": {
+    "night": {
+      "ticks": 18000,
+      "timeOfDay": 18000,
+      "day": 0,
+      "weather": "clear"
+    },
+    "morning": {
+      "ticks": 24042,
+      "timeOfDay": 42,
+      "day": 1,
+      "weather": "clear"
+    }
+  },
+  "atlas": {
+    "target": {
+      "name": "dungeon",
+      "x": 62,
+      "y": 23,
+      "z": -73,
+      "w": -97
+    },
+    "readout": "🗺 Dungeon ← 19 m  (1 m kata)"
+  },
+  "dungeon": {
+    "name": "dungeon",
+    "x": 62,
+    "y": 23,
+    "z": -73,
+    "w": -97
+  },
+  "room": {
+    "spawner": [
+      62,
+      24,
+      -73,
+      -97
+    ],
+    "spawnerEntity": {
+      "type": "spawner",
+      "mob": "web_weaver",
+      "delay": 1.5499999999999996
+    },
+    "chests": [
+      {
+        "pos": [
+          62,
+          24,
+          -71,
+          -97
+        ],
+        "items": 4
+      }
+    ],
+    "loaded": 3
+  },
+  "spawnerMob": {
+    "mob": "web_weaver",
+    "spawned": 4
+  }
+}

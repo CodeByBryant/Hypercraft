@@ -68,6 +68,24 @@ export const ITEMS: ItemDef[] = [
   { name: 'temple_atlas', displayName: 'Temple Atlas', maxStack: 1, icon: { shape: 'map', colors: ['#e8dcb8', '#a89870', '#c8902a'] }, readout: 'atlas', atlas: ['desert_temple', 'jungle_shrine', 'tesseract_grove_temple', 'sunken_monument'], group: 'tools' },
   { name: 'vault_atlas', displayName: 'Vault Atlas', maxStack: 1, icon: { shape: 'map', colors: ['#e8dcb8', '#a89870', '#8a4ad8'] }, readout: 'atlas', atlas: ['ana_vault', 'deep_silent_vault', 'library_ruins'], group: 'tools' },
   { name: 'ruins_atlas', displayName: 'Ruins Atlas', maxStack: 1, icon: { shape: 'map', colors: ['#e8dcb8', '#a89870', '#7a7a7a'] }, readout: 'atlas', atlas: ['ancient_ruins', 'ruined_portal', 'dungeon', 'hypermine'], group: 'tools' },
+  // Phase 6: the Ember Depths.
+  material('ember_quartz', 'Ember Quartz', 'gem', ['#f4e0d8', '#c8a8a0', '#ffffff']),
+  // Hypercinder burns twice as long as coal and makes furnaces smelt twice as fast.
+  material('hypercinder', 'Hypercinder', 'lump', ['#ff3aa8', '#8a1a5a', '#ffb0e0'], { fuel: 160 }),
+  material('slag_scrap', 'Slag Scrap', 'raw', ['#6a4a3a', '#3a2418', '#9a6a3a']),
+  material('ancient_slag_ingot', 'Ancient Slag Ingot', 'ingot', ['#5a3a2a', '#2a1810', '#b8845a']),
+  material('cinder_brick', 'Cinder Brick', 'brick', ['#5a1e1e', '#3a1212', '#7a2a24']),
+  material('sulfur', 'Sulfur', 'dust', ['#e8d83a', '#a89a1a', '#fff8a0']),
+  material('wisp_essence', 'Wisp Essence', 'dust', ['#8affff', '#2ab8c8', '#ffffff']),
+  material('drake_scale', 'Drake Scale', 'shard', ['#c8401a', '#6a1a0a', '#ffb050']),
+  material('hound_fang', 'Hound Fang', 'bone', ['#f0e0c8', '#a8906a', '#ff8a2a']),
+  material('brute_tusk', 'Brute Tusk', 'bone', ['#e8d8b8', '#9a8a6a', '#ffffff']),
+  material('magma_core', 'Magma Core', 'ball', ['#ff6a1a', '#8a2a0a', '#ffe06a']),
+  // Dropped by the Magma Regent (Phase 7 uses it for Slag Armor).
+  material('regent_heart', 'Regent Heart', 'gem', ['#ff4a1a', '#8a0a0a', '#ffe8a0'], { maxStack: 1, group: 'combat' }),
+  { name: 'ember_atlas', displayName: 'Ember Atlas', maxStack: 1, icon: { shape: 'map', colors: ['#d8b8a0', '#8a5a4a', '#ff5a1a'] }, readout: 'atlas', atlas: ['citadel', 'regent_caldera', 'forge', 'basalt_ziggurat'], group: 'tools' },
+  // Fire charges light portals and fires like flint and steel (one use each). Drakes spit them.
+  { name: 'fire_charge', displayName: 'Fire Charge', icon: { shape: 'ball', colors: ['#3a1a0a', '#ff6a1a', '#ffe06a'] }, use: 'flint_and_steel', group: 'tools' },
 ];
 
 // Tools: every tier x (pickaxe, axe, shovel, hoe, sword).
@@ -113,6 +131,10 @@ export const BLOCK_ITEM_EXTRAS: Record<string, Partial<ItemDef>> = {
   campfire: { group: 'functional', icon: { shape: 'campfire', colors: ['#7a5a32', '#ff8a2a', '#ffe08a'] } },
   cobweb: { icon: { shape: 'web', colors: ['#f0f0f6', '#c8c8d6'] } },
   hay_bale: { fuel: 5 },
+  emberwood_log: { fuel: 15 },
+  charred_log: { fuel: 30 },
+  sulfur_stem: { fuel: 10 },
+  hypercinder_ore: { group: 'materials' },
   red_bed: { maxStack: 1, group: 'functional', icon: { shape: 'bed', colors: ['#c83a3a', '#8e2424', '#8a6a3c'] } },
   blue_bed: { maxStack: 1, group: 'functional', icon: { shape: 'bed', colors: ['#4a5ed0', '#2a3a96', '#8a6a3c'] } },
   white_bed: { maxStack: 1, group: 'functional', icon: { shape: 'bed', colors: ['#ecece6', '#b8b8b0', '#8a6a3c'] } },

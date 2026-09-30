@@ -11,6 +11,7 @@ import { TREES } from './trees';
 import { TERRAIN_BLOCKS, TERRAIN_TEXTURES } from './terrain';
 import { FUNCTIONAL_BLOCKS, FUNCTIONAL_TEXTURES } from './functional';
 import { STRUCTURE_BLOCKS, STRUCTURE_TEXTURES } from './structureBlocks';
+import { EMBER_BIOMES, EMBER_BLOCKS, EMBER_TEXTURES, EMBER_TREES } from './ember';
 import type { BiomeDef, BlockDef, Box4, Hex, RealmDef, ShapeDef, TextureDef, TreeDef } from './types';
 
 /** A voxel is a uint16: block id in the low 12 bits, a 4-bit meta nibble on top. */
@@ -382,9 +383,10 @@ export class Registry {
   }
 }
 
-export const ALL_BLOCKS: BlockDef[] = [...BLOCKS, ...TERRAIN_BLOCKS, ...FUNCTIONAL_BLOCKS, ...STRUCTURE_BLOCKS];
-export const ALL_TEXTURES: TextureDef[] = [...TEXTURES, ...TERRAIN_TEXTURES, ...FUNCTIONAL_TEXTURES, ...STRUCTURE_TEXTURES];
-export const REG = new Registry(ALL_BLOCKS, SHAPES, ALL_TEXTURES, BIOMES, REALMS, TREES);
+export const ALL_BLOCKS: BlockDef[] = [...BLOCKS, ...TERRAIN_BLOCKS, ...FUNCTIONAL_BLOCKS, ...STRUCTURE_BLOCKS, ...EMBER_BLOCKS];
+export const ALL_TEXTURES: TextureDef[] = [...TEXTURES, ...TERRAIN_TEXTURES, ...FUNCTIONAL_TEXTURES, ...STRUCTURE_TEXTURES, ...EMBER_TEXTURES];
+export const ALL_BIOMES: BiomeDef[] = [...BIOMES, ...EMBER_BIOMES];
+export const REG = new Registry(ALL_BLOCKS, SHAPES, ALL_TEXTURES, ALL_BIOMES, REALMS, [...TREES, ...EMBER_TREES]);
 
 /** Frequently used ids (resolved once). */
 export const B = {

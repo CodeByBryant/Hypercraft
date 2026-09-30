@@ -5,10 +5,29 @@
 
 import { REG } from '../../../content/registry';
 import { STRUCTURES } from '../../../content/structures';
-import type { StructureDef } from '../../../content/types';
+import type { RealmDef, StructureDef } from '../../../content/types';
 import { hash4 } from '../../../math/rng';
-import type { ColumnSample, SurfaceGenerator } from '../SurfaceGen';
+import type { ColumnSample } from '../SurfaceGen';
 import { GARDEN } from '../SurfaceGen';
+
+/**
+ * What structure placement needs from a realm's generator: its seed and height, the sea level,
+ * a terrain sample (floor height, biome, sea flag, cavern ceiling) and, on the Surface, Ana
+ * Sheets and the test garden.
+ */
+export interface StructureTerrain {
+  readonly seed: number;
+  readonly height: number;
+  readonly sea: number;
+  readonly realm: RealmDef;
+  garden: boolean;
+  gardenOrigin: [number, number, number, number];
+  sample(x: number, z: number, w: number, out: ColumnSample): ColumnSample;
+  sheetAt?(x: number, z: number, w: number): { w: number; y: number } | null;
+}
+
+/** The structures of one realm. */
+export const structuresOf = (realm: string): StructureDef[] => STRUCTURES.filter((s) => (s.realm ?? 'surface') === realm);
 
 export interface Start {
   def: StructureDef;
@@ -28,12 +47,12 @@ export interface Start {
 
 export class StructurePlacer {
   readonly defs: StructureDef[];
-  private readonly gen: SurfaceGenerator;
+  private readonly gen: StructureTerrain;
   private readonly seed: number;
   private readonly cache = new Map<string, Start | null>();
   private readonly s: ColumnSample = { height: 0, biome: 0, grass: [0, 0, 0] };
 
-  constructor(gen: SurfaceGenerator, defs: StructureDef[] = STRUCTURES) {
+  constructor(gen: StructureTerrain, defs: StructureDef[] = structuresOf(gen.realm.name)) {
     this.gen = gen;
     this.seed = gen.seed;
     this.defs = defs;
@@ -91,12 +110,27 @@ export class StructurePlacer {
         break;
       }
       case 'sheet': {
-        const sh = g.sheetAt(x, z, w);
+        const sh = g.sheetAt?.(x, z, w);
         if (!sh || sh.y + 8 > s.height - 6) return null;
         w = Math.floor(sh.w) + 2;
         y = Math.floor(sh.y) - 1;
         break;
       }
+      case 'lava':
+        // On the lava sea (Ember Depths): the deck sits one above the lava surface.
+        if (!s.ocean) return null;
+        y = sea + 1;
+        break;
+      case 'cavern': {
+        // Hanging in the open air of an enclosed realm, between floor and ceiling.
+        const ceil = s.ceiling ?? g.height - 8;
+        const room = ceil - Math.max(s.height, sea) - 14;
+        if (room < 4) return null;
+        y = Math.max(s.height, sea) + 6 + (hash4(i, j, k, def.salt + 4, seed) % room);
+        break;
+      }
+      default:
+        return null;
     }
     const orient = hash4(i, j, k, def.salt + 5, seed) % 48;
     x = Math.floor(x);

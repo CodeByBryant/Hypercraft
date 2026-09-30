@@ -1001,6 +1001,76 @@ select {
   user-select: text;
 }
 
+/* ---------------- portals ---------------- */
+.portal-fx {
+  position: fixed;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at center, rgba(90, 20, 160, 0) 20%, rgba(120, 40, 220, 0.55) 70%, rgba(40, 0, 90, 0.9) 100%),
+    repeating-conic-gradient(from 0deg, rgba(200, 120, 255, 0.12) 0deg 12deg, rgba(60, 0, 120, 0.12) 12deg 24deg);
+  mix-blend-mode: screen;
+  animation: portal-spin 6s linear infinite;
+  z-index: 4;
+}
+@keyframes portal-spin {
+  from {
+    filter: hue-rotate(0deg);
+  }
+  to {
+    filter: hue-rotate(40deg);
+  }
+}
+
+/* ---------------- boss bar ---------------- */
+.boss-bar {
+  position: absolute;
+  top: 34px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(460px, 70vw);
+  display: none;
+  text-align: center;
+  color: #ffd0b0;
+  font-size: 13px;
+  letter-spacing: 1px;
+  text-shadow: 0 1px 2px #000;
+  pointer-events: none;
+}
+.boss-bar .track {
+  margin-top: 3px;
+  height: 9px;
+  border: 1px solid rgba(255, 200, 160, 0.6);
+  background: rgba(40, 8, 4, 0.7);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.boss-bar .fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff4a1a, #ffb030);
+  transition: width 0.2s;
+}
+.boss-bar.enraged .fill {
+  background: linear-gradient(90deg, #ff1a1a, #ff6a1a);
+}
+.boss-warning {
+  position: absolute;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  padding: 3px 10px;
+  color: #fff0d0;
+  font-size: 13px;
+  font-weight: bold;
+  background: rgba(160, 30, 0, 0.7);
+  border: 1px solid #ff8a2a;
+  border-radius: 4px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
 /* ---------------- sleeping ---------------- */
 .sleep {
   position: fixed;

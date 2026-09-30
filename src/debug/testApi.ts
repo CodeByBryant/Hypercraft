@@ -9,6 +9,7 @@ import type { WeatherKind } from '../content/types';
 import { IREG } from '../content/itemRegistry';
 import type { InventoryScreen } from '../ui/InventoryScreen';
 import { STRUCTURES } from '../content/structures';
+import { frameCells, interiorCells, planeAxes } from '../game/Portals';
 
 export interface ViewSpec {
   yaw?: number;
@@ -323,6 +324,66 @@ export function installTestApi(game: Game, screen?: InventoryScreen): void {
       const e = game.player.pos;
       return game.generator.nearestStructure?.(names, e[0]!, e[2]!, e[3]!, maxDist) ?? null;
     },
+    /**
+     * Nearest point (spiral search in x and w at this z) whose biome is `name`, standing on
+     * the terrain: [x, y, z, w], or null.
+     */
+    findBiome(name: string, maxDist = 3000): number[] | null {
+      const gen = game.generator;
+      if (!gen.sample) return null;
+      const want = REG.biomeIndex(name);
+      const s = { height: 0, biome: 0, grass: [0, 0, 0] as [number, number, number] };
+      const e = game.player.pos;
+      for (let r = 0; r <= maxDist; r += 12)
+        for (let a = 0; a < Math.max(1, Math.round(r / 6)); a++) {
+          const t = (a / Math.max(1, Math.round(r / 6))) * Math.PI * 2;
+          const x = Math.floor(e[0]! + Math.cos(t) * r), w = Math.floor(e[3]! + Math.sin(t) * r), z = Math.floor(e[2]!);
+          gen.sample(x, z, w, s);
+          if (s.biome === want && s.height >= game.world.realm.seaLevel) return [x + 0.5, s.height + 1, z + 0.5, w + 0.5];
+        }
+      return null;
+    },
+    realm: () => game.world.realm.name,
+    // ---- Phase 6: portals and realm travel
+    /**
+     * Build an obsidian portal frame around a 2 x 3 x 2 interior whose low corner is (x, y, z, w),
+     * with the given normal axis (0 x, 2 z, 3 w). Clears the interior. Returns the interior box.
+     */
+    buildPortalFrame(x: number, y: number, z: number, w: number, axis: number, block = 'obsidian') {
+      const [a, , b] = planeAxes(axis);
+      const min: [number, number, number, number] = [x, y, z, w];
+      const max: [number, number, number, number] = [x, y + 2, z, w];
+      max[a] = min[a] + 1;
+      max[b] = min[b] + 1;
+      const box = { axis, min, max };
+      for (const c of interiorCells(box)) game.world.setBlock(c[0]!, c[1]!, c[2]!, c[3]!, 0);
+      for (const c of frameCells(box)) game.world.setBlock(c[0]!, c[1]!, c[2]!, c[3]!, REG.id(block));
+      return box;
+    },
+    /** Light a portal whose interior contains (x, y, z, w) (what flint and steel does). */
+    lightPortal: (x: number, y: number, z: number, w: number) => game.lightPortal(x, y, z, w),
+    portals: () => game.portals.map((r) => ({ realm: r.realm, axis: r.axis, min: [...r.min], max: [...r.max] })),
+    portalTime: () => game.portalTime,
+    /** The boss the HUD shows: health, phase, pending and burning pillars, warning. */
+    boss: () => {
+      const b = game.bosses.boss;
+      return b
+        ? { id: b.id, name: b.def.name, health: b.health, max: b.def.health, phase: b.phase, mode: b.mode, pillars: game.bosses.pillars.map((p) => ({ x: p.x, y: p.y, z: p.z, w: p.w, erupt: p.erupt })), warning: game.bosses.warning }
+        : null;
+    },
+    /** Spawn a boss with its arena at the spawn point. */
+    spawnBoss(name: string, x: number, y: number, z: number, w: number): number {
+      const m = game.mobs.spawn(name, x, y, z, w);
+      if (!m) return -1;
+      m.home = Float64Array.from([x, y, z, w]);
+      return m.id;
+    },
+    /** Hurt a mob (no knockback): kills trigger drops and death effects as in play. */
+    hurtMob(id: number, amount: number): boolean {
+      const m = game.mobs.list.find((x) => x.id === id);
+      return m ? game.mobs.damage(m, amount, null) : false;
+    },
+    traveling: () => game.traveling,
     /** Every structure name (data-driven list). */
     structureNames: () => STRUCTURES.map((s) => s.name),
     villagers: () =>

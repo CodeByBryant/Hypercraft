@@ -112,8 +112,8 @@ export const PROFESSIONS: ProfessionDef[] = [
     levels: [
       [t([['phase_dust', 8]], [V, 1], 16, 2), t([[V, 2]], ['phase_dust', 4], 12, 1)],
       [t([[V, 4]], ['obsidian', 2], 12, 5), t([[V, 2]], ['flint_and_steel', 1], 12, 5)],
-      [t([['echo_shard', 2]], [V, 3], 12, 10), t([[V, 6]], ['tesseract_bricks', 4], 12, 10)],
-      [t([[V, 8]], ['vault_atlas', 1], 12, 15), t([[V, 3]], ['amethyst', 2], 12, 15)],
+      [t([['echo_shard', 2]], [V, 3], 12, 10), t([[V, 6]], ['tesseract_bricks', 4], 12, 10), t([[V, 3]], ['fire_charge', 4], 12, 10)],
+      [t([[V, 8]], ['vault_atlas', 1], 12, 15), t([[V, 3]], ['amethyst', 2], 12, 15), t([[V, 10]], ['ember_atlas', 1], 12, 15)],
       [t([[V, 16]], ['hyperite', 1], 12, 30)],
     ],
   },

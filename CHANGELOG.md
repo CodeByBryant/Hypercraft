@@ -1,5 +1,96 @@
 # Changelog
 
+## 0.6.0 — Phase 6: The Ember Depths, 4D portals, the Magma Regent (2026-09-30)
+
+### Added
+- **The Ember Depths**, a second realm and the Nether analogue. An enclosed world under a
+  bedrock roof, with a lava sea at y 32 and one huge cavern.
+  - The floor and ceiling are 3D noise over (x, z, w), with 4D pillars, stalactites and lava
+    tubes.
+  - Emberglass clusters light the ceiling.
+  - There is no sun, sky or weather: the "sky" is each biome's haze.
+  - Water boils away, beds explode, compasses spin and clocks stop.
+- **Eight Ember biomes**, each with its own blocks, plants and hazards:
+  - **Cinder Plains**: ember moss, emberwood trees with glowing leaves, eternal fire patches.
+  - **Basalt Prisms**: hexagonal basalt columns whose heights are hashed per W layer. They
+    are only whole in an axis-aligned slice; tilt the slice through W and they shatter.
+  - **Sulfur Fungal Forest**: giant 4D-dome fungi, and sulfur vents that burn.
+  - **Magma Sea**: a lava ocean with pumice islands and magma crust.
+  - **Ash Wastes**: slow ash dunes rippling along a diagonal of (x, z, w), charred trees and
+    grey haze.
+  - **Soul Glass Canyons**: terraced canyons with translucent soul-glass strata, soul sand
+    that slows you, and blue soul fire.
+  - **Emberglass Grove**: crystal trees with 4D star canopies (spikes along ±x, ±z and ±w).
+  - **Shattered Tesseracts**: floating voidstone hypercube frames with glowing vertices.
+    Every slice cuts them into a different polytope.
+- **4D portals.** A portal frame is a 3D hyper-frame: the face cells around a box of air in
+  one of the three vertical hyperplanes. Its normal is x, z or w; that is how you walk
+  through.
+  - Build it from obsidian or voidstone and light it with flint and steel or a fire charge.
+    The smallest frame takes 10 blocks around a 1 × 2 × 1 interior, like Minecraft.
+  - Stand inside for 4 s (1 s in creative); the view swirls violet, then you travel.
+  - Coordinates link at **8:1 along x, z and w** (y is not scaled). The trip back multiplies
+    by 8.
+  - You arrive in a known portal within 128 blocks on the Surface (16 in the Ember Depths).
+    Otherwise a new obsidian portal is built on free ground nearby.
+  - Portals collapse when their frame breaks. Lit portals are saved with the world.
+- **Blocks and items.**
+  - Rock and building: cinder and cinder bricks; voidstone and voidstone bricks (portal
+    frames).
+  - Light and fire: emberglass (light 15); fire and soul fire.
+  - Ores and materials: ember quartz; gilded cinder (gold nuggets); hypercinder (a fuel that
+    burns twice as long as coal and doubles smelting speed); Ancient Slag.
+  - Ancient Slag smelts to scrap. Four scrap and four gold ingots make an ingot, and the
+    ingots make the new **Ancient Slag tool tier** (harvest level 4, 2031 uses).
+  - Fire charges; sulfur; the Ember Atlas.
+  - Mob drops: drake scales, hound fangs, brute tusks, magma cores, wisp essence and the
+    Regent Heart.
+- **Ember mobs.** Each has a limb, wing, tusk or arm along its own w, so tilting the slice
+  reveals it:
+  - Cinder Hound packs;
+  - Magma Drakes, which hover at a distance and spit fire charges;
+  - Soul Wisps (passive, floating);
+  - Ember Brutes, which charge;
+  - Citadel Guards;
+  - Slag Golems, with a third arm and leg toward +w;
+  - Lava Slimes.
+
+  Mobs spawn on cavern floors at any light.
+- **Ember structures** (data-driven, on the same 4D grid; `StructureDef.realm`):
+  - **Citadels**: three towers side by side along W, where the floors only connect through W
+    corridors, so you climb by walking kata/ana. Treasure, barracks, guards and a hound
+    spawner.
+  - **Forge shrines**.
+  - **Basalt ziggurats**.
+  - **Magma bridges** across the lava sea, with a W branch.
+  - **Ruined portals**.
+  - **The Regent's Caldera**.
+
+  Seven new loot tables.
+- **The Magma Regent**, the first boss. It waits in its caldera on the Magma Sea.
+  - A boss bar at the top of the screen.
+  - It hovers near you and follows you through W (it drifts to your slice and steps across
+    when you hide kata/ana), so it cannot be cheesed along W. Leave the arena and it returns
+    and heals.
+  - It throws volleys of fire charges.
+  - It summons **lava pillars along W**: a line through your position, 3 blocks apart along W.
+    Stepping kata/ana does not dodge them; sidestepping inside your slice does.
+  - At half health it enrages: three Cinder Hounds join, attacks come faster, and a second
+    line of pillars crosses your slice.
+  - It drops the Regent Heart, Ancient Slag ingots, ember quartz and hypercinder.
+  - R2: every pillar is announced 1.5 s ahead. Flames mark its base, the radar blinks where it
+    will rise (even kata/ana), and the warning line says how many are in your slice and how
+    many along W.
+- Dying in the Ember Depths sends you back to your bed (or spawn) on the Surface.
+- The W-Walker sells fire charges and the Ember Atlas.
+- Test hooks: `?test=1&realm=ember`, `findBiome`, portal building and lighting, boss state.
+  Two new e2e specs: `portal.spec` (build, light, travel 8:1, return) and `ember.spec` (R6
+  views, mob line-up, biome tour, the boss fight).
+
+### Fixed
+- **Beds are two blocks long**, a foot and a head with a pillow, like Minecraft. They are
+  placed and broken together, and villages, cabins and igloos generate them that way.
+
 ## 0.5.0 — Phase 5: Structures, villages, trading, beds (2026-09-29)
 
 ### Added

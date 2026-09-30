@@ -76,6 +76,17 @@ export interface Hc {
   wake(): void;
   rayDist(max?: number): number;
   harvestAt(x: number, y: number, z: number, w: number): boolean;
+  // Phase 6
+  findBiome(name: string, maxDist?: number): number[] | null;
+  realm(): string;
+  buildPortalFrame(x: number, y: number, z: number, w: number, axis: number, block?: string): { axis: number; min: number[]; max: number[] };
+  lightPortal(x: number, y: number, z: number, w: number): boolean;
+  portals(): { realm: string; axis: number; min: number[]; max: number[] }[];
+  portalTime(): number;
+  traveling(): string | null;
+  boss(): { id: number; name: string; health: number; max: number; phase: number; mode: string; pillars: { x: number; y: number; z: number; w: number; erupt: number }[]; warning: string } | null;
+  spawnBoss(name: string, x: number, y: number, z: number, w: number): number;
+  hurtMob(id: number, amount: number): boolean;
 }
 
 declare global {

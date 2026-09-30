@@ -12,4 +12,6 @@ export const TIERS: ToolTierDef[] = [
   { name: 'azurite', displayName: 'Azurite', level: 2, speed: 7, durability: 500, damage: 2, enchantability: 25, material: 'azurite', color: '#3f6ff0', shade: '#1f45b0' },
   { name: 'verdant', displayName: 'Verdant', level: 3, speed: 7.5, durability: 900, damage: 3, enchantability: 18, material: 'verdant', color: '#3fe880', shade: '#1fa850' },
   { name: 'hyperite', displayName: 'Hyperite', level: 3, speed: 8, durability: 1561, damage: 3, enchantability: 10, material: 'hyperite', color: '#6ff8ff', shade: '#2fb4c8' },
+  // Ember Depths (Phase 6): the strongest tier. Slag ingots come from Ancient Slag.
+  { name: 'slag', displayName: 'Ancient Slag', level: 4, speed: 9, durability: 2031, damage: 4, enchantability: 15, material: 'ancient_slag_ingot', color: '#6a4430', shade: '#3a2418' },
 ];

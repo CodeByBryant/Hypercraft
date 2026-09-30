@@ -329,6 +329,33 @@ export function generateTexture(def: TextureDef, index: number): Uint8Array {
             else col = scale(v >= 8 ? c1 : c0, 1 + (j - 0.5) * 0.08);
             break;
           }
+          case 'cracks': {
+            // Dark rock with glowing cracks along noise ridges (magma crust, charred wood,
+            // hypercinder): c0/c1 rock, c2 glow; `density` widens the cracks.
+            const n2 = Math.abs(noise.n3(u * 0.21, v * 0.21, s * 0.21) + 0.5 * noise.n3(u * 0.47 + 5, v * 0.47, s * 0.47));
+            if (n2 < 0.05 + density * 0.2) col = scale(c2, 0.85 + j * 0.3);
+            else col = scale(mix(c0, c1, 0.5 + 0.5 * lo), 1 + (j - 0.5) * amount * 2);
+            break;
+          }
+          case 'columns': {
+            // Columnar basalt: vertical joints every 4 texels in u and s, sub-horizontal
+            // fractures every few rows, faces shaded per column.
+            const cu = u >> 2, cs2 = s >> 2;
+            const joint = (u & 3) === 0 || (s & 3) === 0;
+            const frac = (v + ((cu * 3 + cs2 * 5) & 7)) % 6 === 0;
+            const shade = hash4f(cu, 0, cs2, 29, seed);
+            col = joint || frac ? scale(c2, 0.9 + j * 0.15) : scale(mix(c0, c1, shade), 1 + (j - 0.5) * 0.1);
+            break;
+          }
+          case 'flame': {
+            // Fire: tongues of flame (alpha cut-out), red at the base to yellow-white tips.
+            const tongue = hash4f(u >> 1, 0, s >> 1, 31, seed);
+            const top = 6 + tongue * 10 + 2 * noise.n3(u * 0.4, 0, s * 0.4);
+            a = v < top && hash4f(u, v >> 1, s, 32, seed) < 0.8 ? 1 : 0;
+            const t2 = v / Math.max(1, top);
+            col = t2 < 0.45 ? mix(c0, c1, t2 / 0.45) : mix(c1, c2, (t2 - 0.45) / 0.55);
+            break;
+          }
           case 'thatch': {
             // Straw: long streaks along u with dark gaps.
             const st = hash4f(0, v, s, 28, seed) * 16 + u * 0.4;

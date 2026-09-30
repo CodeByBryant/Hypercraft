@@ -114,3 +114,27 @@ set(['red_bed', 'blue_bed', 'white_bed'], { tool: 'axe' });
 for (const c of ['red', 'blue', 'white']) set([`${c}_bed_head`], { tool: 'axe', drops: one(`${c}_bed`) });
 set(['wild_wheat'], { drops: [{ item: 'wheat', count: [1, 2] }] });
 set(['reeds'], { shears: false, drops: [{ item: 'reeds' }] });
+
+// Phase 6: the Ember Depths.
+set(
+  [
+    'cinder', 'cinder_bricks', 'cracked_cinder_bricks', 'chiseled_cinder_bricks', 'smoldering_cinder', 'glowing_cinder', 'prism_basalt',
+    'columnar_basalt', 'glowing_basalt', 'sulfur_block', 'scorched_stone', 'ashstone', 'soul_stone', 'magma_crust', 'pumice', 'ember_crystal',
+  ],
+  { tool: 'pickaxe', tier: 0 },
+);
+set(['ember_moss', 'glowing_cinder'], { tool: 'pickaxe', tier: 0, drops: one('cinder') });
+set(['sulfur_moss'], { tool: 'pickaxe', tier: 0, drops: one('cinder') });
+set(['ember_quartz_ore'], { tool: 'pickaxe', tier: 0, drops: one('ember_quartz') });
+set(['gilded_cinder'], { tool: 'pickaxe', tier: 0, drops: one('gold_nugget', [2, 6]) });
+set(['hypercinder_ore'], { tool: 'pickaxe', tier: 1, drops: one('hypercinder', [1, 2]) });
+set(['sulfur_vent'], { tool: 'pickaxe', tier: 0, drops: one('sulfur', [1, 3]) });
+set(['fractured_voidstone'], { tool: 'pickaxe', tier: 2 });
+set(['voidstone', 'voidstone_bricks', 'ancient_slag'], { tool: 'pickaxe', tier: 3 });
+set(['ash_block', 'soul_sand', 'soul_soil', 'rift_soil'], { tool: 'shovel' });
+set(['emberwood_log', 'charred_log', 'sulfur_stem'], { tool: 'axe' });
+set(['sulfur_cap'], { tool: 'hoe' });
+set(['phase_crystal', 'soul_glass', 'ember_bloom'], { tool: 'pickaxe' });
+set(['ember_leaves'], { drops: [{ item: 'stick', count: [1, 2], chance: 0.05 }, { item: 'hypercinder', chance: 0.02 }] });
+set(['fire', 'soul_fire', 'erupting_magma'], { drops: 'none' });
+set(['ember_grass', 'brimstone_sprouts', 'ash_tuft', 'soul_fern', 'rift_grass', 'cinder_lichen'], { shears: true, drops: 'none' });

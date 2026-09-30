@@ -94,6 +94,21 @@ export const RECIPES: RecipeDef[] = [
   { type: 'shapeless', ingredients: ['wool', 'poppy'], result: 'red_wool' },
   { type: 'shapeless', ingredients: ['wool', 'cornflower'], result: 'blue_wool' },
   { type: 'smelting', input: 'stone_bricks', result: 'cracked_stone_bricks' },
+
+  // Phase 6: the Ember Depths.
+  { type: 'smelting', input: 'cinder', result: 'cinder_brick' },
+  { type: 'shaped', pattern: ['bb', 'bb'], key: { b: 'cinder_brick' }, result: 'cinder_bricks' },
+  { type: 'smelting', input: 'cinder_bricks', result: 'cracked_cinder_bricks' },
+  { type: 'shaped', pattern: ['#', '#'], key: { '#': 'cinder_bricks' }, result: 'chiseled_cinder_bricks' },
+  { type: 'shaped', pattern: ['vv', 'vv'], key: { v: 'voidstone' }, result: 'voidstone_bricks', count: 4 },
+  { type: 'smelting', input: 'soul_sand', result: 'soul_glass' },
+  // Ancient Slag: smelt the block into scrap; 4 scrap + 4 gold make an ingot (the tools use ingots).
+  { type: 'smelting', input: 'ancient_slag', result: 'slag_scrap', time: 20, furnaces: ['furnace', 'blast_furnace'] },
+  { type: 'shapeless', ingredients: ['slag_scrap', 'slag_scrap', 'slag_scrap', 'slag_scrap', 'gold_ingot', 'gold_ingot', 'gold_ingot', 'gold_ingot'], result: 'ancient_slag_ingot' },
+  { type: 'shapeless', ingredients: ['sulfur', '#coal'], result: 'fire_charge', count: 2 },
+  { type: 'shaped', pattern: ['sss', 'sss', 'sss'], key: { s: 'sulfur' }, result: 'sulfur_block' },
+  { type: 'shapeless', ingredients: ['sulfur_block'], result: 'sulfur', count: 9 },
+  { type: 'shapeless', ingredients: ['emberwood_log'], result: 'planks', count: 4 },
 ];
 
 // Storage blocks: 9 <-> 1.

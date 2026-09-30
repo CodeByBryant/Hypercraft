@@ -52,4 +52,12 @@ export const STRUCTURES: StructureDef[] = [
   { name: 'deep_silent_vault', displayName: 'Deep Silent Vault', placement: 'underground', spacing: 144, chance: 0.45, builder: 'silent_vault', radius: 8, y: [6, 16], salt: 0x5304 },
   // Reachable only through an Ana Sheet: sealed rooms right beside the sheet along W.
   { name: 'ana_vault', displayName: 'Ana Vault', placement: 'sheet', spacing: 112, chance: 0.5, builder: 'ana_vault', radius: 6, salt: 0x5305 },
+
+  // ---------------------------------------------------------------- Ember Depths (Phase 6)
+  { name: 'citadel', displayName: 'Citadel', placement: 'surface', spacing: 144, chance: 0.55, builder: 'citadel', radius: 16, salt: 0x6101, realm: 'ember' },
+  { name: 'forge', displayName: 'Forge Shrine', placement: 'surface', spacing: 72, chance: 0.35, builder: 'forge', radius: 6, salt: 0x6102, realm: 'ember' },
+  { name: 'basalt_ziggurat', displayName: 'Basalt Ziggurat', placement: 'surface', spacing: 112, chance: 0.4, builder: 'ziggurat', radius: 10, salt: 0x6103, realm: 'ember' },
+  { name: 'magma_bridge', displayName: 'Magma Bridge', placement: 'lava', spacing: 96, chance: 0.55, builder: 'magma_bridge', radius: 24, salt: 0x6104, realm: 'ember' },
+  { name: 'ember_ruined_portal', displayName: 'Ruined Portal', placement: 'surface', spacing: 96, chance: 0.3, builder: 'ember_ruined_portal', radius: 6, salt: 0x6105, realm: 'ember' },
+  { name: 'regent_caldera', displayName: "Regent's Caldera", placement: 'lava', spacing: 160, chance: 0.8, builder: 'regent_caldera', radius: 23, salt: 0x6106, realm: 'ember' },
 ];

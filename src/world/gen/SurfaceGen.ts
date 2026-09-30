@@ -34,6 +34,8 @@ export interface ColumnSample {
   grass: [number, number, number];
   ocean?: boolean;
   river?: boolean;
+  /** Enclosed realms: the lowest cell of the cavern ceiling above `height`. */
+  ceiling?: number;
 }
 
 interface OreCfg {

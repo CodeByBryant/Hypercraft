@@ -2,7 +2,8 @@
 // realm means adding an entry here plus content data; the renderer never changes.
 
 import type { RealmDef } from '../../content/types';
-import { SurfaceGenerator, type GenOptions } from './SurfaceGen';
+import { SurfaceGenerator, type ColumnSample, type GenOptions } from './SurfaceGen';
+import { EmberGenerator } from './EmberGen';
 
 export type { GenOptions };
 
@@ -16,12 +17,15 @@ export interface WorldGenerator {
   spawnPoint(): [number, number, number, number];
   /** Underground biome index at a position, or -1 (optional). */
   caveBiomeAt?(x: number, y: number, z: number, w: number): number;
+  /** Terrain height and biome at a horizontal point (optional). */
+  sample?(x: number, z: number, w: number, out: ColumnSample): ColumnSample;
   /** Nearest structure start of any of the named kinds (optional). */
   nearestStructure?(names: string[], x: number, z: number, w: number, maxDist?: number): { name: string; x: number; y: number; z: number; w: number } | null;
 }
 
 export const GENERATORS: Record<string, (seed: number, realm: RealmDef, options: GenOptions) => WorldGenerator> = {
   surface: (seed, realm, options) => new SurfaceGenerator(seed, realm, options),
+  ember: (seed, realm, options) => new EmberGenerator(seed, realm, options),
 };
 
 export function createGenerator(seed: number, realm: RealmDef, options: GenOptions = {}): WorldGenerator {
