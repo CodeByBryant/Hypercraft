@@ -1,9 +1,8 @@
 # Phase 6 report: The Ember Depths, 4D portals, the Magma Regent
 
-Status: **complete**. Typecheck and 136 unit tests are green. The new `portal.spec` and
-`ember.spec` pass on their own. In the full CI run, `ember.spec`, `items.spec`, `mobs.spec`,
-`portal.spec` and `smoke.spec` had passed when this was committed; structures, touch, views
-and worlds were still running.
+Status: **complete**. Typecheck and 136 unit tests are green, and so is the full e2e suite:
+all 10 tests (smoke, R6 views, worlds ×2, items, mobs, touch, structures, and the new portal
+and Ember specs) in 6.8 min.
 
 Playtest fix first: **beds are two blocks long** (a foot and a head with a pillow), placed
 and broken together.
