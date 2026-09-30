@@ -75,6 +75,7 @@ export interface Hc {
   sleeping(): { t: number; skipped: boolean } | null;
   wake(): void;
   rayDist(max?: number): number;
+  harvestAt(x: number, y: number, z: number, w: number): boolean;
 }
 
 declare global {

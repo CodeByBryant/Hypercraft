@@ -4,7 +4,7 @@
 //   input -> camera/physics -> fixed 20 Hz ticks (time, weather, fluids) -> streaming ->
 //   light BFS (budgeted) -> GPU sync (budgeted) -> picking -> hazards -> render -> HUD.
 
-import { REG, makeVoxel, voxelId, FLUID_LAVA, VARIANT_HORIZONTAL6, VARIANT_VERTICAL2, FLUID_WATER } from '../content/registry';
+import { REG, makeVoxel, voxelId, voxelMeta, FLUID_LAVA, VARIANT_HORIZONTAL6, VARIANT_VERTICAL2, FLUID_WATER, FACING_AXES, FACING_SIGNS } from '../content/registry';
 import { Particles } from '../env/Particles';
 import { Environment, TICKS_PER_DAY } from '../env/Environment';
 import { Input } from '../input/Input';
@@ -45,12 +45,21 @@ import type { SavedState, WorldInfo } from '../save/WorldInfo';
 import type { GameMode } from '../physics/Player';
 import type { Located } from '../world/gen/protocol';
 
-/** Blocks tagged 'bed' (sleep through the night, set your respawn point). */
+/**
+ * Beds (sleep through the night, set your respawn point) are two cells: a foot (the item)
+ * and a head one cell further along the bed's facing. BED_IDS: 1 foot, 2 head.
+ */
 const BED_IDS = new Uint8Array(REG.count);
+/** Foot block id -> its head block id, and back. */
+const BED_OTHER = new Int16Array(REG.count).fill(-1);
 REG.blocks.forEach((b, i) => {
-  if (b.tags?.includes('bed')) BED_IDS[i] = 1;
+  if (!b.tags?.includes('bed')) return;
+  const head = b.tags.includes('bed_head');
+  BED_IDS[i] = head ? 2 : 1;
+  const other = head ? b.name.replace(/_head$/, '') : `${b.name}_head`;
+  if (REG.has(other)) BED_OTHER[i] = REG.id(other);
 });
-const isBed = (v: number): boolean => v !== VOID_VOXEL && BED_IDS[voxelId(v)] === 1;
+const isBed = (v: number): boolean => v !== VOID_VOXEL && BED_IDS[voxelId(v)]! > 0;
 
 /** Creative starter inventory (hotbar first). Survival worlds start empty. */
 export const CREATIVE_KIT: [string, number][] = [
@@ -1044,6 +1053,12 @@ export class Game {
       say('You can’t sleep here: this realm has no nights');
       return false;
     }
+    // Either half works; the respawn point is the foot.
+    const v = this.world.getBlock(x, y, z, w);
+    if (BED_IDS[voxelId(v)] === 2 && v !== VOID_VOXEL) {
+      const f = this.bedPartner(x, y, z, w, v);
+      if (f) [x, y, z, w] = f;
+    }
     const b = this.bed;
     const moved = !b || b[0] !== x || b[1] !== y || b[2] !== z || b[3] !== w;
     this.bed = [x, y, z, w];
@@ -1342,6 +1357,7 @@ export class Game {
             const hard = REG.hardness[id]!;
             if (hard < 0 || hard >= 30 || REG.fluid[id] !== 0) continue;
             if (!this.world.setBlock(bx, by, bz, bw, 0)) continue;
+            if (BED_IDS[id]) this.removeBedPartner(bx, by, bz, bw, v);
             if (Math.random() < 0.3) for (const st of rollDrops(id, -1, Math.random)) counts.set(st.id, (counts.get(st.id) ?? 0) + st.count);
           }
     for (const [id, n] of counts) {
@@ -1472,6 +1488,7 @@ export class Game {
     const heldId = held ? held.id : -1;
     const drops = rollDrops(id, heldId, Math.random);
     if (!this.world.setBlock(t.x, t.y, t.z, t.w, 0)) return false;
+    this.removeBedPartner(t.x, t.y, t.z, t.w, t.voxel);
     for (const d of drops) this.dropAtCell(t.x, t.y, t.z, t.w, d);
     this.mobs.noise([t.x + 0.5, t.y + 0.5, t.z + 0.5, t.w + 0.5]); // Lurkers hear mining
     const wear = wearFor(id, heldId);
@@ -1596,7 +1613,8 @@ export class Game {
 
   /** Middle click: select (or, in creative, create) the targeted block's item in the hotbar. */
   private pickBlock(): void {
-    const item = IREG.blockItem[voxelId(this.target.voxel)]!;
+    const tid = voxelId(this.target.voxel);
+    const item = IREG.blockItem[BED_IDS[tid] === 2 ? BED_OTHER[tid]! : tid]!;
     if (item < 0) return;
     for (let i = 0; i < HOTBAR_SIZE; i++) {
       if (this.inv.get(i)?.id === item) {
@@ -1652,7 +1670,30 @@ export class Game {
     const t = this.target;
     const id = voxelId(t.voxel);
     if (REG.hardness[id]! < 0 && this.player.mode === 'survival') return false;
-    return this.world.setBlock(t.x, t.y, t.z, t.w, 0);
+    if (!this.world.setBlock(t.x, t.y, t.z, t.w, 0)) return false;
+    this.removeBedPartner(t.x, t.y, t.z, t.w, t.voxel);
+    return true;
+  }
+
+  /**
+   * The other half of the bed at (x, y, z, w) whose voxel is `v` (same facing, other part),
+   * or null if it is missing.
+   */
+  bedPartner(x: number, y: number, z: number, w: number, v: number): [number, number, number, number] | null {
+    const id = voxelId(v);
+    const part = BED_IDS[id]!;
+    if (!part || v === VOID_VOXEL) return null;
+    const m = voxelMeta(v) % 6;
+    const p: [number, number, number, number] = [x, y, z, w];
+    p[FACING_AXES[m]!] += part === 1 ? FACING_SIGNS[m]! : -FACING_SIGNS[m]!;
+    const pv = this.world.getBlock(p[0], p[1], p[2], p[3]);
+    return pv !== VOID_VOXEL && voxelId(pv) === BED_OTHER[id] && voxelMeta(pv) % 6 === m ? p : null;
+  }
+
+  /** A bed half was removed: remove the other half too (the removed half made the drop). */
+  private removeBedPartner(x: number, y: number, z: number, w: number, v: number): void {
+    const p = this.bedPartner(x, y, z, w, v);
+    if (p) this.world.setBlock(p[0], p[1], p[2], p[3], 0);
   }
 
   /** Place `voxelOrId` against the targeted facet (in the 4D neighbour across that facet). */
@@ -1688,6 +1729,17 @@ export class Game {
     const v = makeVoxel(id, meta);
     // Do not place solid blocks inside the player.
     if (REG.collision[id] !== COLLISION_NONE && this.player.mode !== 'spectator' && this.intersectsPlayer(x, y, z, w)) return false;
+    if (BED_IDS[id] === 1) {
+      // Beds are two cells: the head goes one cell further along the facing (where you look).
+      const h = [x, y, z, w];
+      h[FACING_AXES[meta % 6]!] += FACING_SIGNS[meta % 6]!;
+      const hv = this.world.getBlock(h[0]!, h[1]!, h[2]!, h[3]!);
+      if (hv === VOID_VOXEL || (hv !== 0 && !REG.replaceable[hv & 0xfff])) return false;
+      if (this.player.mode !== 'spectator' && this.intersectsPlayer(h[0]!, h[1]!, h[2]!, h[3]!)) return false;
+      if (!this.world.setBlock(x, y, z, w, v)) return false;
+      this.world.setBlock(h[0]!, h[1]!, h[2]!, h[3]!, makeVoxel(BED_OTHER[id]!, meta));
+      return true;
+    }
     return this.world.setBlock(x, y, z, w, v);
   }
 

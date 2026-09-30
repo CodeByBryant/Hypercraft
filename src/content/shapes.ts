@@ -74,13 +74,27 @@ export const SHAPES: ShapeDef[] = [
     collision: 'shape',
   },
   {
-    // Bed: a mattress on a slightly inset wooden base, 9/16 high like Minecraft's.
-    name: 'bed',
+    // Beds are two cells long, like Minecraft's: this is the foot, authored facing +X (the
+    // head cell is at +X). A mattress 9/16 high on a wooden base that runs into the head.
+    name: 'bed_foot',
     kind: 'boxes',
     boxes: [
-      [[0.0625, 0, 0.0625, 0.0625], [0.9375, 0.1875, 0.9375, 0.9375]],
+      [[0.0625, 0, 0.0625, 0.0625], [1, 0.1875, 0.9375, 0.9375]],
       [[0, 0.1875, 0, 0], [1, 0.5625, 1, 1]],
     ],
+    variants: 'horizontal6',
+    collision: 'shape',
+  },
+  {
+    // The head half, with a pillow at the far (+X) end.
+    name: 'bed_head',
+    kind: 'boxes',
+    boxes: [
+      [[0, 0, 0.0625, 0.0625], [0.9375, 0.1875, 0.9375, 0.9375]],
+      [[0, 0.1875, 0, 0], [1, 0.5625, 1, 1]],
+      [[0.45, 0.5625, 0.125, 0.125], [0.875, 0.6875, 0.875, 0.875]],
+    ],
+    variants: 'horizontal6',
     collision: 'shape',
   },
   { name: 'plant', kind: 'plant', collision: 'none' },

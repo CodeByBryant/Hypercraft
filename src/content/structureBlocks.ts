@@ -33,7 +33,11 @@ export const BED_COLORS: [string, Hex, Hex][] = [
 for (const [name, c0, c1] of BED_COLORS) {
   STRUCTURE_TEXTURES.push({ name: `${name}_top`, pattern: 'quilt', colors: [c0, c1, '#f4f4f0'] });
   STRUCTURE_TEXTURES.push({ name: `${name}_side`, pattern: 'bed_side', colors: [c0, c1, '#8a6a3c'] });
+  // Head half: the blanket turns into a white sheet and pillow near the top.
+  STRUCTURE_TEXTURES.push({ name: `${name}_head_side`, pattern: 'bed_side', colors: [c0, '#eeeee8', '#8a6a3c'] });
 }
+// The head half's top: white sheet and pillow.
+STRUCTURE_TEXTURES.push({ name: 'bed_head_top', pattern: 'quilt', colors: ['#eeeee8', '#d6d6ce', '#ffffff'] });
 
 export const STRUCTURE_BLOCKS: BlockDef[] = [
   { name: 'stone_bricks', render: 'opaque', solid: true, textures: { all: 'stone_bricks' }, hardness: 3, tags: ['stone_bricks'] },
@@ -56,5 +60,9 @@ export const STRUCTURE_BLOCKS: BlockDef[] = [
   { name: 'blue_wool', render: 'opaque', solid: true, textures: { all: 'blue_wool' }, hardness: 0.8, tags: ['wool'] },
   { name: 'gilded_bricks', render: 'opaque', solid: true, textures: { all: 'gilded_bricks' }, hardness: 3 },
 ];
-for (const [name] of BED_COLORS)
-  STRUCTURE_BLOCKS.push({ name, render: 'opaque', solid: true, shape: 'bed', opaque: false, textures: { top: `${name}_top`, side: `${name}_side`, bottom: 'planks' }, hardness: 0.3, tags: ['bed'] });
+// Beds are two blocks: the foot (placed from the item; it places the head one cell further
+// along your facing) and the head. Breaking either half removes both and drops one bed.
+for (const [name] of BED_COLORS) {
+  STRUCTURE_BLOCKS.push({ name, render: 'opaque', solid: true, shape: 'bed_foot', opaque: false, textures: { top: `${name}_top`, side: `${name}_side`, bottom: 'planks' }, hardness: 0.3, tags: ['bed'] });
+  STRUCTURE_BLOCKS.push({ name: `${name}_head`, displayName: name.split('_').map((w) => w[0]!.toUpperCase() + w.slice(1)).join(' '), render: 'opaque', solid: true, shape: 'bed_head', opaque: false, textures: { top: 'bed_head_top', side: `${name}_head_side`, bottom: 'planks' }, hardness: 0.3, tags: ['bed', 'bed_head'] });
+}

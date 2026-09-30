@@ -145,18 +145,44 @@ test('structures: village, villagers, trading, dungeon, beds and atlas', async (
   await page.evaluate(() => window.__hc.closeScreen());
 
   // ---- Beds: sleep through the night; a monster nearby stops you; beds set the respawn point.
-  const bedPos = await page.evaluate(() => {
+  // Place a bed from the item, looking down at the plaza: the foot goes where you click and
+  // the head one cell further along your facing (beds are two cells long).
+  const ground = await page.evaluate(async () => {
     const hc = window.__hc;
-    // A bed a few blocks ahead on the plaza (with head room cleared above it).
-    hc.setView({ yaw: 0, pitch: -35 });
+    hc.clearInventory();
+    hc.give('red_bed', 1);
+    hc.select(0);
+    hc.setView({ yaw: 0, pitch: -55 });
+    // A plank floor ahead of the player (the plaza may be a bridge over marsh water), with
+    // two cells of head room above it.
     const s = hc.state();
-    const b: [number, number, number, number] = [Math.floor(s.pos[0]! + s.fwd[0]! * 2.5), Math.floor(s.pos[1]!), Math.floor(s.pos[2]! + s.fwd[2]! * 2.5), Math.floor(s.pos[3]! + s.fwd[3]! * 2.5)];
-    hc.setBlock(b[0], b[1], b[2], b[3], 'red_bed');
-    hc.setBlock(b[0], b[1] + 1, b[2], b[3], 'air');
-    hc.setBlock(b[0], b[1] + 2, b[2], b[3], 'air');
-    return b;
+    const f = s.fwd;
+    let ax = 0;
+    for (const k of [2, 3]) if (Math.abs(f[k]!) > Math.abs(f[ax]!)) ax = k;
+    const g = Math.floor(s.pos[1]! - 0.01);
+    for (let i = 0; i <= 3; i++) {
+      const c = [Math.floor(s.pos[0]!), g, Math.floor(s.pos[2]!), Math.floor(s.pos[3]!)];
+      c[ax] = c[ax]! + i * Math.sign(f[ax]!);
+      if (i > 0) hc.setBlock(c[0]!, g, c[2]!, c[3]!, 'planks');
+      for (let h = 1; h <= 2; h++) hc.setBlock(c[0]!, g + h, c[2]!, c[3]!, 'air');
+    }
+    await hc.frames(3);
+    const t = hc.target();
+    if (!t) throw new Error(`no target below ${JSON.stringify(s.pos)}`);
+    return { t: [t.x, t.y, t.z, t.w], ax, sign: Math.sign(f[ax]!) };
   });
+  await page.evaluate(() => window.__hc.use());
+  await page.evaluate(() => window.__hc.frames(4));
+  const bedPos = [ground.t[0]!, ground.t[1]! + 1, ground.t[2]!, ground.t[3]!] as [number, number, number, number];
+  const headPos = [...bedPos] as [number, number, number, number];
+  headPos[ground.ax] += ground.sign;
   expect(await page.evaluate((b) => window.__hc.blockAt(b[0]!, b[1]!, b[2]!, b[3]!), bedPos)).toBe('red_bed');
+  expect(await page.evaluate((b) => window.__hc.blockAt(b[0]!, b[1]!, b[2]!, b[3]!), headPos)).toBe('red_bed_head');
+  expect(await count('red_bed')).toBe(0); // placing used the item
+  await page.evaluate(() => {
+    const hc = window.__hc;
+    hc.setView({ yaw: 0, pitch: -35 });
+  });
   await page.evaluate(() => window.__hc.idle(240_000));
   await shot(page, 'bed');
   // Daytime: no sleep, but the respawn point is set.
@@ -173,6 +199,9 @@ test('structures: village, villagers, trading, dungeon, beds and atlas', async (
   const refusal = await page.evaluate(() => document.querySelector('.toast')?.textContent ?? '');
   expect(refusal).toContain('You may not rest now');
   report.bedRefusal = refusal;
+  // The head half works too (the respawn point stays the foot).
+  expect(await page.evaluate((b) => window.__hc.useBed(b[0]!, b[1]!, b[2]!, b[3]!), headPos)).toBe(false);
+  expect(await page.evaluate(() => window.__hc.bed())).toEqual(bedPos);
   // Without the monster: sleep, the screen fades, and it is morning of the next day.
   await page.evaluate(() => {
     const hc = window.__hc;
@@ -196,6 +225,14 @@ test('structures: village, villagers, trading, dungeon, beds and atlas', async (
   const back = await page.evaluate(() => window.__hc.state().pos);
   expect(Math.abs(back[0]! - (bedPos[0] + 0.5))).toBeLessThan(1.5);
   expect(Math.abs(back[3]! - (bedPos[3] + 0.5))).toBeLessThan(1.5);
+  // Breaking the head removes the whole bed and drops one bed item.
+  const broke = await page.evaluate(([h, f]) => {
+    const hc = window.__hc;
+    const before = hc.dropped().filter((d) => d[0] === 'red_bed').length;
+    const ok = hc.harvestAt(h[0]!, h[1]!, h[2]!, h[3]!);
+    return { ok, head: hc.blockAt(h[0]!, h[1]!, h[2]!, h[3]!), foot: hc.blockAt(f[0]!, f[1]!, f[2]!, f[3]!), beds: hc.dropped().filter((d) => d[0] === 'red_bed').length - before };
+  }, [headPos, bedPos]);
+  expect(broke).toEqual({ ok: true, head: 'air', foot: 'air', beds: 1 });
 
   // ---- Atlas: hold a Ruins Atlas; the readout points at the nearest ruin (worker search).
   await page.evaluate(() => {

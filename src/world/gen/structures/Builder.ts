@@ -179,6 +179,18 @@ export class Builder {
     this.set(a, y, b, c, makeVoxel(id, meta), mode);
   }
 
+  /**
+   * A two-cell bed: the foot at (a, y, b, c) and the head one cell along local `axis` / `sign`
+   * (both halves carry the same facing, like a bed placed by a player walking that way).
+   */
+  bed(a: number, y: number, b: number, c: number, name: string, axis: number, sign: number): void {
+    const meta = this.facing(axis, sign);
+    this.set(a, y, b, c, makeVoxel(REG.id(name), meta));
+    const d = [0, 0, 0];
+    d[axis] = sign;
+    this.set(a + d[0]!, y, b + d[1]!, c + d[2]!, makeVoxel(REG.id(`${name}_head`), meta));
+  }
+
   chest(a: number, y: number, b: number, c: number, loot: string): void {
     const p = this.world(a, y, b, c);
     this.plan.set(p[0]!, p[1]!, p[2]!, p[3]!, REG.id('chest'));

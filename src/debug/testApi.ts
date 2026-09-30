@@ -225,6 +225,17 @@ export function installTestApi(game: Game, screen?: InventoryScreen): void {
       for (let t = 0; t < seconds; t += 0.05) game.blockEntities.tick(0.05);
     },
     placeTarget: (name: string) => game.placeAtTarget(REG.id(name)),
+    /** Break a block like a survival player (drops, bed halves), wherever it is. */
+    harvestAt(x: number, y: number, z: number, w: number): boolean {
+      const t = game.target;
+      t.x = x;
+      t.y = y;
+      t.z = z;
+      t.w = w;
+      t.voxel = game.world.getBlock(x, y, z, w);
+      game.hasTarget = true;
+      return game.harvestTarget();
+    },
     target: () => (game.hasTarget ? { ...game.target, p: Array.from(game.target.p), name: REG.name(game.target.voxel) } : null),
     blockAt: (x: number, y: number, z: number, w: number) => REG.name(game.world.getBlock(x, y, z, w)),
     /** Top of the light-blocking terrain (incl. tree canopies) at a column. */

@@ -299,7 +299,7 @@ function building(b: Builder, s: Style, kind: Kind, vid: string): void {
       break;
   }
   // Everyone who lives here has a bed (sleep through the night; it sets your respawn point).
-  if (kind !== 'temple' && kind !== 'shrine') B_(-2, 1, -2, 2, s.bed);
+  if (kind !== 'temple' && kind !== 'shrine') b.bed(-2, 1, -2, 2, s.bed, Bf, -1);
   const prof = b.pick(PROFESSION[kind]);
   b.npc(0, 1, -2, 0, prof === 'nitwit' ? 'villager' : `villager_${prof}`, { village: vid, profession: prof });
 }

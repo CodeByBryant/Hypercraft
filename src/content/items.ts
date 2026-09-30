@@ -93,7 +93,7 @@ for (const t of TIERS) {
 }
 
 /** Blocks without an item (fluids, portals, technical and "lit" state blocks). */
-export const NO_ITEM_BLOCKS = new Set(['air', 'water', 'lava', 'portal', 'lit_furnace', 'lit_blast_furnace', 'lit_smoker', 'mob_spawner']);
+export const NO_ITEM_BLOCKS = new Set(['air', 'water', 'lava', 'portal', 'lit_furnace', 'lit_blast_furnace', 'lit_smoker', 'mob_spawner', 'red_bed_head', 'blue_bed_head', 'white_bed_head']);
 
 /** Extra item properties for block items (fuel values, stack sizes, groups). */
 export const BLOCK_ITEM_EXTRAS: Record<string, Partial<ItemDef>> = {

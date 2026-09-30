@@ -2,7 +2,7 @@
 // outposts, standing slabs, stone spheres, fossil sites, lighthouses and buried treasure.
 // Each is authored in the piece frame (a right, b forward, c ana; floor at y = 0).
 
-import { id, type Builder } from '../Builder';
+import { Bf, id, type Builder } from '../Builder';
 import type { Start } from '../Placement';
 import { IF_AIR, IF_SOFT, ball, pillar } from './common';
 
@@ -26,7 +26,7 @@ export function cabin(b: Builder): void {
   b.set(2, 1, -2, 2, id('furnace'));
   b.set(0, 4, 0, 0, id('lantern'));
   b.chest(-2, 1, -2, 2, 'cabin');
-  b.set(2, 1, 2, -2, id('red_bed'));
+  b.bed(2, 1, 2, -2, 'red_bed', Bf, -1);
 }
 
 /** Watchtower: four log posts, a ladder, a railed platform with a chest. */
@@ -148,7 +148,7 @@ export function igloo(b: Builder): void {
   b.box(-3, 0, -3, -3, 3, 0, 3, 3, id('wool'));
   b.set(0, 3, 0, 0, id('lantern'));
   b.chest(-2, 1, -2, 0, 'igloo');
-  b.set(2, 1, -2, 0, id('white_bed'));
+  b.bed(2, 1, -2, 0, 'white_bed', Bf, 1);
 }
 
 /** Outpost: a stone and dark-wood tower with a bone-archer spawner on top. */

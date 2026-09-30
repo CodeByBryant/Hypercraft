@@ -111,5 +111,6 @@ set(['thatch', 'hay_bale'], { tool: 'hoe' });
 set(['dirt_path'], { tool: 'shovel', drops: [{ item: 'dirt' }] });
 set(['plaster'], { tool: 'pickaxe' });
 set(['red_bed', 'blue_bed', 'white_bed'], { tool: 'axe' });
+for (const c of ['red', 'blue', 'white']) set([`${c}_bed_head`], { tool: 'axe', drops: one(`${c}_bed`) });
 set(['wild_wheat'], { drops: [{ item: 'wheat', count: [1, 2] }] });
 set(['reeds'], { shears: false, drops: [{ item: 'reeds' }] });

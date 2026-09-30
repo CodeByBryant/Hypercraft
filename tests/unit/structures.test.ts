@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { REG } from '../../src/content/registry';
+import { FACING_AXES, FACING_SIGNS, REG } from '../../src/content/registry';
 import { STRUCTURES } from '../../src/content/structures';
 import { LOOT } from '../../src/content/lootRegistry';
 import { MOB_REG } from '../../src/content/mobRegistry';
@@ -87,24 +87,44 @@ describe('structures', () => {
     expect(plan.markers.some((m) => m.kind === 'chest')).toBe(true);
   });
 
-  it('furnishes village houses with beds, and beds are craftable, one-cell, sleep-tagged blocks', () => {
+  it('furnishes village houses with two-cell beds (foot + head, same facing), craftable from the foot item', () => {
     const gen = new SurfaceGenerator(4242, realm);
     const villages = STRUCTURES.filter((st) => st.builder === 'village').map((st) => st.name);
     const plan = gen.structures.plan(gen.structures.placer.nearest(villages, 0, 0, 0, 3000)!);
-    let beds = 0;
+    // Every write of the plan, by world cell.
+    const cells = new Map<string, number>();
     for (let cw = Math.floor(plan.min[3]! / 16); cw <= Math.floor(plan.max[3]! / 16); cw++)
       for (let cz = Math.floor(plan.min[2]! / 16); cz <= Math.floor(plan.max[2]! / 16); cz++)
         for (let cx = Math.floor(plan.min[0]! / 16); cx <= Math.floor(plan.max[0]! / 16); cx++) {
           const list = plan.column(cx, cz, cw) ?? [];
-          for (let i = 0; i < list.length; i += 3) if (REG.blocks[list[i + 1]! & 0xfff]!.tags?.includes('bed')) beds++;
+          for (let i = 0; i < list.length; i += 3) {
+            const d = list[i]!;
+            const x = cx * 16 + (d & 15), z = cz * 16 + ((d >> 4) & 15), w = cw * 16 + ((d >> 8) & 15), y = Math.floor(d / COLUMN_LAYER);
+            cells.set(`${x},${y},${z},${w}`, list[i + 1]!);
+          }
         }
-    expect(beds).toBeGreaterThan(0);
+    let feet = 0;
+    for (const [key, v] of cells) {
+      const b = REG.blocks[v & 0xfff]!;
+      if (!b.tags?.includes('bed') || b.tags.includes('bed_head')) continue;
+      feet++;
+      const m = (v >>> 12) % 6;
+      const p = key.split(',').map(Number);
+      p[FACING_AXES[m]!] += FACING_SIGNS[m]!;
+      const head = cells.get(p.join());
+      expect(head, `head of the bed at ${key}`).toBeDefined();
+      expect(REG.blocks[head! & 0xfff]!.name).toBe(`${b.name}_head`);
+      expect((head! >>> 12) % 6).toBe(m);
+    }
+    expect(feet).toBeGreaterThan(0);
     for (const name of ['red_bed', 'blue_bed', 'white_bed']) {
       const id = REG.id(name);
       expect(REG.blocks[id]!.tags).toContain('bed');
+      expect(REG.blocks[REG.id(`${name}_head`)]!.tags).toContain('bed_head');
       expect(REG.solid[id]).toBe(1);
       expect(REG.isFullShape[id]).toBe(0);
       expect(IREG.maxStack[IREG.id(name)]).toBe(1);
+      expect(IREG.has(`${name}_head`)).toBe(false); // the head has no item: it drops the bed
       expect(RECIPES.some((r) => r.result === name)).toBe(true);
     }
   });
