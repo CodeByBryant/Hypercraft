@@ -23,6 +23,20 @@
   - Flint and steel lights fires on any face next to something solid or flammable, and lava
     sets nearby fuel alight as it flows. Fire that spreads into a portal frame lights it.
 
+### Changed
+- **The Ember Depths fill their whole height**, like Minecraft's Nether. There was one floor,
+  one ceiling and a 50–70 block empty chasm between them; now a 4D density field (sampled
+  every 4 blocks and interpolated) makes masses, overhangs, ledges, arches, pillars and
+  floating islands from the lava sea to the roof. Lava lakes show wherever the ground dips
+  under y 32, lava tubes run through the rock, and emberglass hangs under every overhang.
+  - **Biomes are vertical too**: they are picked from heat, vapour, soul *and altitude*, on a
+    4-block 3D grid, so the ledges and islands above the floor have biomes of their own (the
+    Magma Sea stays low, the Shattered Tesseracts favour the heights). Fog, particles, mob
+    spawns and F3 use the biome at your height.
+  - Each biome's terrain shape is data (`emberTerrain`: fill, verticality, ledges, floor and
+    roof heights, dunes, canyons, islands), blended across borders.
+  - Generation stays at about 40–45 ms per column.
+
 ### Added
 - **Night vision** in creative and spectator: **N**, or the 👁 NV touch button. Everything is
   lit like a sunny day (keeping a hint of the realm's tint); the HUD shows NIGHT VISION. It is

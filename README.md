@@ -95,7 +95,8 @@ or you reach water; mobs burn too. It burns forever on cinder and magma.
 **The Ember Depths**: build an obsidian portal frame like Minecraft's (4 × 5, corners
 optional) and light it with flint and steel, or go full 4D and frame a 3D box of air on every
 face (a hyper-portal; 10 blocks at minimum around a 1 × 2 × 1 interior). Stand in it for 4 s. One block in the Ember Depths is 8 on the Surface, along x, z **and** w.
-Down there are eight biomes, citadels you climb by walking through W, and the Magma Regent
+Down there the terrain fills the whole height, ledges and overhangs and floating islands up to
+the roof, with biomes that change as you climb: eight of them, citadels you climb by walking through W, and the Magma Regent
 in its caldera on the lava sea. Its lava pillars erupt along W, so sidestep in your slice.
 
 **Beds**: craft one from 3 wool over 3 planks, or use one in a village house. Right click it at

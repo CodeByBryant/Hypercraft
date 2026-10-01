@@ -215,17 +215,49 @@ export interface BiomeDef {
   structures?: string[];
   /** Realm the biome belongs to (default 'surface'); each realm's generator picks its own. */
   realm?: string;
-  /** Ember Depths terrain style (EmberGen). */
+  /** Ember Depths terrain style (EmberGen): special shapes and features of the family. */
   ember?: EmberStyle;
+  /**
+   * Ember Depths terrain shape, blended across biome borders (EmberGen). The climate point of an
+   * Ember biome is [heat, vapour, soul, altitude]: altitude 0 is the lava sea, 1 the roof.
+   */
+  emberTerrain?: EmberTerrain;
   /** Damaging / slowing features the biome is known for (docs, F3). */
   hazards?: string[];
 }
 
 /**
- * Ember Depths terrain styles: how the cavern floor and ceiling are shaped and which
- * features grow (see src/world/gen/EmberGen.ts).
+ * Ember Depths terrain families: special shapes and features (see src/world/gen/EmberGen.ts):
+ * prisms get basalt column tops hashed per W layer, canyons soul-glass strata, fungal sulfur
+ * vents, sea is the Magma Sea.
  */
 export type EmberStyle = 'plains' | 'prisms' | 'fungal' | 'sea' | 'ash' | 'canyons' | 'grove' | 'shattered';
+
+/**
+ * The shape of Ember terrain: a 4D density field (solid where positive) built from these
+ * parameters, so the terrain fills the realm's whole height (ledges, overhangs, pillars,
+ * floating islands) instead of one floor and one ceiling.
+ */
+export interface EmberTerrain {
+  /** Solid mass in the middle of the realm: -1 open air .. +1 packed rock. */
+  fill: number;
+  /** 0 blobby masses and overhangs .. 1 walls and pillars (noise stretched along y). */
+  vertical: number;
+  /** Horizontal ledges every 22 blocks, 0..1. */
+  shelves: number;
+  /** Top of the bottom mass (y): the lowest floor is around here (the lava sea is at 32). */
+  floor: number;
+  /** Bottom of the roof mass (y). */
+  roof: number;
+  /** Small-scale roughness, 0..1. */
+  rough: number;
+  /** Ash dunes rippling the floor along a diagonal of (x, z, w), 0..1. */
+  dunes?: number;
+  /** Deep canyons cut down to the floor, 0..1. */
+  canyons?: number;
+  /** Floating fragments everywhere, 0..1. */
+  islands?: number;
+}
 
 // ------------------------------------------------------------------ items (Phase 3)
 

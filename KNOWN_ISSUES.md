@@ -148,7 +148,10 @@ Honest list as of Phase 6 (the Ember Depths, portals, the Magma Regent). Items t
 - **Basalt prism columns** are hashed per W layer, so they only line up in slices whose
   hidden axis is W. This is by design (the spec's "only fully visible along one slice
   orientation"), but walking kata/ana through them is bumpy.
-- **Ember generation** costs about 42 ms per column in Node (the Surface about 63 ms there).
+- **Ember generation** costs about 40–45 ms per column in Node (the Surface about 63 ms there).
+  The 4D density lattice is cached per worker (8192 lattice columns, LRU).
+- **Ember structures** stand on the lowest floor above the lava (or on the lava sea), not on
+  ledges higher up; big ones (citadels) can cut through overhanging masses.
 - **Not yet:** striders or riding on lava, bartering, Slag Armor (Phase 7 smithing), and
   Ember advancements (Phase 8).
 

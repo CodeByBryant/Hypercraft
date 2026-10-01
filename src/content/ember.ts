@@ -2,8 +2,9 @@
 // y 32 and eight biomes. Blocks, textures, "trees" (fungi, crystal trees, charred trees,
 // tesseract frames) and the biomes themselves; the generator is src/world/gen/EmberGen.ts.
 //
-// Biomes are picked from three 3D noise fields over (x, z, w), heat, vapour and soul, plus a
-// "sea" field for the Magma Sea, so walking kata/ana changes the landscape here as well.
+// Biomes are picked from heat, vapour and soul (noise over x, z, w) and altitude, plus a "sea"
+// field for the Magma Sea: walking kata/ana changes the landscape here as well, and so does
+// climbing. Each biome's emberTerrain shapes the 4D terrain around it.
 
 import type { BiomeDef, BlockDef, Hex, MobSpawn, TextureDef, TexturePattern, TreeDef } from './types';
 
@@ -182,13 +183,15 @@ function biome(b: Omit<BiomeDef, 'kind' | 'heightBias' | 'heightScale' | 'frozen
   };
 }
 
-// Climate points: [heat, vapour, soul, 0].
+// Climate points: [heat, vapour, soul, altitude]. Altitude 0 is the lava sea, 1 the roof: the
+// generator picks biomes in 3D, so the ledges and islands high up have biomes of their own.
 export const EMBER_BIOMES: BiomeDef[] = [
   biome({
     name: 'cinder_plains',
     displayName: 'Cinder Plains',
     ember: 'plains',
-    climate: [0.5, 0.5, 0.45, 0],
+    climate: [0.5, 0.5, 0.45, 0.2],
+    emberTerrain: { fill: -0.12, vertical: 0.25, shelves: 0.55, floor: 37, roof: 108, rough: 0.45 },
     surface: 'ember_moss',
     subsurface: 'cinder',
     underwater: 'magma_block',
@@ -215,7 +218,8 @@ export const EMBER_BIOMES: BiomeDef[] = [
     name: 'basalt_prisms',
     displayName: 'Basalt Prisms',
     ember: 'prisms',
-    climate: [0.8, 0.22, 0.45, 0],
+    climate: [0.8, 0.22, 0.45, 0.45],
+    emberTerrain: { fill: 0.02, vertical: 0.9, shelves: 0.15, floor: 39, roof: 106, rough: 0.2 },
     surface: 'columnar_basalt',
     subsurface: 'glowing_basalt',
     underwater: 'magma_block',
@@ -241,7 +245,8 @@ export const EMBER_BIOMES: BiomeDef[] = [
     name: 'sulfur_fungal_forest',
     displayName: 'Sulfur Fungal Forest',
     ember: 'fungal',
-    climate: [0.35, 0.82, 0.35, 0],
+    climate: [0.35, 0.82, 0.35, 0.3],
+    emberTerrain: { fill: -0.22, vertical: 0.35, shelves: 0.45, floor: 38, roof: 110, rough: 0.3 },
     surface: 'sulfur_moss',
     subsurface: 'cinder',
     underwater: 'magma_block',
@@ -268,6 +273,7 @@ export const EMBER_BIOMES: BiomeDef[] = [
     displayName: 'Magma Sea',
     ember: 'sea',
     climate: [0.6, 0.4, 0.4, 0],
+    emberTerrain: { fill: -0.55, vertical: 0.15, shelves: 0.25, floor: 22, roof: 112, rough: 0.5, islands: 0.35 },
     surface: 'pumice',
     subsurface: 'scorched_stone',
     underwater: 'magma_crust',
@@ -292,7 +298,8 @@ export const EMBER_BIOMES: BiomeDef[] = [
     name: 'ash_wastes',
     displayName: 'Ash Wastes',
     ember: 'ash',
-    climate: [0.3, 0.22, 0.3, 0],
+    climate: [0.3, 0.22, 0.3, 0.25],
+    emberTerrain: { fill: -0.18, vertical: 0.1, shelves: 0.65, floor: 38, roof: 108, rough: 0.2, dunes: 1 },
     surface: 'ash_block',
     subsurface: 'ash_block',
     underwater: 'magma_block',
@@ -318,7 +325,8 @@ export const EMBER_BIOMES: BiomeDef[] = [
     name: 'soul_glass_canyons',
     displayName: 'Soul Glass Canyons',
     ember: 'canyons',
-    climate: [0.3, 0.48, 0.85, 0],
+    climate: [0.3, 0.48, 0.85, 0.4],
+    emberTerrain: { fill: 0.0, vertical: 1, shelves: 0.2, floor: 33, roof: 106, rough: 0.3, canyons: 1 },
     surface: 'soul_sand',
     subsurface: 'soul_soil',
     underwater: 'soul_soil',
@@ -345,7 +353,8 @@ export const EMBER_BIOMES: BiomeDef[] = [
     name: 'emberglass_grove',
     displayName: 'Emberglass Grove',
     ember: 'grove',
-    climate: [0.78, 0.75, 0.45, 0],
+    climate: [0.78, 0.75, 0.45, 0.6],
+    emberTerrain: { fill: -0.08, vertical: 0.45, shelves: 0.45, floor: 39, roof: 106, rough: 0.4 },
     surface: 'glowing_cinder',
     subsurface: 'cinder',
     underwater: 'magma_block',
@@ -371,7 +380,8 @@ export const EMBER_BIOMES: BiomeDef[] = [
     name: 'shattered_tesseracts',
     displayName: 'Shattered Tesseracts',
     ember: 'shattered',
-    climate: [0.75, 0.4, 0.85, 0],
+    climate: [0.75, 0.4, 0.85, 0.85],
+    emberTerrain: { fill: -0.38, vertical: 0.45, shelves: 0, floor: 30, roof: 114, rough: 0.8, islands: 1 },
     surface: 'rift_soil',
     subsurface: 'rift_soil',
     underwater: 'magma_block',

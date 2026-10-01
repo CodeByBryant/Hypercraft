@@ -270,7 +270,9 @@ export class MobManager {
         y = realm.seaLevel + 2 + Math.floor(Math.random() * Math.max(1, this.world.height - realm.seaLevel - 24));
         if (!this.findFloor(x, y, z, w, 40)) continue;
         y = this.floorY;
-        table = biome.mobs.day;
+        // Biomes there are 3D: the one at this floor, not the column's.
+        const cb = caveBiomeAt?.(x, y, z, w) ?? -1;
+        table = (cb >= 0 ? REG.biomes[cb]! : biome).mobs?.day;
       } else if (underground) {
         y = 6 + Math.floor(Math.random() * Math.max(1, sky - 14));
         if (!this.findFloor(x, y, z, w)) continue;

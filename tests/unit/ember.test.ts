@@ -33,9 +33,9 @@ describe('Ember Depths (Phase 6)', () => {
     for (const n of ['cinder_plains', 'basalt_prisms', 'sulfur_fungal_forest', 'magma_sea', 'ash_wastes', 'soul_glass_canyons'])
       expect(ember.map((b) => b.name)).toContain(n);
     const g = new EmberGenerator(2024, realm);
-    const s = sample();
     const seen = new Set<string>();
-    for (let x = -4000; x <= 4000; x += 113) for (let w = -4000; w <= 4000; w += 113) seen.add(REG.biomes[g.sample(x, 77, w, s).biome]!.name);
+    // Biomes are 3D: look at every surface of each column (floors, ledges, islands).
+    for (let x = -4000; x <= 4000; x += 157) for (let w = -4000; w <= 4000; w += 157) for (const sf of g.surfaces(x, 77, w)) seen.add(REG.biomes[sf.biome]!.name);
     expect(ember.map((b) => b.name).filter((n) => !seen.has(n))).toEqual([]);
     // Surface biomes never appear here, and Ember biomes never on the Surface.
     for (const n of seen) expect(REG.biomes[REG.biomeIndex(n)]!.realm).toBe('ember');
@@ -130,6 +130,85 @@ describe('Ember Depths (Phase 6)', () => {
     expect(plan.max[3]! - plan.min[3]!).toBeGreaterThanOrEqual(20);
     expect(plan.max[0]! - plan.min[0]!).toBeLessThanOrEqual(14);
     expect(plan.max[2]! - plan.min[2]!).toBeLessThanOrEqual(18);
+  });
+
+  it('fills its whole height with terrain (no empty chasm between floor and roof)', () => {
+    const g = new EmberGenerator(31, realm);
+    const H = realm.heightChunks * 16, sea = realm.seaLevel;
+    let cols = 0, tall = 0, surfaces = 0, solidMid = 0, cellsMid = 0;
+    for (let k = 0; k < 6; k++) {
+      const { blocks } = column(g, k * 9 - 20, (k * 5) % 7 - 3, 12 - k * 5);
+      for (let i = 0; i < COLUMN_LAYER; i += 5) {
+        cols++;
+        let run = 0, longest = 0;
+        for (let y = sea + 1; y < H - 5; y++) {
+          const v = blocks[i + y * COLUMN_LAYER]! & 0xfff;
+          const solid = REG.solid[v] === 1;
+          if (y >= 55 && y < 100) {
+            cellsMid++;
+            if (solid) solidMid++;
+          }
+          if (solid) {
+            longest = Math.max(longest, run);
+            run = 0;
+            if (!REG.solid[blocks[i + (y + 1) * COLUMN_LAYER]! & 0xfff]) surfaces++;
+          } else run++;
+        }
+        if (Math.max(longest, run) > 40) tall++;
+      }
+    }
+    // The old realm had one floor and one ceiling: every column had a 50+ block gap.
+    expect(tall / cols).toBeLessThan(0.4);
+    expect(surfaces / cols).toBeGreaterThan(1.6);
+    expect(solidMid / cellsMid).toBeGreaterThan(0.25);
+    expect(solidMid / cellsMid).toBeLessThan(0.75);
+  });
+
+  it('has 3D biomes: they change with height, and generate() agrees with biomeAt3 and sample()', () => {
+    const g = new EmberGenerator(808, realm);
+    const low = new Map<string, number>(), high = new Map<string, number>();
+    let mixed = 0;
+    for (let k = 0; k < 400; k++) {
+      const x = Math.round(Math.sin(k * 1.7) * 2500), z = k % 13, w = Math.round(Math.cos(k * 2.3) * 2500);
+      const sfs = g.surfaces(x, z, w);
+      if (new Set(sfs.map((q) => q.biome)).size > 1) mixed++;
+      for (const sf of sfs) {
+        const m = sf.y < 55 ? low : sf.y > 85 ? high : null;
+        const n = REG.biomes[sf.biome]!.name;
+        m?.set(n, (m.get(n) ?? 0) + 1);
+      }
+    }
+    // Columns whose ledges are a different biome from their floor.
+    expect(mixed).toBeGreaterThan(60);
+    // The Magma Sea stays low; the Shattered Tesseracts favour the heights.
+    expect(high.get('magma_sea') ?? 0).toBe(0);
+    const frac = (m: Map<string, number>, n: string) => (m.get(n) ?? 0) / [...m.values()].reduce((a, b) => a + b, 0);
+    expect(frac(high, 'shattered_tesseracts')).toBeGreaterThan(frac(low, 'shattered_tesseracts'));
+    // generate() and the point queries give the same answers.
+    const { blocks } = column(g, 2, 1, -3);
+    const s = sample();
+    let checked = 0;
+    for (const [x, z, w] of [
+      [3, 4, 5],
+      [10, 2, 12],
+      [7, 14, 1],
+      [15, 8, 8],
+    ]) {
+      const X = 32 + x!, Z = 16 + z!, W = -48 + w!;
+      const i = x! + 16 * z! + 256 * w!;
+      g.sample(X, Z, W, s);
+      // sample()'s floor is the top of the first mass above the sea (or the lava sea's bed).
+      if (!s.ocean) {
+        expect(REG.solid[blocks[i + s.height * COLUMN_LAYER]! & 0xfff], `floor at ${X},${Z},${W}`).toBe(1);
+        expect(REG.solid[blocks[i + (s.height + 1) * COLUMN_LAYER]! & 0xfff]).toBe(0);
+      }
+      for (const sf of g.surfaces(X, Z, W)) {
+        const top = blocks[i + sf.y * COLUMN_LAYER]! & 0xfff;
+        const b = REG.biomes[g.biomeAt3(X, sf.y + 1, Z, W)]!;
+        if (top === REG.id(b.surface)) checked++;
+      }
+    }
+    expect(checked).toBeGreaterThan(0);
   });
 
   it('has the Ember mobs, including the Magma Regent boss', () => {

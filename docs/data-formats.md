@@ -348,13 +348,33 @@ Since Phase 6 there is a second realm, `ember` (the Ember Depths). Its extra fie
 
 `docs/how-to/add-a-realm.md` has the details.
 
-**Ember biomes** (`src/content/ember.ts`) are ordinary `BiomeDef`s with three extra fields:
+**Ember biomes** (`src/content/ember.ts`) are ordinary `BiomeDef`s with four extra fields:
 * `realm: 'ember'`;
-* `ember`, the terrain style: `plains | prisms | fungal | sea | ash | canyons | grove | shattered`;
+* `ember`, the terrain family for special shapes and features: `plains | prisms | fungal | sea |
+  ash | canyons | grove | shattered` (prisms get basalt column tops hashed per W layer, canyons
+  soul-glass strata, fungal sulfur vents, sea is the Magma Sea);
+* `emberTerrain`, the shape of the 4D terrain around the biome, blended across borders:
+
+  ```ts
+  emberTerrain: {
+    fill: -0.12,     // solid mass in the middle of the realm: -1 open air .. +1 packed rock
+    vertical: 0.25,  // 0 blobby masses and overhangs .. 1 walls and pillars
+    shelves: 0.55,   // horizontal ledges every 22 blocks
+    floor: 37,       // top of the bottom mass (the lava sea is at 32)
+    roof: 108,       // bottom of the roof mass (ragged, with stalactites)
+    rough: 0.45,     // small-scale roughness
+    dunes: 0,        // ash dunes rippling the floor along a diagonal of (x, z, w)
+    canyons: 0,      // deep cuts down to the floor
+    islands: 0,      // floating fragments everywhere
+  }
+  ```
 * `hazards`, a list of words for the docs.
 
-Their `climate` is `[heat, vapour, soul, 0]`, and `ceiling` is the block under the cavern
-roof. Ember mobs spawn from the `day` table.
+Their `climate` is `[heat, vapour, soul, altitude]`: altitude 0 is the lava sea and 1 the roof.
+Biomes are picked in 3D on a 4-block lattice, so the ledges and islands high up have biomes of
+their own (`WorldGenerator.caveBiomeAt` and `surfaces` answer for any position). `ceiling` is
+the block on the underside of every mass. Ember mobs spawn from the `day` table of the biome at
+the floor they spawn on.
 
 **Portal records** (saved in `SavedState.data.portals`):
 

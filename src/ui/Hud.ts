@@ -581,10 +581,11 @@ export class Hud {
     const gs = g.renderer.gpu.stats;
     const ws = g.pool.stats;
     const light = g.eyeLight();
-    const bi = g.world.biomeAt(Math.floor(e[0]!), Math.floor(e[2]!), Math.floor(e[3]!));
-    const biome = bi >= 0 ? REG.biomes[bi]!.displayName : '—';
     const cbi = g.generator.caveBiomeAt?.(Math.floor(e[0]!), Math.floor(e[1]!), Math.floor(e[2]!), Math.floor(e[3]!)) ?? -1;
-    const cave = cbi >= 0 && g.world.skyHeight(Math.floor(e[0]!), Math.floor(e[2]!), Math.floor(e[3]!)) > e[1]! + 4 ? `  cave ${REG.biomes[cbi]!.displayName}` : '';
+    // Enclosed realms have 3D biomes: show the one at your height.
+    const bi = g.env.enclosed && cbi >= 0 ? cbi : g.world.biomeAt(Math.floor(e[0]!), Math.floor(e[2]!), Math.floor(e[3]!));
+    const biome = bi >= 0 ? REG.biomes[bi]!.displayName : '—';
+    const cave = !g.env.enclosed && cbi >= 0 && g.world.skyHeight(Math.floor(e[0]!), Math.floor(e[2]!), Math.floor(e[3]!)) > e[1]! + 4 ? `  cave ${REG.biomes[cbi]!.displayName}` : '';
     const tod = g.env.timeOfDay;
     const hours = Math.floor(((tod / TICKS_PER_DAY) * 24 + 6) % 24);
     const mins = Math.floor((((tod / TICKS_PER_DAY) * 24 + 6) % 1) * 60);

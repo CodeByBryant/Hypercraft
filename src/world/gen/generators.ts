@@ -15,8 +15,10 @@ export interface WorldGenerator {
    */
   generate(cx: number, cz: number, cw: number, blocks: Uint16Array, surface: Uint8Array, extra?: Record<string, unknown>): void;
   spawnPoint(): [number, number, number, number];
-  /** Underground biome index at a position, or -1 (optional). */
+  /** Underground biome index at a position, or -1 (optional). Enclosed realms: the 3D biome. */
   caveBiomeAt?(x: number, y: number, z: number, w: number): number;
+  /** Every surface you can stand on in a column, with its biome (realms with 3D biomes). */
+  surfaces?(x: number, z: number, w: number): { y: number; biome: number; room: number }[];
   /** Terrain height and biome at a horizontal point (optional). */
   sample?(x: number, z: number, w: number, out: ColumnSample): ColumnSample;
   /** Nearest structure start of any of the named kinds (optional). */

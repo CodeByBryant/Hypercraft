@@ -36,27 +36,34 @@ Implement `WorldGenerator` (`generators.ts`) and register it in `GENERATORS`:
 * `spawnPoint()` returns a safe spawn.
 * `sample(x, z, w, out)` returns the floor height, biome, sea flag and (enclosed realms) the
   ceiling. Structures, atlases, `findBiome` and portal arrivals use it. It must agree exactly
-  with `generate`: `EmberGen` computes both from the same per-cell function.
+  with `generate`: `EmberGen` computes both from the same lattice.
 * `nearestStructure(...)` (optional) serves atlases; `caveBiomeAt(...)` (optional) serves cave
-  biomes.
+  biomes, and in enclosed realms the 3D biome at any position (fog, particles, mob spawns, F3);
+  `surfaces(...)` (optional) lists every surface of a column with its biome (`findBiome`).
 
 To get structures, construct a `StructureGen(this)`. The generator must satisfy
 `StructureTerrain` (`structures/Placement.ts`): `seed`, `height`, `sea`, `realm`, `garden`
 and `sample`. Structures are picked by `StructureDef.realm`.
 
 Generation runs in workers, so keep it deterministic (`hash4`, seeded noise, never
-`Math.random`) and fast. The Ember generator runs at about 42 ms per column in Node, against
-63 ms for the Surface. For performance it uses:
-* direct per-cell noise for the floor and ceiling;
-* a 4-block lattice for the 4D pillar field;
-* features with an 8-block margin, so trees and frames cross column borders seamlessly.
+`Math.random`) and fast. The Ember generator runs at about 40–45 ms per column in Node, against
+63 ms for the Surface. It fills the realm's height with a 4D density field instead of a
+heightmap, and for performance:
+* climate, biome and density are computed on a lattice every 4 blocks along x, y, z and w,
+  then interpolated to every cell; lattice columns are cached (LRU), shared by neighbouring
+  columns and by `sample()`;
+* the column's lattice is padded by one cell, so features anchored up to 4 blocks outside
+  (trees, emberglass clusters) know their terrain and cross column borders seamlessly;
+  tesseract frames (8 blocks) use point queries.
 
 ## 3. Biomes
 
-Add `BiomeDef`s with `realm: '<name>'` (`src/content/ember.ts` has eight). The Surface climate
-ignores biomes of other realms; each realm's generator picks its own. The Ember generator
-selects biomes from three 3D noise fields (heat, vapour, soul) plus a sea field, and each
-biome's `ember` style picks its floor shape.
+Add `BiomeDef`s with `realm: '<name>'` (`src/content/ember.ts` has the Ember ones). The Surface
+climate ignores biomes of other realms; each realm's generator picks its own. The Ember
+generator selects biomes in 3D from heat, vapour and soul (noise over x, z, w) and altitude,
+plus a sea field, and blends each biome's `emberTerrain` (fill, verticality, ledges, floor and
+roof heights, dunes, canyons, islands) into the density; the `ember` family adds special
+shapes (basalt prisms, soul-glass strata, vents).
 
 The registry test asks every biome for 3+ unique blocks and 2+ unique plants.
 

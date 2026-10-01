@@ -719,7 +719,8 @@ export class Game {
 
     // Environment + screen effects.
     const ex = Math.floor(this.eyePos[0]!), ez = Math.floor(this.eyePos[2]!), ew = Math.floor(this.eyePos[3]!);
-    const bi = this.world.biomeAt(ex, ez, ew);
+    // Enclosed realms (the Ember Depths) have 3D biomes: the one around you, at your height.
+    const bi = this.env.enclosed && this.generator.caveBiomeAt ? this.generator.caveBiomeAt(ex, Math.floor(this.eyePos[1]!), ez, ew) : this.world.biomeAt(ex, ez, ew);
     const exposure = this.world.skyHeight(ex, ez, ew) <= this.eyePos[1]! ? 1 : 0;
     this.env.update(dt, bi >= 0 ? REG.biomes[bi]! : null, exposure);
     // Ambient particles: the surface biome, or the cave biome when well underground.
@@ -788,7 +789,9 @@ export class Game {
       if (this.arrival) {
         // Arriving: wait for the columns around (an arrival portal can straddle borders).
         this.arrivalWait++;
-        if (!this.neighboursLoaded(cx, cz, cw) && this.arrivalWait < 900) return;
+        // (Columns far kata/ana are not streamed at small render distances: once nothing more
+        // is coming, go ahead.)
+        if (!this.neighboursLoaded(cx, cz, cw) && this.streamer.pendingCount > 0 && this.arrivalWait < 900) return;
         if (!this.arrive()) return; // moved to a portal farther away: wait for its columns
       }
       this.loaded = true;

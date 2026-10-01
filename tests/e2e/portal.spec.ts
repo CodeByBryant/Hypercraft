@@ -143,10 +143,17 @@ test('portals: light a 4D frame, travel 8:1 to the Ember Depths and back', async
     await page.evaluate(() => window.__hc.idle(240_000));
     await shot(page, `ember-arrival-${name}`);
   }
-  await page.evaluate(() => {
+  // Back on the portal's platform (the camera spot may be inside the rock the portal was
+  // carved into), one step out of the membrane along its normal.
+  await page.evaluate(async () => {
     const hc = window.__hc;
     hc.setMode('survival');
     hc.setFlying(false);
+    const r = hc.portals().find((q) => q.realm === 'ember')!;
+    const out = [(r.min[0]! + r.max[0]! + 1) / 2, r.min[1]! + 0.01, (r.min[2]! + r.max[2]! + 1) / 2, (r.min[3]! + r.max[3]! + 1) / 2];
+    out[r.axis] = out[r.axis]! + 1.5;
+    hc.teleport(out[0]!, out[1]!, out[2]!, out[3]!);
+    await hc.frames(4);
   });
 
   // Water boils away in the Ember Depths.

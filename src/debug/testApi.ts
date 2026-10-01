@@ -338,6 +338,12 @@ export function installTestApi(game: Game, screen?: InventoryScreen): void {
         for (let a = 0; a < Math.max(1, Math.round(r / 6)); a++) {
           const t = (a / Math.max(1, Math.round(r / 6))) * Math.PI * 2;
           const x = Math.floor(e[0]! + Math.cos(t) * r), w = Math.floor(e[3]! + Math.sin(t) * r), z = Math.floor(e[2]!);
+          // Realms with 3D biomes: any surface in the column (ledges and islands too) with
+          // room to look around.
+          if (gen.surfaces) {
+            for (const sf of gen.surfaces(x, z, w)) if (sf.biome === want && sf.y >= game.world.realm.seaLevel && sf.room >= 12) return [x + 0.5, sf.y + 1, z + 0.5, w + 0.5];
+            continue;
+          }
           gen.sample(x, z, w, s);
           if (s.biome === want && s.height >= game.world.realm.seaLevel) return [x + 0.5, s.height + 1, z + 0.5, w + 0.5];
         }
