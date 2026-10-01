@@ -142,7 +142,7 @@ export interface TextureDef {
   seed?: number;
 }
 
-export type TreeShape = 'ball' | 'birch' | 'cone' | 'acacia' | 'wide' | 'bamboo' | 'mushroom' | 'dead' | 'cactus' | 'kelp' | 'fungus' | 'crystal' | 'tesseract' | 'spire';
+export type TreeShape = 'ball' | 'birch' | 'cone' | 'acacia' | 'wide' | 'bamboo' | 'mushroom' | 'dead' | 'cactus' | 'kelp' | 'fungus' | 'crystal' | 'tesseract' | 'spire' | 'giant' | 'mangrove' | 'baobab' | 'pine' | 'palm' | 'weeping';
 
 /** A tree / large-plant archetype (logs, leaves and the procedural 4D shape). */
 export interface TreeDef {
@@ -156,7 +156,7 @@ export interface TreeDef {
   radius: [number, number];
 }
 
-export type TerrainStyle = 'normal' | 'dunes' | 'mesa' | 'spires' | 'floating' | 'volcanic' | 'marsh' | 'steppe' | 'hills' | 'flat';
+export type TerrainStyle = 'normal' | 'dunes' | 'mesa' | 'spires' | 'floating' | 'volcanic' | 'marsh' | 'steppe' | 'hills' | 'flat' | 'pillars' | 'hoodoos' | 'glacier';
 
 export type PlantPlacement = 'surface' | 'underwater' | 'floor' | 'ceiling';
 

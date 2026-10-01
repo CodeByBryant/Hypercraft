@@ -37,7 +37,7 @@ export const STRUCTURES: StructureDef[] = [
   { name: 'desert_temple', displayName: 'Desert Temple', placement: 'surface', spacing: 144, chance: 0.45, builder: 'desert_temple', radius: 11, salt: 0x520a },
   { name: 'fossil_site', displayName: 'Fossil Site', placement: 'surface', spacing: 96, chance: 0.3, builder: 'fossil_site', radius: 7, salt: 0x520b },
   { name: 'ruined_portal', displayName: 'Ruined Portal', placement: 'surface', spacing: 128, chance: 0.35, builder: 'ruined_portal', radius: 6, salt: 0x520c },
-  { name: 'sky_tower', displayName: 'Sky Tower', placement: 'surface', spacing: 160, chance: 0.45, builder: 'sky_tower', radius: 9, salt: 0x520d },
+  { name: 'sky_tower', displayName: 'Sky Tower', placement: 'surface', spacing: 160, chance: 0.45, builder: 'sky_tower', radius: 12, salt: 0x520d },
   { name: 'ancient_ruins', displayName: 'Ancient Ruins', placement: 'surface', spacing: 112, chance: 0.3, builder: 'ruins', radius: 9, salt: 0x520e },
   { name: 'standing_slabs', displayName: 'Standing Slabs', placement: 'surface', spacing: 96, chance: 0.25, builder: 'standing_slabs', radius: 6, salt: 0x520f },
   { name: 'tesseract_grove_temple', displayName: 'Tesseract Grove Temple', placement: 'surface', spacing: 224, chance: 0.5, builder: 'tesseract_temple', radius: 11, salt: 0x5210 },

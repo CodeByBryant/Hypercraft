@@ -94,6 +94,7 @@ export class SurfaceGenerator {
   private readonly stoneOf: Uint16Array;
   private readonly treesOf: ResolvedTree[][];
   private readonly plantsOf: { id: number; density: number; placement: string }[][];
+  private readonly ventsOf: { id: number; density: number }[][];
   /** Underground biomes: floor block, ceiling block (0 = keep stone), [floor, ceiling] plant tables. */
   private readonly caveFloor: Uint16Array;
   private readonly caveCeil: Uint16Array;
@@ -148,6 +149,7 @@ export class SurfaceGenerator {
       }),
     );
     this.plantsOf = this.biomes.map((b) => b.plants.map((p) => ({ id: id(p.block), density: p.density, placement: p.placement ?? 'surface' })));
+    this.ventsOf = this.biomes.map((b) => (b.vents ?? []).map((v) => ({ id: id(v.block), density: v.density })));
     this.caveFloor = Uint16Array.from(this.biomes.map((b) => (b.kind === 'underground' ? id(b.surface) : 0)));
     this.caveCeil = Uint16Array.from(this.biomes.map((b) => (b.kind === 'underground' && b.ceiling ? id(b.ceiling) : 0)));
     this.cavePlants = [];
@@ -911,7 +913,8 @@ export class SurfaceGenerator {
   }
 
   private vegetation(X0: number, Z0: number, W0: number, heights: Int16Array, biomeOf: Uint8Array, blocks: Uint16Array): void {
-    const M = 4;
+    // Trees anchored up to 6 blocks outside the column reach in (redwood crowns, palm fronds).
+    const M = 6;
     const L = COLUMN_LAYER;
     const sea = this.sea;
     const s: ColumnSample = { height: 0, biome: 0, grass: [0, 0, 0] };
@@ -957,6 +960,20 @@ export class SurfaceGenerator {
           const i = x + (z << 4) + (w << 8);
           const h = heights[i]!;
           if (h + 1 >= this.height) continue;
+          // Vents (geysers) replace some of the surface.
+          const vents = this.ventsOf[biomeOf[i]!]!;
+          if (vents.length && h >= sea && blocks[i + (h + 1) * L] === 0 && REG.solid[blocks[i + h * L]!]) {
+            const vr = hash4f(X, 7, Z, W, this.seed ^ SALT_PLANT);
+            let va = 0, vented = false;
+            for (const v of vents) {
+              va += v.density;
+              if (vr >= va) continue;
+              blocks[i + h * L] = v.id;
+              vented = true;
+              break;
+            }
+            if (vented) continue;
+          }
           const plants = this.plantsOf[biomeOf[i]!]!;
           if (!plants.length) continue;
           const pr = hash4f(X, 2, Z, W, this.seed ^ SALT_PLANT);
@@ -1057,6 +1074,84 @@ export class SurfaceGenerator {
       case 'cactus':
         for (let k = 0; k < H && y + k < HH; k++) this.setLocal(blocks, x, y + k, z, w, t.log, false);
         break;
+      case 'giant': {
+        // Redwood: a 2 x 2 x 2 trunk (8 columns in x, z, w), a root flare, and a narrow
+        // conical crown over its upper half.
+        for (let d = 0; d < 8; d++) this.trunk(blocks, x + (d & 1), y, z + ((d >> 1) & 1), w + ((d >> 2) & 1), H, t.log);
+        for (const [a, b, c] of [[-1, 0, 0], [2, 0, 0], [0, -1, 0], [0, 2, 0], [0, 0, -1], [0, 0, 2]] as const)
+          for (let k = 0; k < 2; k++) this.setLocal(blocks, x + a, y + k, z + b, w + c, t.log, false);
+        const c0 = y + Math.floor(H * 0.45);
+        for (let yy = c0; yy <= y + H + 2 && yy < HH; yy++) {
+          const kk = (yy - c0) / (y + H + 2 - c0);
+          this.ballLocal(blocks, x + 1, yy + 0.5, z + 1, w + 1, Math.max(0.9, r * (1 - kk) * (((yy - y) & 1) === 0 ? 1 : 0.8)), putLeaf, true);
+        }
+        break;
+      }
+      case 'mangrove': {
+        // Raised on prop roots arching down along +-x, +-z and +-w.
+        for (const [a, b, c] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]] as const) {
+          this.setLocal(blocks, x + a, y + 2, z + b, w + c, t.log, false);
+          this.setLocal(blocks, x + 2 * a, y + 1, z + 2 * b, w + 2 * c, t.log, false);
+          this.setLocal(blocks, x + 2 * a, y, z + 2 * b, w + 2 * c, t.log, false);
+          this.setLocal(blocks, x + 2 * a, y - 1, z + 2 * b, w + 2 * c, t.log, false);
+        }
+        this.trunk(blocks, x, y + 2, z, w, H, t.log);
+        this.ballLocal(blocks, x + 0.5, y + H + 1.5, z + 0.5, w + 0.5, r, putLeaf);
+        break;
+      }
+      case 'baobab': {
+        // A fat bottle trunk and a small flat crown.
+        for (let k = 0; k < H && y + k < HH; k++) this.ballLocal(blocks, x + 0.5, y + k + 0.5, z + 0.5, w + 0.5, 1.7 - 0.25 * Math.abs(k / H - 0.4), (old) => (old === 0 || REG.replaceable[old] === 1 ? t.log : old), true);
+        this.ellipsoid(blocks, x + 0.5, y + H + 1, z + 0.5, w + 0.5, r, 1.4, putLeaf);
+        break;
+      }
+      case 'pine': {
+        // A tall bare trunk with a small cone of needles at the top.
+        const c0 = y + Math.floor(H * 0.6);
+        for (let yy = c0; yy <= y + H + 1 && yy < HH; yy++) {
+          const kk = (yy - c0) / (y + H + 1 - c0);
+          this.ballLocal(blocks, x + 0.5, yy + 0.5, z + 0.5, w + 0.5, Math.max(0.7, r * (1 - kk)), putLeaf, true);
+        }
+        this.trunk(blocks, x, y, z, w, H, t.log);
+        break;
+      }
+      case 'palm': {
+        // A trunk leaning along one horizontal axis, and drooping fronds along +-x, +-z, +-w.
+        const ax = (h >>> 4) % 3, sg = (h >>> 6) & 1 ? 1 : -1;
+        let px = x, pz = z, pw = w;
+        for (let k = 0; k < H; k++) {
+          const lean = Math.round(((k / H) * (k / H)) * 3) * sg;
+          px = x + (ax === 0 ? lean : 0);
+          pz = z + (ax === 1 ? lean : 0);
+          pw = w + (ax === 2 ? lean : 0);
+          this.setLocal(blocks, px, y + k, pz, pw, t.log, true);
+        }
+        const top = y + H;
+        this.setLocal(blocks, px, top, pz, pw, leaf, false);
+        const L = Math.round(r);
+        for (const [a, b, c] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]] as const)
+          for (let s = 1; s <= L; s++) this.setLocal(blocks, px + a * s, top - (s >> 1), pz + b * s, pw + c * s, leaf, false);
+        break;
+      }
+      case 'weeping': {
+        // A round crown with curtains hanging from its rim (wisteria).
+        this.ballLocal(blocks, x + 0.5, y + H - 0.5, z + 0.5, w + 0.5, r, putLeaf);
+        this.trunk(blocks, x, y, z, w, H, t.log);
+        for (let k = 0; k < 12; k++) {
+          const hh = hash4(X, 30 + k, Z, W, this.seed ^ SALT_TREE);
+          const a = ((hh & 255) / 255) * Math.PI * 2, b = (((hh >>> 8) & 255) / 255) * Math.PI;
+          const dx = Math.round(Math.cos(a) * Math.sin(b) * r), dz = Math.round(Math.sin(a) * Math.sin(b) * r), dw = Math.round(Math.cos(b) * r * 0.9);
+          const len = 2 + ((hh >>> 16) % 4);
+          for (let s = 0; s < len; s++) this.setLocal(blocks, x + dx, y + H - 2 - s, z + dz, w + dw, leaf, false);
+        }
+        break;
+      }
+      case 'spire': {
+        // A tapering 4D crystal spike with a glowing tip.
+        for (let k = 0; k < H && y + k < HH; k++) this.ballLocal(blocks, x + 0.5, y + k + 0.5, z + 0.5, w + 0.5, r * (1 - k / H) + 0.35, (old) => (old === 0 || REG.replaceable[old] === 1 ? t.log : old), true);
+        this.setLocal(blocks, x, y + H, z, w, leaf, false);
+        break;
+      }
       case 'kelp':
         for (let k = 0; k < H && y + k < this.sea - 1; k++) {
           const i = x >= 0 && x < 16 && z >= 0 && z < 16 && w >= 0 && w < 16 ? x + (z << 4) + (w << 8) + (y + k) * COLUMN_LAYER : -1;

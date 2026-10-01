@@ -203,6 +203,37 @@ export class Climate {
         const t = h / 4;
         return h + k * 0.6 * (Math.round(t) * 4 - h);
       }
+      case 'pillars':
+      case 'hoodoos': {
+        // Karst towers / hoodoos: round 4D columns on a jittered grid in (x, z, w), each rising
+        // well above the land around it.
+        const tall = style === 'pillars';
+        const S = tall ? 13 : 8;
+        const cx = Math.floor(x / S), cz = Math.floor(z / S), cw = Math.floor(w / S);
+        let best = 0;
+        for (let a = -1; a <= 1; a++)
+          for (let b = -1; b <= 1; b++)
+            for (let c = -1; c <= 1; c++) {
+              const hx = cell(cx + a, cz + b, cw + c);
+              if (hx < (tall ? 0.45 : 0.6)) continue;
+              const px = (cx + a + 0.5) * S + (frac(hx * 7.13) - 0.5) * S * 0.5;
+              const pz = (cz + b + 0.5) * S + (frac(hx * 3.71) - 0.5) * S * 0.5;
+              const pw = (cw + c + 0.5) * S + (frac(hx * 5.27) - 0.5) * S * 0.5;
+              const r = tall ? 2.6 + frac(hx * 9.1) * 2.4 : 1.2 + frac(hx * 9.1) * 1.3;
+              const d = Math.hypot(x + 0.5 - px, z + 0.5 - pz, w + 0.5 - pw);
+              if (d > r) continue;
+              const rise = tall ? 22 + frac(hx * 11.3) * 26 : 7 + frac(hx * 11.3) * 9;
+              best = Math.max(best, rise * (d < r - 0.8 ? 1 : 0.85));
+            }
+        return h + k * best;
+      }
+      case 'glacier': {
+        // A raised ice sheet, flat on top, split by crevasses.
+        const sheet = this.sea + 16 + detail * 1.5;
+        const crack = Math.abs(Math.sin(x * 0.13 + w * 0.21 + 3 * detail) * Math.sin(z * 0.11 - w * 0.17));
+        const crevasse = crack < 0.08 ? 10 * (1 - crack / 0.08) : 0;
+        return h + k * (Math.max(h, sheet) - h - crevasse);
+      }
       default:
         return h;
     }
@@ -211,6 +242,17 @@ export class Climate {
 
 function smooth(t: number): number {
   return t * t * (3 - 2 * t);
+}
+
+function frac(v: number): number {
+  return v - Math.floor(v);
+}
+
+/** Cheap deterministic hash of a 3D cell to [0, 1). */
+function cell(a: number, b: number, c: number): number {
+  let h = Math.imul(a, 374761393) ^ Math.imul(b, 668265263) ^ Math.imul(c, 1274126177);
+  h = Math.imul(h ^ (h >>> 13), 1103515245);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
 
 /**

@@ -48,6 +48,17 @@
   - high, near the roof: **Hanging Gardens** (vines and lantern pods under every ledge),
     **Stalactite Forest** (dripcinder spires), **Floating Ash Isles**, **Phoenix Roost**
     (golden rock, nests of burning plumes), **Smoke Veil** (soot and haze).
+- **24 more Surface biomes and 3 more oceans** (`content/wilds.ts`), each with its own
+  surface, plants and mostly trees: Redwood Forest (giant 2×2×2-trunk redwoods), Mangrove
+  Swamp (trees on prop roots), Baobab Savanna, Red Outback (ghost gums), Tundra, Glacier
+  (raised ice sheet with crevasses), Aspen Parkland, Rainforest (emergent kapoks), Cloud
+  Forest, Glowshroom Forest (giant glowing blue mushrooms), Crystal Fields (crystal spires),
+  Petrified Forest, Highland Moor, Karst Pillars (towers of limestone with pines on top),
+  Hoodoo Badlands, Sunflower Plains, Pine Barrens, Geyser Basin (scalding geyser vents),
+  Wisteria Woods (weeping purple trees), Boreal Bog, Burnt Woods, Kaleidoscope Fields, Olive
+  Groves, Palm Isles; and the Abyssal Trench, Sargasso Sea and Lantern Reef oceans.
+  - New tree shapes `giant`, `mangrove`, `baobab`, `pine`, `palm`, `weeping`, `spire`; new
+    terrain styles `pillars`, `hoodoos`, `glacier`; Surface biomes can have `vents` too.
   - New generator features from data: plants that hang from the underside of masses
     (`placement: 'ceiling'`), vents (`vents`), molten cascades (the `falls` family) and
     tapering 4D spires (tree shape `spire`).
