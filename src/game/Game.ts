@@ -472,6 +472,7 @@ export class Game {
       pitch: 0,
       pixelated: opts.settings.pixelated,
       nightVision: 0,
+      xray: false,
     };
     this.particles.density = particleDensity(opts.settings);
     this.env.setTime(1500);
@@ -740,6 +741,7 @@ export class Game {
     }
     const pr = this.params;
     pr.underwater += ((p.eyeInWater ? 1 : 0) - pr.underwater) * Math.min(1, dt * 8);
+    pr.xray = p.mode === 'spectator';
     pr.nightVision += ((this.nightVisionOn ? 1 : 0) - pr.nightVision) * Math.min(1, dt * 6);
     if (Math.abs(pr.nightVision - (this.nightVisionOn ? 1 : 0)) < 0.002) pr.nightVision = this.nightVisionOn ? 1 : 0;
     pr.damage = Math.max(pr.damage - dt * 2, this.vitals.flash * 0.8, this.vitals.dead ? 0.6 : 0);

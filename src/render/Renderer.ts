@@ -66,6 +66,8 @@ export interface RenderParams {
   pixelated: boolean;
   /** Night vision 0..1 (creative / spectator toggle): lights everything up. */
   nightVision: number;
+  /** Spectator: see through solid ground from inside it. */
+  xray: boolean;
 }
 
 export interface RenderStats {
@@ -256,6 +258,7 @@ export class Renderer {
     gl.uniform1i(m.loc('uSelectOn'), p.selectOn ? 1 : 0);
     gl.uniform1f(m.loc('uBreak'), p.breakProgress);
     gl.uniform1f(m.loc('uNightVision'), p.nightVision);
+    gl.uniform1i(m.loc('uXray'), p.xray ? 1 : 0);
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, gw.chunkTable);

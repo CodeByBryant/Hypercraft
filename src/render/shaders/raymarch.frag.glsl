@@ -73,6 +73,7 @@ uniform ivec4 uSelect;
 uniform int uSelectOn;
 uniform float uBreak;   // mining progress 0..1 on the selected cell
 uniform float uNightVision; // 0..1: everything lit as if by daylight (keeps a hint of the realm's tint)
+uniform int uXray;          // spectator: from inside solid ground, see through it (Minecraft's view)
 uniform highp sampler2D uEntities; // mob records + analytic parts (see MobManager.pack)
 uniform int uEntityCount;
 
@@ -911,6 +912,19 @@ void main() {
     }
   }
 
+  // Spectator inside solid ground, like Minecraft's: faces between solid blocks are not drawn,
+  // so the ray passes through rock until it reaches open space, and the first face it meets
+  // after that is a cave wall (or the terrain beyond) facing you. The near walls of a cave,
+  // seen from behind, are not drawn either.
+  bool buried = false;
+  if (uXray != 0 && cell.y >= 0 && cell.y < H && inWindow(cell)) {
+    int lv;
+    bool ld;
+    uint v = lookup(cell, k, lv, ld);
+    uvec4 bi = blockInfo(v & ID_MASK);
+    buried = ld && renderOf(bi) == R_OPAQUE && fullOf(bi);
+  }
+
   for (int i = 0; i < 1024; i++) {
     steps = i;
     if (tEnt <= t) {
@@ -952,7 +966,13 @@ void main() {
       }
     }
     uint id = vox & ID_MASK;
-    if (id != medium) {
+    bool through = false;
+    if (buried) {
+      uvec4 bb = blockInfo(id);
+      if (renderOf(bb) == R_OPAQUE && fullOf(bb)) through = true;
+      else buried = false;
+    }
+    if (!through && id != medium) {
       uvec4 bi = blockInfo(id);
       int r = renderOf(bi);
       if (r == R_INVIS) {

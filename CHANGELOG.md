@@ -28,6 +28,11 @@
   lit like a sunny day (keeping a hint of the realm's tint); the HUD shows NIGHT VISION. It is
   saved with the player, so it survives realm trips, and switches off in survival.
 
+- **Spectator sees through the ground**, like Minecraft's: with your eye inside solid
+  blocks, faces between solid blocks are not drawn, so rays pass through rock until they reach
+  open space and you see the cave walls facing you (and the terrain beyond), instead of the
+  face of the block in front of your nose.
+
 ### Fixed (touch)
 - A quick tap on a second touch button (say NV, then Inventory) was swallowed by the iPad
   double-tap-zoom guard. Buttons now opt out of double-tap zoom with `touch-action`.
