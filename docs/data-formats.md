@@ -349,13 +349,16 @@ roof. Ember mobs spawn from the `day` table.
 **Portal records** (saved in `SavedState.data.portals`):
 
 ```ts
-{ realm: 'ember', axis: 0, min: [x, y, z, w], max: [x, y, z, w] }
+{ realm: 'ember', axis: 0, min: [x, y, z, w], max: [x, y, z, w] }            // hyper-portal
+{ realm: 'surface', axis: 2, thin: 3, min: [x, y, z, w], max: [x, y, z, w] } // flat portal
 ```
 
 `axis` is the normal (0 x, 2 z, 3 w). `min` and `max` bound the interior, with
-`min[axis] === max[axis]`. A realm trip saves the destination state with
-`data.arrival = { kind: 'portal', axis }` (or `{ kind: 'respawn' }`), which the next load
-consumes.
+`min[axis] === max[axis]`. A flat (Minecraft-style) portal also has `thin`, its second normal,
+with `min[thin] === max[thin]`: it is a rectangle in the plane of y and the remaining
+horizontal axis, framed only within that plane. A realm trip saves the destination state with
+`data.arrival = { kind: 'portal', axis, thin? }` (or `{ kind: 'respawn' }`), which the next
+load consumes; the arrival portal copies that shape.
 
 ## Runtime / wire formats
 

@@ -188,3 +188,110 @@ test('portals: light a 4D frame, travel 8:1 to the Ember Depths and back', async
   console.log(JSON.stringify(report, null, 2));
   expect(errors).toEqual([]);
 });
+
+/** A saved world (IndexedDB) after a page load: dismiss the start menu and wait for terrain. */
+async function resumeSaved(page: Page): Promise<void> {
+  await page.waitForFunction(() => window.__hc !== undefined, null, { timeout: 120_000 });
+  await page.getByRole('button', { name: 'Resume' }).click();
+  await page.evaluate(() => window.__hc.manual(true));
+  await page.evaluate(() => window.__hc.ready(180_000));
+  await page.evaluate(() => window.__hc.idle(240_000));
+}
+
+test('a flat Minecraft-style portal in a saved world: flint and steel, the trip, and back', async ({ page }) => {
+  test.setTimeout(900_000);
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.addInitScript(() => {
+    localStorage.setItem('hypercraft.settings.v1', JSON.stringify({ resolution: 180, renderDistance: 2, touch: 'off' }));
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Singleplayer' }).click();
+  await page.getByRole('button', { name: 'Create new world' }).click();
+  await page.locator('label:has-text("World name") input').fill('Portal World');
+  await page.locator('label:has-text("Seed") input[type=text]').fill('flat portal');
+  await page.getByRole('button', { name: 'Create world' }).click();
+  await page.waitForURL(/\?world=/);
+  await resumeSaved(page);
+
+  // A 4 x 5 obsidian frame with corners, in the x-y plane of the slice (wide along x, so you
+  // walk through it along z), standing on the ground in front of us.
+  const frame = await page.evaluate(() => {
+    const hc = window.__hc;
+    hc.setMode('survival');
+    const s = hc.state();
+    const x = Math.floor(s.pos[0]!) + 2, z = Math.floor(s.pos[2]!) + 2, w = Math.floor(s.pos[3]!);
+    const y = Math.max(hc.skyHeight(x, z, w), hc.skyHeight(x + 1, z, w)) + 2;
+    return hc.buildPortalFrame(x, y, z, w, 2, 'obsidian', 3);
+  });
+  const [x0, y0, z0, w0] = frame.min as [number, number, number, number];
+  expect(frame.thin).toBe(3);
+
+  // Stand inside the frame and light its floor with flint and steel, like in Minecraft.
+  const lit = await page.evaluate(
+    async ([x, y, z, w]) => {
+      const hc = window.__hc;
+      hc.clearInventory();
+      hc.give('flint_and_steel', 1);
+      hc.select(0);
+      hc.teleport(x! + 0.5, y! + 0.01, z! + 0.5, w! + 0.5);
+      hc.setView({ pitch: -89 });
+      await hc.frames(3);
+      const t = hc.target();
+      hc.use();
+      await hc.frames(3);
+      let n = 0;
+      for (let dx = 0; dx < 2; dx++) for (let dy = 0; dy < 3; dy++) if (hc.blockAt(x! + dx, y! + dy, z!, w!) === 'portal') n++;
+      return { target: t?.name, membrane: n, durability: hc.inventory()[0]?.[3] ?? -1 };
+    },
+    [x0, y0, z0, w0],
+  );
+  expect(lit.target).toBe('obsidian');
+  expect(lit.membrane).toBe(6);
+  expect(lit.durability).toBe(1);
+
+  // Standing in it for 4 s (survival) saves the world and reloads into the Ember Depths.
+  const loaded = page.waitForEvent('load', { timeout: 180_000 });
+  await page.waitForFunction(() => (window.__hc?.portalTime?.() ?? 0) > 1, null, { timeout: 60_000 });
+  await loaded;
+  await resumeSaved(page);
+  expect(await page.evaluate(() => window.__hc.realm())).toBe('ember');
+  const arrival = await page.evaluate(() => {
+    const hc = window.__hc;
+    const s = hc.state().pos;
+    return {
+      block: hc.blockAt(Math.floor(s[0]!), Math.floor(s[1]! + 0.2), Math.floor(s[2]!), Math.floor(s[3]!)),
+      portal: hc.portals().find((r) => r.realm === 'ember') ?? null,
+    };
+  });
+  expect(arrival.block).toBe('portal');
+  // The arrival portal copies the shape: flat, wide along x.
+  expect(arrival.portal!.thin).toBe(3);
+  expect(arrival.portal!.axis).toBe(2);
+
+  // Back through it: step out along the normal (z), then in again.
+  const back = page.waitForEvent('load', { timeout: 180_000 });
+  await page.evaluate(async () => {
+    const hc = window.__hc;
+    const r = hc.portals().find((q) => q.realm === 'ember')!;
+    const cx = (r.min[0]! + r.max[0]! + 1) / 2, cz = r.min[2]! + 0.5, cw = r.min[3]! + 0.5;
+    hc.teleport(cx, r.min[1]! + 0.01, cz - 1.5, cw);
+    await hc.frames(6);
+    hc.teleport(cx, r.min[1]! + 0.01, cz, cw);
+  });
+  await back;
+  await resumeSaved(page);
+  expect(await page.evaluate(() => window.__hc.realm())).toBe('surface');
+  // The Surface portal was saved with the world: we are back in it, and it is still lit.
+  const home = await page.evaluate(
+    ([x, y, z, w]) => {
+      const hc = window.__hc;
+      const s = hc.state().pos;
+      return { membrane: hc.blockAt(x!, y!, z!, w!), dist: Math.hypot(s[0]! - x!, s[2]! - z!, s[3]! - w!) };
+    },
+    [x0, y0, z0, w0],
+  );
+  expect(home.membrane).toBe('portal');
+  expect(home.dist).toBeLessThan(4);
+  expect(errors).toEqual([]);
+});

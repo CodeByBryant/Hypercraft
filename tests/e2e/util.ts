@@ -79,9 +79,9 @@ export interface Hc {
   // Phase 6
   findBiome(name: string, maxDist?: number): number[] | null;
   realm(): string;
-  buildPortalFrame(x: number, y: number, z: number, w: number, axis: number, block?: string): { axis: number; min: number[]; max: number[] };
+  buildPortalFrame(x: number, y: number, z: number, w: number, axis: number, block?: string, thin?: number): { axis: number; thin?: number; min: number[]; max: number[] };
   lightPortal(x: number, y: number, z: number, w: number): boolean;
-  portals(): { realm: string; axis: number; min: number[]; max: number[] }[];
+  portals(): { realm: string; axis: number; thin?: number; min: number[]; max: number[] }[];
   portalTime(): number;
   traveling(): string | null;
   boss(): { id: number; name: string; health: number; max: number; phase: number; mode: string; pillars: { x: number; y: number; z: number; w: number; erupt: number }[]; warning: string } | null;

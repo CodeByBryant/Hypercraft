@@ -85,9 +85,9 @@ makes it pulse violet and is named at the top of the screen.
 damage, death drops your inventory and shows a respawn screen (hardcore: spectator). Mobs spawn
 from each biome's tables all around you in 4D, not only in your slice.
 
-**The Ember Depths**: build a 4D portal frame of obsidian (the faces around a box of air at
-least 1 wide, 2 tall and 1 deep; 10 blocks at minimum) and light it with flint and steel.
-Stand in it for 4 s. One block in the Ember Depths is 8 on the Surface, along x, z **and** w.
+**The Ember Depths**: build an obsidian portal frame like Minecraft's (4 × 5, corners
+optional) and light it with flint and steel, or go full 4D and frame a 3D box of air on every
+face (a hyper-portal; 10 blocks at minimum around a 1 × 2 × 1 interior). Stand in it for 4 s. One block in the Ember Depths is 8 on the Surface, along x, z **and** w.
 Down there are eight biomes, citadels you climb by walking through W, and the Magma Regent
 in its caldera on the lava sea. Its lava pillars erupt along W, so sidestep in your slice.
 

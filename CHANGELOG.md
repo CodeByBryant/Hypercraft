@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.1 — Playtest fixes (unreleased)
+
+### Fixed
+- **Portals work like Minecraft's.** A flat obsidian frame (4 × 5, corners optional, at least
+  2 × 3 of air inside) in any vertical plane of the slice now lights with flint and steel or
+  a fire charge. Before, only 3D hyper-frames counted, so a Minecraft-style frame just caught
+  fire. Hyper-portals still work. The arrival portal copies the shape you left through (a flat
+  one gets Minecraft's corners), and breaking a block next to a flat portal that is not part
+  of its frame no longer collapses it. A new e2e test lights a flat frame with the real flint
+  and steel in a saved world, travels, and comes back to the same portal.
+
 ## 0.6.0 — Phase 6: The Ember Depths, 4D portals, the Magma Regent (2026-09-30)
 
 ### Added

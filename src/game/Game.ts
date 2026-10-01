@@ -45,13 +45,15 @@ import type { SavedState, WorldInfo } from '../save/WorldInfo';
 import type { GameMode } from '../physics/Player';
 import type { Located } from '../world/gen/protocol';
 import { BossDirector } from './Boss';
-import { findPortal, planeAxes, portalCenter, portalDestination, scalePosition, frameCells, interiorCells, type PortalBox, type PortalRecord } from './Portals';
+import { findPortal, framedAxes, portalCenter, portalDestination, scalePosition, frameCells, interiorCells, type PortalBox, type PortalRecord, type PortalShape } from './Portals';
 
 /** How the player arrives in a realm: through a portal (find or build its twin) or a respawn. */
 export interface Arrival {
   kind: 'portal' | 'respawn';
-  /** Normal axis of the portal left behind (the arrival portal uses the same). */
+  /** Shape of the portal left behind (the arrival portal copies it). */
   axis?: number;
+  /** Flat portals: the second normal axis. */
+  thin?: number;
 }
 
 /**
@@ -1254,7 +1256,9 @@ export class Game {
     this.portalTime = 0;
     const from = this.world.realm, to = REG.realm(portalDestination(from.name));
     const box = this.portalAt(cell[0]!, cell[1]!, cell[2]!, cell[3]!);
-    this.beginTravel(to.name, scalePosition(this.player.pos, from, to), { kind: 'portal', axis: box?.axis ?? 0 });
+    const arrival: Arrival = { kind: 'portal', axis: box?.axis ?? 0 };
+    if (box?.thin !== undefined) arrival.thin = box.thin;
+    this.beginTravel(to.name, scalePosition(this.player.pos, from, to), arrival);
   }
 
   /** Save and hand over to main.ts, which reloads the game in the destination realm. */
@@ -1331,7 +1335,9 @@ export class Game {
       }
       this.portals = this.portals.filter((r) => r !== best);
     }
-    const box = this.buildArrivalPortal(p, a.axis ?? 0);
+    const shape: PortalShape = { axis: a.axis ?? 0 };
+    if (a.thin !== undefined) shape.thin = a.thin;
+    const box = this.buildArrivalPortal(p, shape);
     this.portals.push({ realm, ...box });
     const c = portalCenter(box);
     this.player.setPosition(c[0], c[1], c[2], c[3]);
@@ -1340,32 +1346,31 @@ export class Game {
   }
 
   /**
-   * Build an arrival portal (2 x 3 x 2 interior, obsidian frame, a platform to step out on)
-   * near `at`: on free ground within a few blocks if there is some, else carved in place.
+   * Build an arrival portal shaped like the one left behind (a flat 2 x 3 portal like
+   * Minecraft's, or a 2 x 3 x 2 hyper-portal), framed with obsidian, with a platform to step
+   * out on, near `at`: on free ground within a few blocks if there is some, else carved in place.
    */
-  private buildArrivalPortal(at: ArrayLike<number>, axis: number): PortalBox {
-    const [ha, , hb] = planeAxes(axis);
+  private buildArrivalPortal(at: ArrayLike<number>, shape: PortalShape): PortalBox {
+    // Search offsets run along the two horizontal axes other than the normal.
+    const [ha, hb] = [0, 2, 3].filter((a) => a !== shape.axis) as [number, number];
+    const wide = framedAxes(shape).filter((a) => a !== 1);
     const world = this.world;
     const realm = world.realm;
     const make = (x: number, y: number, z: number, w: number): PortalBox => {
       const min: PortalBox['min'] = [x, y, z, w];
       const max: PortalBox['max'] = [x, y + 2, z, w];
-      max[ha] = min[ha] + 1;
-      max[hb] = min[hb] + 1;
-      return { axis, min, max };
+      for (const a of wide) max[a] = min[a] + 1;
+      const box: PortalBox = { axis: shape.axis, min, max };
+      if (shape.thin !== undefined) box.thin = shape.thin;
+      return box;
     };
-    // The volume a portal needs: frame box plus a slab of air on both sides of the membrane.
+    // The volume a portal needs: the box grown by one cell along every axis (the frame, and a
+    // slab of air on both sides of the membrane). Its bottom row is the floor.
     const volume = (box: PortalBox, f: (x: number, y: number, z: number, w: number, floor: boolean) => boolean): boolean => {
-      for (let n = -1; n <= 1; n++)
-        for (let i = box.min[ha] - 1; i <= box.max[ha] + 1; i++)
-          for (let k = box.min[hb] - 1; k <= box.max[hb] + 1; k++)
-            for (let y = box.min[1] - 1; y <= box.max[1] + 1; y++) {
-              const q = [0, y, 0, 0];
-              q[axis] = box.min[axis] + n;
-              q[ha] = i;
-              q[hb] = k;
-              if (!f(q[0]!, y, q[2]!, q[3]!, y === box.min[1] - 1)) return false;
-            }
+      for (let y = box.min[1] - 1; y <= box.max[1] + 1; y++)
+        for (let x = box.min[0] - 1; x <= box.max[0] + 1; x++)
+          for (let z = box.min[2] - 1; z <= box.max[2] + 1; z++)
+            for (let w = box.min[3] - 1; w <= box.max[3] + 1; w++) if (!f(x, y, z, w, y === box.min[1] - 1)) return false;
       return true;
     };
     const free = (box: PortalBox) =>
@@ -1376,17 +1381,16 @@ export class Game {
         if (floor) return REG.fluid[id] === 0; // the floor row may be solid (or air: we build it)
         return !REG.solid[id] && REG.fluid[id] === 0;
       });
+    // Mostly solid ground under the platform.
     const grounded = (box: PortalBox) => {
-      let solid = 0;
-      for (let i = box.min[ha] - 1; i <= box.max[ha] + 1; i++)
-        for (let k = box.min[hb] - 1; k <= box.max[hb] + 1; k++) {
-          const q = [0, box.min[1] - 2, 0, 0];
-          q[axis] = box.min[axis];
-          q[ha] = i;
-          q[hb] = k;
-          if (REG.solid[world.getBlock(q[0]!, q[1]!, q[2]!, q[3]!) & 0xfff]) solid++;
-        }
-      return solid >= 10;
+      let solid = 0, n = 0;
+      for (let x = box.min[0] - 1; x <= box.max[0] + 1; x++)
+        for (let z = box.min[2] - 1; z <= box.max[2] + 1; z++)
+          for (let w = box.min[3] - 1; w <= box.max[3] + 1; w++) {
+            n++;
+            if (REG.solid[world.getBlock(x, box.min[1] - 2, z, w) & 0xfff]) solid++;
+          }
+      return solid >= n * 0.6;
     };
     const top = realm.heightChunks * 16 - 8;
     const x0 = Math.floor(at[0]!), y0 = Math.max(realm.seaLevel + 2, Math.min(top - 6, Math.floor(at[1]!))), z0 = Math.floor(at[2]!), w0 = Math.floor(at[3]!);
@@ -1412,20 +1416,22 @@ export class Game {
         }
       }
     const box = pick ?? floating ?? make(x0, y0, z0, w0);
-    // Carve, then build: platform, frame, membrane.
+    // Carve, then build: platform, frame (flat portals get Minecraft's corners), membrane.
     const obs = REG.id('obsidian'), portal = REG.id('portal');
     volume(box, (x, y, z, w, floor) => {
       world.setBlock(x, y, z, w, floor ? obs : 0);
       return true;
     });
-    for (const c of frameCells(box)) world.setBlock(c[0]!, c[1]!, c[2]!, c[3]!, obs);
+    for (const c of frameCells(box, box.thin !== undefined)) world.setBlock(c[0]!, c[1]!, c[2]!, c[3]!, obs);
     for (const c of interiorCells(box)) world.setBlock(c[0]!, c[1]!, c[2]!, c[3]!, portal);
     return box;
   }
 
   /**
-   * A portal cell or frame block changed: if membrane is gone or the frame is broken, the
-   * whole portal collapses (every connected membrane cell), like Minecraft's.
+   * A portal cell or frame block changed. Each connected body of membrane next to it must
+   * still be exactly one valid portal; otherwise it collapses (every connected membrane cell),
+   * like Minecraft's. A block next to a flat portal's membrane that was never part of its
+   * frame (say, obsidian kata of it) does not matter.
    */
   private portalBlockChanged(x: number, y: number, z: number, w: number, o: number, n: number): void {
     if (this.collapsing) return;
@@ -1433,7 +1439,6 @@ export class Game {
     const wasPortal = (o & 0xfff) === portal && (n & 0xfff) !== portal;
     const wasFrame = this.isPortalFrame(o) && !this.isPortalFrame(n);
     if (!wasPortal && !wasFrame) return;
-    const seeds: number[][] = [];
     const around = [
       [1, 0, 0, 0],
       [-1, 0, 0, 0],
@@ -1444,28 +1449,38 @@ export class Game {
       [0, 0, 0, 1],
       [0, 0, 0, -1],
     ];
-    for (const d of around) {
-      const c = [x + d[0]!, y + d[1]!, z + d[2]!, w + d[3]!];
-      if ((this.world.getBlock(c[0]!, c[1]!, c[2]!, c[3]!) & 0xfff) === portal) seeds.push(c);
-    }
-    if (!seeds.length) return;
+    const membrane = (c: number[]) => (this.world.getBlock(c[0]!, c[1]!, c[2]!, c[3]!) & 0xfff) === portal;
     const seen = new Set<string>();
-    const cells: number[][] = [];
-    while (seeds.length && cells.length < 4000) {
-      const c = seeds.pop()!;
-      const k = c.join();
-      if (seen.has(k)) continue;
-      seen.add(k);
-      if ((this.world.getBlock(c[0]!, c[1]!, c[2]!, c[3]!) & 0xfff) !== portal) continue;
-      cells.push(c);
-      for (const d of around) seeds.push([c[0]! + d[0]!, c[1]! + d[1]!, c[2]! + d[2]!, c[3]! + d[3]!]);
+    const collapsed: number[][] = [];
+    for (const d of around) {
+      const seed = [x + d[0]!, y + d[1]!, z + d[2]!, w + d[3]!];
+      if (seen.has(seed.join()) || !membrane(seed)) continue;
+      // The connected body of membrane.
+      const stack = [seed], cells: number[][] = [];
+      while (stack.length && cells.length < 4000) {
+        const c = stack.pop()!;
+        const k = c.join();
+        if (seen.has(k)) continue;
+        seen.add(k);
+        if (!membrane(c)) continue;
+        cells.push(c);
+        for (const e of around) stack.push([c[0]! + e[0]!, c[1]! + e[1]!, c[2]! + e[2]!, c[3]! + e[3]!]);
+      }
+      const box = this.portalAt(seed[0]!, seed[1]!, seed[2]!, seed[3]!);
+      if (box) {
+        let count = 0;
+        for (const c of interiorCells(box)) if (membrane(c)) count++;
+        if (count === cells.length) continue; // still one whole, valid portal
+      }
+      collapsed.push(...cells);
     }
+    if (!collapsed.length) return;
     this.collapsing = true;
-    for (const c of cells) this.world.setBlock(c[0]!, c[1]!, c[2]!, c[3]!, 0);
+    for (const c of collapsed) this.world.setBlock(c[0]!, c[1]!, c[2]!, c[3]!, 0);
     this.collapsing = false;
     const realm = this.world.realm.name;
     this.portals = this.portals.filter(
-      (r) => r.realm !== realm || !cells.some((c) => c[0]! >= r.min[0] && c[0]! <= r.max[0] && c[1]! >= r.min[1] && c[1]! <= r.max[1] && c[2]! >= r.min[2] && c[2]! <= r.max[2] && c[3]! >= r.min[3] && c[3]! <= r.max[3]),
+      (r) => r.realm !== realm || !collapsed.some((c) => c[0]! >= r.min[0] && c[0]! <= r.max[0] && c[1]! >= r.min[1] && c[1]! <= r.max[1] && c[2]! >= r.min[2] && c[2]! <= r.max[2] && c[3]! >= r.min[3] && c[3]! <= r.max[3]),
     );
   }
 

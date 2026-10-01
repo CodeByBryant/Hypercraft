@@ -40,9 +40,9 @@ describe('4D portals', () => {
       expect(found!.axis).toBe(axis);
       expect(found!.min).toEqual(min);
       expect(found!.max).toEqual(max);
-      // Remove one face block: no portal.
-      const face = [...frameCells(box)][3]!;
-      wd.set(face[0]!, face[1]!, face[2]!, face[3]!, AIR);
+      // Remove the face block under a corner cell: no portal there (neither the hyper-portal
+      // nor a flat layer through that cell has a whole frame).
+      wd.set(min[0], 9, min[2], min[3], AIR);
       expect(findPortal(wd.get, min[0], 11, min[2], min[3], open, frame)).toBeNull();
     }
   });
@@ -56,6 +56,56 @@ describe('4D portals', () => {
     const wd2 = world(AIR);
     for (const c of frameCells(flat)) wd2.set(c[0]!, c[1]!, c[2]!, c[3]!, OBS);
     expect(findPortal(wd2.get, 3, 40, 3, 3, open, frame)).toBeNull();
+  });
+
+  it('lights flat Minecraft-style frames (4 x 5, corners optional) in all three vertical planes', () => {
+    for (const width of [0, 2, 3]) {
+      const [axis, thin] = [0, 2, 3].filter((a) => a !== width) as [number, number];
+      const min: PortalBox['min'] = [5, 30, 5, 5];
+      const max: PortalBox['max'] = [5, 32, 5, 5];
+      max[width] = 6;
+      const box: PortalBox = { axis, thin, min, max };
+      expect([...interiorCells(box)].length).toBe(6);
+      expect([...frameCells(box)].length).toBe(10);
+      expect([...frameCells(box, true)].length).toBe(14);
+      const wd = world(AIR);
+      for (const c of frameCells(box)) wd.set(c[0]!, c[1]!, c[2]!, c[3]!, OBS);
+      const found = findPortal(wd.get, max[0], 31, max[2], max[3], open, frame);
+      expect(found, `width ${width}`).not.toBeNull();
+      expect(found!.thin).toBe(thin);
+      expect(found!.min).toEqual(min);
+      expect(found!.max).toEqual(max);
+      // Break one side block: no portal.
+      const side = [...min];
+      side[width] = min[width]! - 1;
+      wd.set(side[0]!, 31, side[2]!, side[3]!, AIR);
+      expect(findPortal(wd.get, max[0], 31, max[2], max[3], open, frame)).toBeNull();
+    }
+  });
+
+  it('flat frames need a 2 x 3 interior, like Minecraft', () => {
+    const narrow: PortalBox = { axis: 2, thin: 3, min: [0, 10, 0, 0], max: [0, 12, 0, 0] };
+    const wd = world(AIR);
+    for (const c of frameCells(narrow, true)) wd.set(c[0]!, c[1]!, c[2]!, c[3]!, OBS);
+    expect(findPortal(wd.get, 0, 11, 0, 0, open, frame)).toBeNull();
+    const low: PortalBox = { axis: 2, thin: 3, min: [0, 30, 0, 0], max: [1, 31, 0, 0] };
+    const wd2 = world(AIR);
+    for (const c of frameCells(low, true)) wd2.set(c[0]!, c[1]!, c[2]!, c[3]!, OBS);
+    expect(findPortal(wd2.get, 0, 30, 0, 0, open, frame)).toBeNull();
+  });
+
+  it('a hyper-frame lights as one 3D portal, not as its flat layers', () => {
+    const box: PortalBox = { axis: 0, min: [0, 10, 0, 0], max: [0, 12, 1, 1] };
+    const wd = world(AIR);
+    build(wd, box);
+    const found = findPortal(wd.get, 0, 11, 1, 1, open, frame);
+    expect(found!.thin).toBeUndefined();
+    expect([...interiorCells(found!)].length).toBe(12);
+    // Without one of its w faces, the layer that still has a whole frame lights flat.
+    wd.set(0, 11, 0, -1, AIR);
+    const layer = findPortal(wd.get, 0, 11, 1, 1, open, frame);
+    expect(layer!.thin).toBeDefined();
+    expect([...interiorCells(layer!)].length).toBe(6);
   });
 
   it('links the Surface and the Ember Depths at 8:1 along x, z and w (not y)', () => {

@@ -129,7 +129,8 @@ Honest list as of Phase 6 (the Ember Depths, portals, the Magma Regent). Items t
   destination, which takes a few seconds (the loading screen says "Entering…"). Saved worlds
   keep both realms' edits. Test worlds carry the player over, but not the edited columns, so a
   portal built in a test world is gone when you come back; the arrival then builds a new one.
-- **Arrival portals are always 2 × 3 × 2 obsidian.** You arrive in a known portal of the
+- **Arrival portals are always the smallest size** (a flat 2 × 3 portal, or a 2 × 3 × 2
+  hyper-portal, whichever shape you left through). You arrive in a known portal of the
   destination realm within 128 blocks (Surface) or 16 (Ember Depths), or a new one is built
   on the nearest free ground within 8 blocks. Failing that, it is carved into the terrain
   with a platform, so it can end up floating or inside a cliff.

@@ -9,7 +9,7 @@ import type { WeatherKind } from '../content/types';
 import { IREG } from '../content/itemRegistry';
 import type { InventoryScreen } from '../ui/InventoryScreen';
 import { STRUCTURES } from '../content/structures';
-import { frameCells, interiorCells, planeAxes } from '../game/Portals';
+import { frameCells, framedAxes, interiorCells, type PortalBox } from '../game/Portals';
 
 export interface ViewSpec {
   yaw?: number;
@@ -347,22 +347,23 @@ export function installTestApi(game: Game, screen?: InventoryScreen): void {
     // ---- Phase 6: portals and realm travel
     /**
      * Build an obsidian portal frame around a 2 x 3 x 2 interior whose low corner is (x, y, z, w),
-     * with the given normal axis (0 x, 2 z, 3 w). Clears the interior. Returns the interior box.
+     * with the given normal axis (0 x, 2 z, 3 w). With `thin` (the second normal), a flat
+     * Minecraft-style frame around a 2 x 3 interior instead, with corners. Clears the interior.
+     * Returns the interior box.
      */
-    buildPortalFrame(x: number, y: number, z: number, w: number, axis: number, block = 'obsidian') {
-      const [a, , b] = planeAxes(axis);
+    buildPortalFrame(x: number, y: number, z: number, w: number, axis: number, block = 'obsidian', thin?: number) {
       const min: [number, number, number, number] = [x, y, z, w];
       const max: [number, number, number, number] = [x, y + 2, z, w];
-      max[a] = min[a] + 1;
-      max[b] = min[b] + 1;
-      const box = { axis, min, max };
+      const box: PortalBox = { axis, min, max };
+      if (thin !== undefined) box.thin = thin;
+      for (const a of framedAxes(box)) if (a !== 1) max[a] = min[a] + 1;
       for (const c of interiorCells(box)) game.world.setBlock(c[0]!, c[1]!, c[2]!, c[3]!, 0);
-      for (const c of frameCells(box)) game.world.setBlock(c[0]!, c[1]!, c[2]!, c[3]!, REG.id(block));
+      for (const c of frameCells(box, thin !== undefined)) game.world.setBlock(c[0]!, c[1]!, c[2]!, c[3]!, REG.id(block));
       return box;
     },
     /** Light a portal whose interior contains (x, y, z, w) (what flint and steel does). */
     lightPortal: (x: number, y: number, z: number, w: number) => game.lightPortal(x, y, z, w),
-    portals: () => game.portals.map((r) => ({ realm: r.realm, axis: r.axis, min: [...r.min], max: [...r.max] })),
+    portals: () => game.portals.map((r) => ({ realm: r.realm, axis: r.axis, thin: r.thin, min: [...r.min], max: [...r.max] })),
     portalTime: () => game.portalTime,
     /** The boss the HUD shows: health, phase, pending and burning pillars, warning. */
     boss: () => {
