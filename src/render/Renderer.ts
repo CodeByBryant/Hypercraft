@@ -64,6 +64,8 @@ export interface RenderParams {
   yaw: number;
   pitch: number;
   pixelated: boolean;
+  /** Night vision 0..1 (creative / spectator toggle): lights everything up. */
+  nightVision: number;
 }
 
 export interface RenderStats {
@@ -253,6 +255,7 @@ export class Renderer {
     gl.uniform4i(m.loc('uSelect'), p.select[0]! - ox, p.select[1]!, p.select[2]! - oz, p.select[3]! - ow);
     gl.uniform1i(m.loc('uSelectOn'), p.selectOn ? 1 : 0);
     gl.uniform1f(m.loc('uBreak'), p.breakProgress);
+    gl.uniform1f(m.loc('uNightVision'), p.nightVision);
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, gw.chunkTable);

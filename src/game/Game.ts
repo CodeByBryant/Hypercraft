@@ -237,6 +237,8 @@ export class Game {
   readonly bosses: BossDirector;
   /** Fire spread and burn-out (every lit or spreading fire). */
   readonly fire: FireSystem;
+  /** Night vision toggle (creative and spectator only; N, or the touch button). */
+  nightVision = false;
   /** Seconds the player keeps burning (touching fire 8 s, lava 15 s; water puts it out). */
   burning = 0;
   private burnTick = 0;
@@ -469,6 +471,7 @@ export class Game {
       yaw: 0,
       pitch: 0,
       pixelated: opts.settings.pixelated,
+      nightVision: 0,
     };
     this.particles.density = particleDensity(opts.settings);
     this.env.setTime(1500);
@@ -501,6 +504,7 @@ export class Game {
     this.env.weatherLeft = st.weatherLeft;
     const inv = sp.data?.inventory;
     this.vitals.load(sp.data?.vitals);
+    this.nightVision = sp.data?.nightVision === true;
     const bed = sp.data?.bed;
     if (Array.isArray(bed) && bed.length === 4 && bed.every((v) => Number.isInteger(v))) this.bed = bed as [number, number, number, number];
     const wd = st.data ?? {};
@@ -543,7 +547,7 @@ export class Game {
         pitch: p.cam.pitch,
         mode: dead && this.info.hardcore ? 'spectator' : p.mode,
         flying: p.flying,
-        data: { inventory: this.inv.save(), vitals: dead ? { health: MAX_HEALTH, air: MAX_AIR } : this.vitals.save(), bed: this.bed },
+        data: { inventory: this.inv.save(), vitals: dead ? { health: MAX_HEALTH, air: MAX_AIR } : this.vitals.save(), bed: this.bed, nightVision: this.nightVision },
       },
       ticks: this.env.ticks,
       weather: this.env.weather,
@@ -563,6 +567,22 @@ export class Game {
     ps.info.state = this.snapshot();
     await ps.saveMeta();
     await ps.flush();
+  }
+
+  /** Night vision is on and allowed (creative and spectator). */
+  get nightVisionOn(): boolean {
+    return this.nightVision && (this.player.mode === 'creative' || this.player.mode === 'spectator');
+  }
+
+  /** N / the touch button: night vision on or off (creative and spectator only). */
+  toggleNightVision(): void {
+    const m = this.player.mode;
+    if (m !== 'creative' && m !== 'spectator') {
+      this.message?.('Night vision is for creative and spectator mode');
+      return;
+    }
+    this.nightVision = !this.nightVision;
+    this.message?.(this.nightVision ? 'Night vision ON (N)' : 'Night vision OFF');
   }
 
   /** Cheat keys (time, weather, game mode) are allowed in creative or with cheats on. */
@@ -720,6 +740,8 @@ export class Game {
     }
     const pr = this.params;
     pr.underwater += ((p.eyeInWater ? 1 : 0) - pr.underwater) * Math.min(1, dt * 8);
+    pr.nightVision += ((this.nightVisionOn ? 1 : 0) - pr.nightVision) * Math.min(1, dt * 6);
+    if (Math.abs(pr.nightVision - (this.nightVisionOn ? 1 : 0)) < 0.002) pr.nightVision = this.nightVisionOn ? 1 : 0;
     pr.damage = Math.max(pr.damage - dt * 2, this.vitals.flash * 0.8, this.vitals.dead ? 0.6 : 0);
     if (p.inLava) pr.damage = 1;
     pr.yaw = Math.atan2(p.cam.F[0]!, p.cam.F[2]!);
@@ -865,6 +887,7 @@ export class Game {
       this.message?.(`Weather: ${next}`);
     }
     if (input.pressed('resolution')) this.cycleResolution();
+    if (input.pressed('nightVision')) this.toggleNightVision();
 
     // Touch aim: re-pick at a new aim point before acting on it; a tap interacts once.
     if (input.aimDirty) {

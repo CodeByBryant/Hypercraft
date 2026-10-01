@@ -23,6 +23,15 @@
   - Flint and steel lights fires on any face next to something solid or flammable, and lava
     sets nearby fuel alight as it flows. Fire that spreads into a portal frame lights it.
 
+### Added
+- **Night vision** in creative and spectator: **N**, or the 👁 NV touch button. Everything is
+  lit like a sunny day (keeping a hint of the realm's tint); the HUD shows NIGHT VISION. It is
+  saved with the player, so it survives realm trips, and switches off in survival.
+
+### Fixed (touch)
+- A quick tap on a second touch button (say NV, then Inventory) was swallowed by the iPad
+  double-tap-zoom guard. Buttons now opt out of double-tap zoom with `touch-action`.
+
 ## 0.6.0 — Phase 6: The Ember Depths, 4D portals, the Magma Regent (2026-09-30)
 
 ### Added

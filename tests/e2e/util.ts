@@ -84,6 +84,7 @@ export interface Hc {
   portals(): { realm: string; axis: number; thin?: number; min: number[]; max: number[] }[];
   portalTime(): number;
   traveling(): string | null;
+  nightVision(): boolean;
   startFire(x: number, y: number, z: number, w: number): boolean;
   fires(): number;
   fireTicks(n: number): void;

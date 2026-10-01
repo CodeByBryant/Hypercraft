@@ -85,6 +85,8 @@ makes it pulse violet and is named at the top of the screen.
 damage, death drops your inventory and shows a respawn screen (hardcore: spectator). Mobs spawn
 from each biome's tables all around you in 4D, not only in your slice.
 
+**Night vision** (creative and spectator): press **N** or tap 👁 NV.
+
 **Fire** spreads like Minecraft's, in 4D: through wood, leaves, wool and plants along all
 eight face directions, burning them away. Touch it (or lava) and you burn until it runs out
 or you reach water; mobs burn too. It burns forever on cinder and magma.

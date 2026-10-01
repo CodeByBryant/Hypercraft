@@ -57,6 +57,13 @@ test('touch: hotbar, closing screens, tap to hit and place, long-press mining', 
   await expect.poll(hc).toBe(6);
   await shot(page, 'touch-hud');
 
+  // Night vision (creative / spectator): the 👁 NV button toggles it.
+  await page.tap('.tbtn.nv');
+  await expect.poll(() => page.evaluate(() => window.__hc.nightVision())).toBe(true);
+  await expect(page.locator('.tbtn.nv')).toHaveClass(/\bon\b/);
+  await page.tap('.tbtn.nv');
+  await expect.poll(() => page.evaluate(() => window.__hc.nightVision())).toBe(false);
+
   // Inventory: open with the button, close with ✕; touch controls come back.
   await page.tap('.tbtn.inv');
   await expect.poll(() => page.evaluate(() => window.__hc.screenOpen())).toBe(true);

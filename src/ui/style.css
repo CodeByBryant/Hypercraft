@@ -20,6 +20,10 @@ body {
   inset: 0;
   pointer-events: none;
 }
+/* No double-tap zoom on any button (iPad), without delaying or blocking quick taps. */
+button {
+  touch-action: manipulation;
+}
 
 .hud {
   position: absolute;

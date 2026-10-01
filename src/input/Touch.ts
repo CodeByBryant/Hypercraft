@@ -31,6 +31,7 @@ export interface TouchHooks {
   onPause(): void;
   onInventory?(): void;
   onToggleFly?(): void;
+  onToggleNightVision?(): void;
 }
 
 /** What the HUD shows on the buttons (updated by the game every frame). */
@@ -38,6 +39,8 @@ export interface TouchState {
   creative: boolean;
   /** The crosshair is on a mob (the Hit button attacks). */
   onMob: boolean;
+  /** Night vision is on (creative / spectator). */
+  nightVision?: boolean;
 }
 
 export function isTouchDevice(): boolean {
@@ -65,6 +68,7 @@ export class TouchControls {
   private visible = false;
   private readonly hitBtn: HTMLButtonElement;
   private readonly flyBtn: HTMLButtonElement;
+  private readonly nvBtn: HTMLButtonElement;
   private lastState = '';
 
   constructor(parent: HTMLElement, input: Input, hooks: TouchHooks) {
@@ -116,6 +120,11 @@ export class TouchControls {
       hooks.onToggleFly?.();
       return false;
     });
+    // Night vision (creative and spectator): lights up caves and nights.
+    this.nvBtn = this.button(top, '👁 NV', 'nv', () => {
+      hooks.onToggleNightVision?.();
+      return false;
+    });
     this.tapKey(top, 'F3', 'F3', 'small');
     this.tapKey(top, 'P', 'KeyP', 'small');
     this.setVisible(false);
@@ -134,12 +143,14 @@ export class TouchControls {
 
   /** Per-frame state from the game: button labels and which buttons apply. */
   update(s: TouchState): void {
-    const key = `${s.creative}|${s.onMob}`;
+    const key = `${s.creative}|${s.onMob}|${s.nightVision}`;
     if (key === this.lastState) return;
     this.lastState = key;
     this.hitBtn.textContent = s.onMob ? '⚔ Hit' : '⛏ Hit';
     this.hitBtn.classList.toggle('target', s.onMob);
     this.flyBtn.style.display = s.creative ? '' : 'none';
+    this.nvBtn.style.display = s.creative ? '' : 'none';
+    this.nvBtn.classList.toggle('on', s.nightVision === true);
   }
 
   private div(cls: string, parent: HTMLElement): HTMLDivElement {

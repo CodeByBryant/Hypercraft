@@ -72,6 +72,7 @@ uniform int uWire;
 uniform ivec4 uSelect;
 uniform int uSelectOn;
 uniform float uBreak;   // mining progress 0..1 on the selected cell
+uniform float uNightVision; // 0..1: everything lit as if by daylight (keeps a hint of the realm's tint)
 uniform highp sampler2D uEntities; // mob records + analytic parts (see MobManager.pack)
 uniform int uEntityCount;
 
@@ -607,6 +608,11 @@ float edgeDistance(Surf s, out int eax) {
   return e;
 }
 
+// Night vision: a floor under all lighting, as bright as a sunny day.
+vec3 nightVisionLight() {
+  return uNightVision * mix(vec3(1.0), uAmbientTint, 0.25);
+}
+
 vec3 axisColor(int a) {
   return a == 0 ? vec3(1.0, 0.25, 0.2) : a == 1 ? vec3(0.3, 1.0, 0.35) : a == 2 ? vec3(0.25, 0.5, 1.0) : vec3(1.0, 0.3, 1.0);
 }
@@ -656,6 +662,7 @@ vec3 shade(Surf s, vec4 d, uint vox, uvec4 bi, float t, out float alpha) {
   if (s.kind == 1) fs = 0.85;
   float sunTerm = 0.78 + 0.22 * max(0.0, dot(n, uSunDir));
   vec3 light = uSkyLight * lightCurve(sky) * sunTerm + uBlockLight * lightCurve(blk) + uAmbient * uAmbientTint;
+  light = max(light, nightVisionLight());
   float ao = 1.0 - 0.62 * occ;
   vec3 c = albedo * light * fs * ao;
   float e = emissionOf(bi);
@@ -848,6 +855,7 @@ vec3 shadeEntity(EntHit h, vec4 o, vec4 d, inout Cache k) {
   float facet = 0.62 + 0.38 * max(0.0, dot(h.n, uUpVec)) + 0.12 * abs(dot(h.n, uHidden));
   float sunTerm = 0.78 + 0.22 * max(0.0, dot(h.n, uSunDir));
   vec3 light = uSkyLight * lightCurve(sky) * sunTerm + uBlockLight * lightCurve(blk) + uAmbient * uAmbientTint;
+  light = max(light, nightVisionLight());
   vec3 col = h.col * light * facet;
   if (h.glow > 0.5) col = h.col * 1.15;
   if (h.hurt > 0.5) col = mix(col, vec3(0.95, 0.12, 0.08), 0.5);

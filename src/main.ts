@@ -56,7 +56,10 @@ document.addEventListener(
     const now = performance.now();
     const t = e.target as HTMLElement | null;
     const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT');
-    if (!typing && now - lastTouchEnd < 350) e.preventDefault();
+    // Buttons opt out of double-tap zoom in CSS (touch-action), and blocking their touchend
+    // would swallow the click of a quick second tap on another button.
+    const button = t?.closest?.('button') ?? null;
+    if (!typing && !button && now - lastTouchEnd < 350) e.preventDefault();
     lastTouchEnd = now;
   },
   { passive: false },
@@ -115,7 +118,7 @@ function startGame(info: WorldInfo, persistence: Persistence | null, settings: S
     const dt = (now - lastHud) / 1000;
     hud.update(dt);
     invScreen.update(dt);
-    if (touch.isVisible) touch.update({ creative: game.player.mode === 'creative' || game.player.mode === 'spectator', onMob: game.targetMob !== null });
+    if (touch.isVisible) touch.update({ creative: game.player.mode === 'creative' || game.player.mode === 'spectator', onMob: game.targetMob !== null, nightVision: game.nightVisionOn });
     lastHud = now;
   };
   const touch = new TouchControls(uiRoot, game.input, {
@@ -124,6 +127,7 @@ function startGame(info: WorldInfo, persistence: Persistence | null, settings: S
     onToggleFly: () => {
       if (game.player.mode === 'creative' || game.player.mode === 'spectator') game.player.flying = !game.player.flying;
     },
+    onToggleNightVision: () => game.toggleNightVision(),
   });
   const usingTouch = () => touchWanted(settings);
   // Test worlds hide the touch controls unless ?touch=1 (e2e tests of the touch UI).

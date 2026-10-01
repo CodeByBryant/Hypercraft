@@ -278,7 +278,7 @@ export class Hud {
     this.updateCompass();
     this.updateRadar();
     const p = g.player;
-    this.mode.textContent = `${p.mode.toUpperCase()}${p.flying ? ' · FLYING' : ''}${g.params.wire ? ' · WIREFRAME' : ''}`;
+    this.mode.textContent = `${p.mode.toUpperCase()}${p.flying ? ' · FLYING' : ''}${g.nightVisionOn ? ' · NIGHT VISION' : ''}${g.params.wire ? ' · WIREFRAME' : ''}`;
     this.updateReadout();
     this.debug.style.display = g.showDebug ? 'block' : 'none';
     if (g.showDebug) this.debug.textContent = this.debugText();

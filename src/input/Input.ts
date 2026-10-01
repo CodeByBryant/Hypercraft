@@ -39,6 +39,7 @@ export const ACTIONS = [
   'resolution',
   'inventory',
   'drop',
+  'nightVision',
 ] as const;
 export type Action = (typeof ACTIONS)[number];
 
@@ -80,6 +81,7 @@ export const DEFAULT_BINDINGS: Record<Action, string[]> = {
   resolution: ['KeyO'],
   inventory: ['Tab', 'KeyI'],
   drop: ['KeyB'],
+  nightVision: ['KeyN'],
 };
 
 const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);

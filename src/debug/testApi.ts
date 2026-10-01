@@ -385,6 +385,8 @@ export function installTestApi(game: Game, screen?: InventoryScreen): void {
       return m ? game.mobs.damage(m, amount, null) : false;
     },
     traveling: () => game.traveling,
+    /** Night vision is on (and allowed in this game mode). */
+    nightVision: () => game.nightVisionOn,
     // ---- Fire
     /** Start a fire in an air cell (needs solid ground or fuel next to it), like flint and steel. */
     startFire: (x: number, y: number, z: number, w: number) => game.startFire(x, y, z, w),
