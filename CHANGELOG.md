@@ -35,7 +35,22 @@
     spawns and F3 use the biome at your height.
   - Each biome's terrain shape is data (`emberTerrain`: fill, verticality, ledges, floor and
     roof heights, dunes, canyons, islands), blended across borders.
-  - Generation stays at about 40–45 ms per column.
+  - Generation stays at about 40–45 ms per column (about 50 ms with the 25 biomes below).
+- **17 more Ember biomes (25 in all)**, each with its own surface, plants and mostly its own
+  trees, spread over the height:
+  - low, by the lava: **Obsidian Shoals** (glassy black sand, shards), **Lavafall Cliffs**
+    (molten cascades pour off every overhang), **Boiling Mire** (slowing mud, scalding mud
+    vents), **Slag Heaps** (rusty slag dunes, Slag Golems);
+  - middle: **Crimson Wilds** and **Warped Woods** (giant red and cyan fungi, hanging weeping
+    vines), **Bone Valley** (rib arches), **Ember Savanna** (golden straw, ashwood trees),
+    **Glowstone Hollows** (glowing shards hanging from the overhangs), **Obsidian Spires**
+    (4D obsidian spikes), **Magma Reef** (glowing magma coral), **Blaze Jungle** (blaze palms);
+  - high, near the roof: **Hanging Gardens** (vines and lantern pods under every ledge),
+    **Stalactite Forest** (dripcinder spires), **Floating Ash Isles**, **Phoenix Roost**
+    (golden rock, nests of burning plumes), **Smoke Veil** (soot and haze).
+  - New generator features from data: plants that hang from the underside of masses
+    (`placement: 'ceiling'`), vents (`vents`), molten cascades (the `falls` family) and
+    tapering 4D spires (tree shape `spire`).
 
 ### Added
 - **Night vision** in creative and spectator: **N**, or the 👁 NV touch button. Everything is

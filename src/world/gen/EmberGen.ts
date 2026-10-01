@@ -69,6 +69,9 @@ interface EB {
   rgb: [number, number, number];
   trees: { def: TreeDef; log: number; leaves: number; density: number }[];
   plants: { id: number; density: number }[];
+  /** Plants hanging from the underside of masses (vines, glowing pods). */
+  hanging: { id: number; density: number }[];
+  vents: { id: number; density: number }[];
 }
 
 interface OreCfg {
@@ -111,6 +114,7 @@ export class EmberGenerator {
   private readonly ores: OreCfg[];
   private readonly host = new Uint8Array(4096);
   private readonly wts: Float64Array;
+  private readonly base: Float64Array;
   /** Lattice levels along y (0, 4, ..., height). */
   private readonly LY: number;
   /** Lattice columns: [density x LY, tube x LY, biome x LY], keyed by lattice (x, z, w). */
@@ -170,7 +174,9 @@ export class EmberGenerator {
           const td = REG.tree(tr.tree);
           return { def: td, log: id(td.log), leaves: td.leaves ? id(td.leaves) : 0, density: tr.density };
         }),
-        plants: def.plants.map((p) => ({ id: id(p.block), density: p.density })),
+        plants: def.plants.filter((p) => p.placement !== 'ceiling').map((p) => ({ id: id(p.block), density: p.density })),
+        hanging: def.plants.filter((p) => p.placement === 'ceiling').map((p) => ({ id: id(p.block), density: p.density })),
+        vents: (def.vents ?? []).map((v) => ({ id: id(v.block), density: v.density })),
       });
     });
     const sea = all.find((b) => b.style === 'sea');
@@ -182,6 +188,7 @@ export class EmberGenerator {
     this.land = all.filter((b) => b !== sea);
     this.landIdx = Int32Array.from(this.land.map((b) => all.indexOf(b)));
     this.wts = new Float64Array(this.land.length);
+    this.base = new Float64Array(this.land.length);
     this.ores = [
       { id: id('ember_quartz_ore'), p: 0.55, r: [1.1, 1.8], y: [10, 118] },
       { id: id('gilded_cinder'), p: 0.3, r: [1.0, 1.5], y: [10, 118] },
@@ -211,6 +218,13 @@ export class EmberGenerator {
     this.cCanyon = Math.abs(this.nCanyon.n3(X / 100, Z / 100, W / 100));
     this.cDune = (0.55 * X + 0.3 * Z + 0.45 * W) / 4.2 + 2.5 * this.nDune.n3(X / 13, Z / 13, W / 13);
     this.cPhase = 22 * this.nDune.n3(X / 150 + 31.7, Z / 150, W / 150);
+    // The horizontal part of every land biome's climate distance (pick() adds altitude).
+    const land = this.land, base = this.base;
+    for (let k = 0; k < land.length; k++) {
+      const c = land[k]!.c;
+      const dh = this.cHeat - c[0], dv = this.cVapor - c[1], ds = this.cSoul - c[2];
+      base[k] = dh * dh + dv * dv + ds * ds * 0.8;
+    }
   }
 
   private altitude(X: number, Y: number, Z: number, W: number): number {
@@ -227,13 +241,11 @@ export class EmberGenerator {
    * normalised soft weights of the land biomes in `wts` (for the terrain blend).
    */
   private pick(alt: number): number {
-    const land = this.land, wts = this.wts;
-    const heat = this.cHeat, vapor = this.cVapor, soul = this.cSoul;
+    const land = this.land, wts = this.wts, base = this.base;
     let best = 0, bestW = -1, sum = 0;
     for (let k = 0; k < land.length; k++) {
-      const c = land[k]!.c;
-      const dh = heat - c[0], dv = vapor - c[1], ds = soul - c[2], da = alt - c[3];
-      const d2 = dh * dh + dv * dv + ds * ds * 0.8 + da * da * ALT_W;
+      const da = alt - land[k]!.c[3];
+      const d2 = base[k]! + da * da * ALT_W;
       const sharp = 1 / (d2 * d2 + 1e-6);
       if (sharp > bestW) {
         bestW = sharp;
@@ -503,6 +515,8 @@ export class EmberGenerator {
           surface[i * 4 + 2] = Math.round(main.rgb[2] * 255);
           surface[i * 4 + 3] = main.index;
           let depth = -1;
+          // The biome only changes every 4 cells up (its lattice band): look it up per band.
+          const bcol = grid[((px + 2) >> 2) + NL * (((pz + 2) >> 2) + NL * ((pw + 2) >> 2))]!;
           for (let y = H - 1; y >= 0; y--) {
             let v: number;
             if (y === 0 || y >= H - 1) v = BEDROCK;
@@ -510,7 +524,7 @@ export class EmberGenerator {
             else if (y >= H - 5 && hash4f(X, y, Z, W, seed ^ SALT_BEDROCK) < 0.6 - (H - 1 - y) * 0.15) v = BEDROCK;
             else if (sol[y]) {
               depth = depth < 0 ? 0 : depth + 1;
-              const eb = biomeAt(px, y, pz, pw);
+              const eb = all[bcol[2 * LY + ((y + 2) >> 2)]!]!;
               const wet = y < sea;
               const soil = eb.style === 'ash' ? 5 : 3;
               if (depth === 0) v = wet ? eb.under : eb.surface;
@@ -540,21 +554,55 @@ export class EmberGenerator {
     // 4. Features: emberglass under overhangs, trees and fungi on surfaces, tesseract frames.
     this.features(X0, Z0, W0, blocks, biomeAt, column);
 
-    // 5. Plants and vents on every surface above the lava.
+    // 5. Plants and vents on every surface above the lava; hanging plants and molten
+    // cascades under every overhang.
+    const CASCADE = REG.id('molten_cascade');
     for (let w = 0; w < 16; w++)
       for (let z = 0; z < 16; z++)
         for (let x = 0; x < 16; x++) {
           const i = x + (z << 4) + (w << 8);
           const X = X0 + x, Z = Z0 + z, W = W0 + w;
           for (let y = sea + 1; y < H - 6; y++) {
-            const top = blocks[i + y * L]!;
+            const cur = blocks[i + y * L]!;
+            if (cur === 0 && y > sea + 2) {
+              // Under an overhang?
+              const roof = blocks[i + (y + 1) * L]!;
+              if (roof === 0 || !REG.solid[roof & 0xfff]) continue;
+              const eb = biomeAt(x + 4, y, z + 4, w + 4);
+              if (eb.style === 'falls' && hash4f(X, y, Z, W, seed ^ SALT_VENT) < 0.004) {
+                // A molten cascade pours down to whatever is below.
+                for (let k = y; k > 1 && blocks[i + k * L] === 0; k--) blocks[i + k * L] = CASCADE;
+                continue;
+              }
+              if (!eb.hanging.length) continue;
+              const pr = hash4f(X, y + 5, Z, W, seed ^ SALT_PLANT);
+              let acc = 0;
+              for (const pl of eb.hanging) {
+                acc += pl.density;
+                if (pr >= acc) continue;
+                const len = 1 + (hash4(X, y, Z, W, seed ^ SALT_PLANT) % 6);
+                for (let k = 0; k < len && y - k > sea + 1 && blocks[i + (y - k) * L] === 0; k++) blocks[i + (y - k) * L] = pl.id;
+                break;
+              }
+              continue;
+            }
+            const top = cur;
             if (top === 0 || blocks[i + (y + 1) * L] !== 0 || !REG.solid[top & 0xfff]) continue;
             const eb = biomeAt(x + 4, y + 1, z + 4, w + 4);
             if (top !== eb.surface) continue;
-            if (eb.style === 'fungal' && hash4f(X, y, Z, W, seed ^ SALT_VENT) < 0.004) {
-              blocks[i + y * L] = REG.id('sulfur_vent');
-              continue;
+            let vented = false;
+            if (eb.vents.length) {
+              const vr = hash4f(X, y, Z, W, seed ^ SALT_VENT);
+              let acc = 0;
+              for (const v of eb.vents) {
+                acc += v.density;
+                if (vr >= acc) continue;
+                blocks[i + y * L] = v.id;
+                vented = true;
+                break;
+              }
             }
+            if (vented) continue;
             const pr = hash4f(X, y + 2, Z, W, seed ^ SALT_PLANT);
             let acc = 0;
             for (const pl of eb.plants) {
@@ -731,6 +779,15 @@ export class EmberGenerator {
           put(X, top - 1 + s, Z, W, leaf);
         }
         this.ball(blocks, X0, Z0, W0, X + 0.5, top + 0.5, Z + 0.5, W + 0.5, 1.3, (old) => (air(old) ? leaf : old));
+        break;
+      }
+      case 'spire': {
+        // A tapering 4D spike: shrinking balls of the log up to a glowing tip.
+        for (let k = 0; k < Hh && y + k < ceil - 1; k++) {
+          const rr = r * (1 - k / Hh) + 0.35;
+          this.ball(blocks, X0, Z0, W0, X + 0.5, y + k + 0.5, Z + 0.5, W + 0.5, rr, (old) => (air(old) ? log : old), true);
+        }
+        put(X, Math.min(ceil - 2, y + Hh), Z, W, leaf);
         break;
       }
       case 'tesseract': {

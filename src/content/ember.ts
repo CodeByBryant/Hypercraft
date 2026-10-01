@@ -266,6 +266,7 @@ export const EMBER_BIOMES: BiomeDef[] = [
     grassColor: '#d8c43a',
     mobs: { day: [{ ...BRUTES, weight: 40 }, { ...HOUNDS, weight: 20 }, { ...WISPS, weight: 10 }] },
     structures: ['forge', ...EMBER_STRUCTS],
+    vents: [{ block: 'sulfur_vent', density: 0.004 }],
     hazards: ['sulfur vents (burn)'],
   }),
   biome({
@@ -404,3 +405,356 @@ export const EMBER_BIOMES: BiomeDef[] = [
     hazards: ['floating frames', 'Ana Stalkers'],
   }),
 ];
+
+// ================================================================ playtest expansion
+// Seventeen more Ember biomes, spread over the realm's height: lava shores and mires low down,
+// forests, valleys and spires in the middle, gardens, roosts and floating isles near the roof.
+// Every one has its own surface, its own plants and (mostly) its own trees.
+
+/** Leaves-like cutout block (fungus warts, fronds, plumes). */
+function foliage(name: string, pattern: TexturePattern, colors: Hex[], o: Opt = {}): void {
+  tex(name, pattern, colors, { density: o.density ?? 0.3 });
+  EMBER_BLOCKS.push({ name, render: 'cutout', solid: true, opaque: false, lightOpacity: 1, textures: { all: name }, hardness: 0.3, tags: ['leaves', 'fireproof'], ...strip(o) });
+}
+
+// ---- low: lava shores and mires
+cube('obsidian_sand', 'speckle', ['#1c1424', '#120c18', '#7a4aa8'], { density: 0.06, hardness: 0.6 });
+cube('glass_slag', 'cells', ['#2a2430', '#1c1822', '#5a4a6a'], { hardness: 2 });
+plant('obsidian_shards', 'bud', ['#1a1020', '#3a2a4a', '#b88aff'], { emission: 4 });
+plant('lava_bloom', 'flower', ['#3a1a10', '#3a1a10', '#ffb030'], { emission: 9 });
+
+cube('scorched_basalt', 'columns', ['#3a2c2a', '#2a201e', '#ff6a1a'], { hardness: 1.25 });
+cube('magma_vein_rock', 'cracks', ['#3e2420', '#2c1814', '#ff8a2a'], { density: 0.18, emission: 5, hardness: 1.5 });
+tex('molten_cascade', 'fluid', ['#d8500a', '#ffa02a', '#fff0a0']);
+EMBER_BLOCKS.push({ name: 'molten_cascade', displayName: 'Molten Cascade', render: 'opaque', solid: false, opaque: false, textures: { all: 'molten_cascade' }, emission: 15, damage: 4, hardness: -1, animation: 'churn' });
+plant('cinder_reed', 'plant', ['#4a1a10', '#ff6a2a'], { density: 0.35, emission: 3 });
+plant('heat_shimmer_moss', 'speckle', ['#5a2a14', '#3a1a0c', '#ffd070'], { density: 0.12, emission: 4 });
+
+cube('boiling_mud', 'noise', ['#5a3a2a', '#4a2e20'], { amount: 0.14, hardness: 0.5, slows: 0.5 });
+cube('mire_clay', 'noise', ['#6a4a3a', '#5a3e30'], { amount: 0.08, hardness: 0.6 });
+cube('mud_vent', 'cracks', ['#4a3424', '#3a2818', '#ffd8a0'], { density: 0.25, emission: 6, damage: 1, hardness: 1 });
+plant('bubble_reed', 'plant', ['#5a4a2a', '#c8a05a'], { density: 0.3 });
+plant('mire_cap', 'mushroom', ['#c8a888', '#a85a2a'], { emission: 5 });
+
+cube('slag_gravel', 'speckle', ['#4a3e3a', '#3a302c', '#a8622a'], { density: 0.14, hardness: 0.6 });
+cube('iron_crust', 'metal', ['#5a3a2a', '#3a2418', '#a85a2a'], { hardness: 3 });
+plant('rust_fern', 'plant', ['#7a3a1a', '#c8622a'], { density: 0.4 });
+plant('scrap_thorn', 'bud', ['#3a2a24', '#5a4a40', '#c8a07a']);
+
+// ---- middle: forests, valleys, spires
+topped('crimson_nylium', ['speckle', ['#8a1a24', '#6a1018', '#ff4a5a']], 'cinder', { density: 0.12, hardness: 0.4, tags: ['infiniburn'] });
+log('crimson_stem', ['bands', ['#7a1a2a', '#5a1020']], ['log_top', ['#8a2030', '#6a1424', '#ff5a6a']], { emission: 2 });
+foliage('crimson_wart', 'cap', ['#a8141e', '#ff3a3a']);
+plant('crimson_roots', 'plant', ['#7a1424', '#ff4a5a'], { density: 0.4 });
+plant('weeping_vines', 'plant', ['#8a1a20', '#ff6a3a'], { density: 0.45, emission: 3 });
+
+topped('warped_nylium', ['speckle', ['#1a6a6a', '#105050', '#3affd8']], 'cinder', { density: 0.12, hardness: 0.4 });
+log('warped_stem', ['bands', ['#1a4a5a', '#103a4a']], ['log_top', ['#1a5a6a', '#104a5a', '#5affe8']], { emission: 2 });
+foliage('warped_wart', 'cap', ['#0a7a7a', '#3affd8']);
+plant('warped_roots', 'plant', ['#105a6a', '#3affd8'], { density: 0.4 });
+plant('twisting_sprouts', 'bud', ['#0a4a4a', '#1a8a8a', '#7affe8'], { emission: 4 });
+
+cube('bone_soil', 'speckle', ['#7a6a5a', '#6a5a4a', '#d8c8a8'], { density: 0.08, hardness: 0.5 });
+log('bone_pillar', ['bands', ['#d8ceb8', '#c8bca4']], ['log_top', ['#e8dec8', '#c8bca4', '#8a7a64']]);
+plant('marrow_grass', 'plant', ['#a89a7a', '#e8dcc0'], { density: 0.4 });
+plant('skull_bloom', 'flower', ['#5a4a3a', '#5a4a3a', '#e8e0d0'], { emission: 2 });
+
+topped('ember_straw', ['grass_top', ['#c8902a', '#a87a1a']], 'cinder', { hardness: 0.4 });
+log('ashwood_log', ['log_side', ['#4a3a34', '#3a2c26']], ['log_top', ['#6a5048', '#4a3a34', '#ff9a4a']]);
+foliage('ashwood_canopy', 'leaves', ['#d8701a', '#a8500a'], { emission: 4 });
+plant('flame_grass', 'flame', ['#8a4a0a', '#ffb030', '#fff0a0'], { emission: 6 });
+plant('cinder_bush', 'bud', ['#4a2a14', '#8a4a1a', '#ff8a3a']);
+
+cube('lumin_dust', 'speckle', ['#c8a85a', '#a88a4a', '#fff4c0'], { density: 0.2, emission: 6, hardness: 0.5 });
+cube('glow_veined_rock', 'cracks', ['#5a4a3a', '#4a3c2e', '#ffe89a'], { density: 0.16, emission: 7, hardness: 1.5 });
+plant('glowshard', 'crystal', ['#ffe89a', '#ffd050', '#ffffff'], { emission: 14 });
+plant('lightcap', 'mushroom', ['#e8d8a8', '#fff0a0'], { emission: 12 });
+
+cube('obsidian_scree', 'speckle', ['#1a1222', '#0e0a14', '#6a3aa8'], { density: 0.05, hardness: 1.2 });
+log('spire_obsidian', ['crystal', ['#1e1430', '#120c1e', '#7a4ac8']], ['log_top', ['#241838', '#160e24', '#9a6ae8']], { hardness: 25 });
+foliage('violet_shard', 'crystal', ['#b88aff', '#8a5ae8', '#ffffff'], { emission: 12 });
+plant('void_grass', 'plant', ['#2a1a3a', '#8a5ad8'], { density: 0.35 });
+plant('spire_moss', 'speckle', ['#2a1a3a', '#1e122c', '#b88aff'], { density: 0.15, emission: 2 });
+
+cube('magma_coral_block', 'cells', ['#a83a1a', '#7a240c', '#ffb050'], { emission: 5, hardness: 1 });
+log('magma_coral_stem', ['cracks', ['#8a2a14', '#6a1e0c', '#ffa040']], ['log_top', ['#a8401a', '#7a2a10', '#ffd070']], { emission: 6 });
+foliage('magma_coral_fan', 'leaves', ['#ff6a2a', '#d8401a'], { emission: 9 });
+plant('ember_anemone', 'flower', ['#6a1a0c', '#6a1a0c', '#ff8a3a'], { emission: 8 });
+plant('heat_polyp', 'bud', ['#5a1a0a', '#a83a1a', '#ffc070'], { emission: 6 });
+
+topped('scorch_moss', ['grass_top', ['#7a5a1a', '#5a4010']], 'cinder', { hardness: 0.4 });
+log('blazewood_log', ['log_side', ['#5a3a1a', '#4a2c10']], ['log_top', ['#7a5020', '#5a3a14', '#ffc040']]);
+foliage('blaze_fronds', 'leaves', ['#ffa020', '#d87a0a'], { emission: 8 });
+plant('flare_vine', 'plant', ['#8a4a0a', '#ffc040'], { density: 0.45, emission: 7 });
+plant('pyre_lily', 'flower', ['#4a3a0a', '#4a3a0a', '#ffd040'], { emission: 10 });
+
+// ---- high: gardens, stalactites, isles, roosts, smoke
+topped('garden_moss', ['grass_top', ['#5a7a2a', '#4a6a1a']], 'cinder', { hardness: 0.4 });
+cube('root_cinder', 'bands', ['#4a2a1a', '#3a2014', '#7a4a2a'], { amount: 0.06, hardness: 0.8 });
+plant('ember_vines', 'plant', ['#4a5a1a', '#c8a03a'], { density: 0.45, emission: 3 });
+plant('lantern_pod', 'fruit', ['#3a4a1a', '#3a4a1a', '#ffd070'], { density: 0.3, emission: 13 });
+
+cube('dripcinder', 'dripstone', ['#6a3a30', '#4a2a22'], { hardness: 1.5 });
+log('dripcinder_column', ['dripstone', ['#7a4438', '#5a3228']], ['log_top', ['#7a4438', '#5a3228', '#ff9a5a']]);
+foliage('drip_tip', 'crystal', ['#ff9a5a', '#d86a3a', '#ffe0c0'], { emission: 6 });
+plant('cave_ember_moss', 'speckle', ['#4a2a1e', '#3a2018', '#ff8a4a'], { density: 0.14, emission: 3 });
+plant('drip_bulb', 'fruit', ['#4a2a1e', '#4a2a1e', '#ffa060'], { density: 0.3, emission: 10 });
+
+topped('ash_turf', ['grass_top', ['#9a948e', '#86807a']], 'ash_block', { hardness: 0.5 });
+cube('cloud_ash', 'noise', ['#b8b2ac', '#a8a29c'], { amount: 0.06, hardness: 0.4 });
+plant('ash_lily', 'flower', ['#6a6460', '#6a6460', '#e8e0d8'], { emission: 2 });
+plant('drift_puff', 'bud', ['#8a847e', '#c8c2bc', '#ffffff']);
+
+cube('aurum_rock', 'speckle', ['#a8802a', '#8a6a1a', '#ffe070'], { density: 0.12, emission: 3, hardness: 2 });
+log('nest_twigs', ['thatch', ['#8a6a3a', '#6a4e2a', '#3a2a1a']], ['log_top', ['#8a6a3a', '#6a4e2a', '#ffd070']]);
+foliage('phoenix_plume', 'flame', ['#d8401a', '#ffa020', '#fff8c0'], { emission: 13, density: 0.6 });
+plant('fire_feather', 'flame', ['#c8300a', '#ff8a1a', '#ffe8a0'], { emission: 11 });
+plant('sunspark', 'flower', ['#6a4a0a', '#6a4a0a', '#fff0a0'], { emission: 12 });
+
+cube('smog_rock', 'noise', ['#3a3438', '#2e282c'], { amount: 0.1, hardness: 1.2 });
+topped('soot_turf', ['speckle', ['#2a2628', '#1e1a1c', '#6a6266']], 'smog_rock', { density: 0.1, hardness: 0.5 });
+plant('soot_fern', 'plant', ['#2a2628', '#5a5256'], { density: 0.4 });
+plant('smoke_bell', 'flower', ['#2a2628', '#2a2628', '#a8a0a4']);
+
+EMBER_TREES.push(
+  { name: 'crimson_fungus', shape: 'fungus', log: 'crimson_stem', leaves: 'crimson_wart', height: [5, 10], radius: [2.4, 3.6] },
+  { name: 'warped_fungus', shape: 'fungus', log: 'warped_stem', leaves: 'warped_wart', height: [6, 11], radius: [2.2, 3.4] },
+  { name: 'rib_arch', shape: 'dead', log: 'bone_pillar', height: [5, 9], radius: [0, 0] },
+  { name: 'ashwood', shape: 'ball', log: 'ashwood_log', leaves: 'ashwood_canopy', height: [5, 7], radius: [2.4, 3.2] },
+  { name: 'obsidian_spire', shape: 'spire', log: 'spire_obsidian', leaves: 'violet_shard', height: [8, 16], radius: [1.4, 2.2] },
+  { name: 'magma_coral', shape: 'crystal', log: 'magma_coral_stem', leaves: 'magma_coral_fan', height: [3, 6], radius: [2.0, 3.0] },
+  { name: 'blaze_palm', shape: 'ball', log: 'blazewood_log', leaves: 'blaze_fronds', height: [8, 12], radius: [2.0, 2.8] },
+  { name: 'dripcinder_spire', shape: 'spire', log: 'dripcinder_column', leaves: 'drip_tip', height: [5, 11], radius: [1.2, 1.8] },
+  { name: 'phoenix_nest', shape: 'fungus', log: 'nest_twigs', leaves: 'phoenix_plume', height: [3, 5], radius: [2.0, 2.6] },
+);
+
+const SURF = (s: string, sub: string, stone: string, ceiling = 'cinder') => ({ surface: s, subsurface: sub, underwater: 'magma_block', stone, ceiling });
+const GUARDS: MobSpawn = { mob: 'citadel_guard', weight: 10, group: [1, 2] };
+
+EMBER_BIOMES.push(
+  // ---- low (altitude ~0.1)
+  biome({
+    name: 'obsidian_shoals', displayName: 'Obsidian Shoals', ember: 'plains',
+    climate: [0.85, 0.15, 0.2, 0.08],
+    emberTerrain: { fill: -0.3, vertical: 0.1, shelves: 0.3, floor: 33, roof: 110, rough: 0.35, dunes: 0.4 },
+    ...SURF('obsidian_sand', 'obsidian_sand', 'glass_slag'),
+    trees: [],
+    plants: [{ block: 'obsidian_shards', density: 0.05 }, { block: 'lava_bloom', density: 0.012 }],
+    particles: [{ kind: 'ember', color: '#b88aff', rate: 4, glow: true }],
+    skyColor: '#1e0c22', fogColor: '#3a1a3e', grassColor: '#6a3a9a',
+    mobs: { day: [SLIMES, { ...DRAKES, weight: 18 }, HOUNDS] },
+    structures: ['forge', ...EMBER_STRUCTS],
+    hazards: ['lava shores', 'sharp shards'],
+  }),
+  biome({
+    name: 'lavafall_cliffs', displayName: 'Lavafall Cliffs', ember: 'falls',
+    climate: [0.92, 0.55, 0.3, 0.18],
+    emberTerrain: { fill: 0.05, vertical: 0.9, shelves: 0.35, floor: 34, roof: 106, rough: 0.3 },
+    ...SURF('scorched_basalt', 'scorched_basalt', 'magma_vein_rock', 'magma_vein_rock'),
+    trees: [],
+    plants: [{ block: 'cinder_reed', density: 0.06 }, { block: 'heat_shimmer_moss', density: 0.1 }],
+    particles: [{ kind: 'ember', color: '#ffa02a', rate: 12, glow: true }, { kind: 'ash', color: '#4a2a1a', rate: 3 }],
+    skyColor: '#4a1004', fogColor: '#8a2a08', grassColor: '#ff6a1a',
+    mobs: { day: [{ ...DRAKES, weight: 25 }, SLIMES, BRUTES] },
+    structures: ['basalt_ziggurat', ...EMBER_STRUCTS],
+    hazards: ['molten cascades', 'sheer drops'],
+  }),
+  biome({
+    name: 'boiling_mire', displayName: 'Boiling Mire', ember: 'plains',
+    climate: [0.55, 0.92, 0.2, 0.12],
+    emberTerrain: { fill: -0.25, vertical: 0.15, shelves: 0.5, floor: 34, roof: 108, rough: 0.25 },
+    ...SURF('boiling_mud', 'mire_clay', 'mire_clay'),
+    trees: [],
+    plants: [{ block: 'bubble_reed', density: 0.1 }, { block: 'mire_cap', density: 0.02 }],
+    vents: [{ block: 'mud_vent', density: 0.006 }],
+    particles: [{ kind: 'spore', color: '#c8a888', rate: 6 }, { kind: 'ash', color: '#8a6a5a', rate: 2 }],
+    skyColor: '#2a1a10', fogColor: '#5a3a24', grassColor: '#8a6a3a',
+    mobs: { day: [{ ...SLIMES, weight: 40 }, HOUNDS, WISPS] },
+    structures: [...EMBER_STRUCTS],
+    hazards: ['mud slows you', 'scalding vents'],
+  }),
+  biome({
+    name: 'slag_heaps', displayName: 'Slag Heaps', ember: 'ash',
+    climate: [0.65, 0.08, 0.6, 0.15],
+    emberTerrain: { fill: -0.15, vertical: 0.2, shelves: 0.4, floor: 37, roof: 108, rough: 0.5, dunes: 0.8 },
+    ...SURF('slag_gravel', 'slag_gravel', 'iron_crust'),
+    trees: [],
+    plants: [{ block: 'rust_fern', density: 0.08 }, { block: 'scrap_thorn', density: 0.03 }],
+    particles: [{ kind: 'dust', color: '#a8622a', rate: 4 }],
+    skyColor: '#2a1a12', fogColor: '#5a3a24', grassColor: '#a8622a',
+    mobs: { day: [{ ...GOLEMS, weight: 30 }, BRUTES, HOUNDS] },
+    structures: ['forge', 'basalt_ziggurat', ...EMBER_STRUCTS],
+    hazards: ['Slag Golems'],
+  }),
+  // ---- middle (altitude ~0.3-0.55)
+  biome({
+    name: 'crimson_wilds', displayName: 'Crimson Wilds', ember: 'plains',
+    climate: [0.62, 0.66, 0.12, 0.35],
+    emberTerrain: { fill: -0.12, vertical: 0.3, shelves: 0.45, floor: 38, roof: 108, rough: 0.4 },
+    ...SURF('crimson_nylium', 'cinder', 'cinder', 'crimson_wart'),
+    trees: [{ tree: 'crimson_fungus', density: 0.009 }],
+    plants: [{ block: 'crimson_roots', density: 0.14 }, { block: 'weeping_vines', density: 0.08, placement: 'ceiling' }],
+    particles: [{ kind: 'spore', color: '#ff4a5a', rate: 10, glow: true }],
+    skyColor: '#3a0810', fogColor: '#6a1420', grassColor: '#c81a2a',
+    mobs: { day: [{ ...BRUTES, weight: 35 }, HOUNDS, SLIMES] },
+    structures: ['citadel', 'forge', ...EMBER_STRUCTS],
+    hazards: ['Ember Brutes'],
+  }),
+  biome({
+    name: 'warped_woods', displayName: 'Warped Woods', ember: 'plains',
+    climate: [0.22, 0.66, 0.62, 0.42],
+    emberTerrain: { fill: -0.12, vertical: 0.35, shelves: 0.45, floor: 38, roof: 108, rough: 0.4 },
+    ...SURF('warped_nylium', 'cinder', 'cinder', 'warped_wart'),
+    trees: [{ tree: 'warped_fungus', density: 0.009 }],
+    plants: [{ block: 'warped_roots', density: 0.14 }, { block: 'twisting_sprouts', density: 0.03 }],
+    particles: [{ kind: 'spore', color: '#3affd8', rate: 10, glow: true }],
+    skyColor: '#081a22', fogColor: '#103a44', grassColor: '#1a9a9a',
+    mobs: { day: [{ ...WISPS, weight: 30 }, { mob: 'ana_stalker', weight: 20 }, HOUNDS] },
+    structures: [...EMBER_STRUCTS],
+    hazards: ['Ana Stalkers'],
+  }),
+  biome({
+    name: 'bone_valley', displayName: 'Bone Valley', ember: 'plains',
+    climate: [0.18, 0.32, 0.72, 0.3],
+    emberTerrain: { fill: -0.2, vertical: 0.5, shelves: 0.3, floor: 36, roof: 108, rough: 0.3, canyons: 0.4 },
+    ...SURF('bone_soil', 'bone_soil', 'soul_stone'),
+    trees: [{ tree: 'rib_arch', density: 0.006 }],
+    plants: [{ block: 'marrow_grass', density: 0.1 }, { block: 'skull_bloom', density: 0.01 }],
+    particles: [{ kind: 'mote', color: '#e8e0d0', rate: 5 }, { kind: 'ash', color: '#8a8070', rate: 2 }],
+    skyColor: '#141c20', fogColor: '#3a4a50', grassColor: '#d8c8a8',
+    mobs: { day: [{ mob: 'bone_archer', weight: 45, group: [1, 3] }, WISPS, GOLEMS] },
+    structures: ['citadel', ...EMBER_STRUCTS],
+    hazards: ['Bone Archers'],
+  }),
+  biome({
+    name: 'ember_savanna', displayName: 'Ember Savanna', ember: 'plains',
+    climate: [0.72, 0.32, 0.08, 0.42],
+    emberTerrain: { fill: -0.22, vertical: 0.15, shelves: 0.6, floor: 39, roof: 110, rough: 0.25 },
+    ...SURF('ember_straw', 'cinder', 'scorched_stone'),
+    trees: [{ tree: 'ashwood', density: 0.003 }],
+    plants: [{ block: 'flame_grass', density: 0.16 }, { block: 'cinder_bush', density: 0.02 }],
+    particles: [{ kind: 'ember', color: '#ffc040', rate: 6, glow: true }],
+    skyColor: '#3a1a04', fogColor: '#7a3a0a', grassColor: '#d8902a',
+    mobs: { day: [{ ...HOUNDS, weight: 45 }, DRAKES, BRUTES] },
+    structures: ['forge', 'basalt_ziggurat', ...EMBER_STRUCTS],
+    hazards: ['hound packs', 'grass fires'],
+  }),
+  biome({
+    name: 'glowstone_hollows', displayName: 'Glowstone Hollows', ember: 'plains',
+    climate: [0.45, 0.22, 0.55, 0.52],
+    emberTerrain: { fill: 0.05, vertical: 0.25, shelves: 0.3, floor: 38, roof: 104, rough: 0.5 },
+    ...SURF('lumin_dust', 'lumin_dust', 'glow_veined_rock', 'glow_veined_rock'),
+    trees: [],
+    plants: [{ block: 'lightcap', density: 0.03 }, { block: 'glowshard', density: 0.09, placement: 'ceiling' }],
+    particles: [{ kind: 'mote', color: '#fff0a0', rate: 10, glow: true }],
+    skyColor: '#3a2a0a', fogColor: '#8a6a2a', grassColor: '#ffe070',
+    mobs: { day: [{ ...WISPS, weight: 35 }, SLIMES, GOLEMS] },
+    structures: [...EMBER_STRUCTS],
+    hazards: ['glare'],
+  }),
+  biome({
+    name: 'obsidian_spires', displayName: 'Obsidian Spires', ember: 'prisms',
+    climate: [0.92, 0.3, 0.72, 0.55],
+    emberTerrain: { fill: -0.05, vertical: 1, shelves: 0.1, floor: 37, roof: 108, rough: 0.2 },
+    ...SURF('obsidian_scree', 'obsidian_scree', 'glass_slag', 'obsidian_scree'),
+    trees: [{ tree: 'obsidian_spire', density: 0.006 }],
+    plants: [{ block: 'void_grass', density: 0.08 }, { block: 'spire_moss', density: 0.06 }],
+    particles: [{ kind: 'mote', color: '#b88aff', rate: 6, glow: true }],
+    skyColor: '#120a1e', fogColor: '#2a1a40', grassColor: '#8a5ad8',
+    mobs: { day: [{ mob: 'ana_stalker', weight: 25 }, DRAKES, GOLEMS] },
+    structures: ['basalt_ziggurat', ...EMBER_STRUCTS],
+    hazards: ['spire drops', 'Ana Stalkers'],
+  }),
+  biome({
+    name: 'magma_reef', displayName: 'Magma Reef', ember: 'plains',
+    climate: [0.88, 0.78, 0.25, 0.3],
+    emberTerrain: { fill: -0.2, vertical: 0.3, shelves: 0.4, floor: 35, roof: 108, rough: 0.6, islands: 0.25 },
+    ...SURF('magma_coral_block', 'cinder', 'smoldering_cinder'),
+    trees: [{ tree: 'magma_coral', density: 0.012 }],
+    plants: [{ block: 'ember_anemone', density: 0.04 }, { block: 'heat_polyp', density: 0.05 }],
+    particles: [{ kind: 'bubble', color: '#ffa040', rate: 0 }, { kind: 'ember', color: '#ff8a3a', rate: 8, glow: true }],
+    skyColor: '#3a0e04', fogColor: '#7a2a0a', grassColor: '#ff6a2a',
+    mobs: { day: [{ ...SLIMES, weight: 35 }, DRAKES, WISPS] },
+    structures: [...EMBER_STRUCTS],
+    hazards: ['hot coral', 'lava pockets'],
+  }),
+  biome({
+    name: 'blaze_jungle', displayName: 'Blaze Jungle', ember: 'plains',
+    climate: [0.95, 0.92, 0.5, 0.45],
+    emberTerrain: { fill: -0.1, vertical: 0.4, shelves: 0.5, floor: 38, roof: 110, rough: 0.45 },
+    ...SURF('scorch_moss', 'cinder', 'smoldering_cinder', 'scorch_moss'),
+    trees: [{ tree: 'blaze_palm', density: 0.012 }],
+    plants: [{ block: 'pyre_lily', density: 0.03 }, { block: 'flare_vine', density: 0.07, placement: 'ceiling' }],
+    particles: [{ kind: 'firefly', color: '#ffc040', rate: 8, glow: true }],
+    skyColor: '#3a2004', fogColor: '#7a4a0a', grassColor: '#d8a02a',
+    mobs: { day: [{ ...DRAKES, weight: 20 }, BRUTES, HOUNDS] },
+    structures: ['forge', ...EMBER_STRUCTS],
+    hazards: ['Magma Drakes'],
+  }),
+  // ---- high (altitude ~0.7-0.9)
+  biome({
+    name: 'hanging_gardens', displayName: 'Hanging Gardens', ember: 'plains',
+    climate: [0.5, 0.86, 0.62, 0.76],
+    emberTerrain: { fill: -0.05, vertical: 0.2, shelves: 0.7, floor: 38, roof: 112, rough: 0.3 },
+    ...SURF('garden_moss', 'cinder', 'root_cinder', 'root_cinder'),
+    trees: [{ tree: 'emberwood', density: 0.004 }],
+    plants: [{ block: 'ember_vines', density: 0.16, placement: 'ceiling' }, { block: 'lantern_pod', density: 0.04, placement: 'ceiling' }],
+    particles: [{ kind: 'firefly', color: '#ffd070', rate: 10, glow: true }, { kind: 'leaf', color: '#6a7a2a', rate: 3 }],
+    skyColor: '#1e2408', fogColor: '#4a5a1a', grassColor: '#7a9a2a',
+    mobs: { day: [{ ...WISPS, weight: 35 }, DRAKES] },
+    structures: [...EMBER_STRUCTS],
+    hazards: ['long falls'],
+  }),
+  biome({
+    name: 'stalactite_forest', displayName: 'Stalactite Forest', ember: 'plains',
+    climate: [0.4, 0.5, 0.18, 0.86],
+    emberTerrain: { fill: 0, vertical: 0.85, shelves: 0.2, floor: 38, roof: 100, rough: 0.3 },
+    ...SURF('dripcinder', 'dripcinder', 'dripcinder', 'dripcinder'),
+    trees: [{ tree: 'dripcinder_spire', density: 0.012 }],
+    plants: [{ block: 'cave_ember_moss', density: 0.1 }, { block: 'drip_bulb', density: 0.05, placement: 'ceiling' }],
+    particles: [{ kind: 'dust', color: '#a86a4a', rate: 4 }],
+    skyColor: '#2a100a', fogColor: '#5a2a1a', grassColor: '#a85a3a',
+    mobs: { day: [{ ...GOLEMS, weight: 25 }, { mob: 'hyperbat', weight: 20, group: [2, 4] }, HOUNDS] },
+    structures: [...EMBER_STRUCTS],
+    hazards: ['dripstone points'],
+  }),
+  biome({
+    name: 'floating_ash_isles', displayName: 'Floating Ash Isles', ember: 'shattered',
+    climate: [0.18, 0.12, 0.5, 0.92],
+    emberTerrain: { fill: -0.45, vertical: 0.2, shelves: 0.2, floor: 30, roof: 116, rough: 0.6, islands: 0.9 },
+    ...SURF('ash_turf', 'cloud_ash', 'ashstone'),
+    trees: [{ tree: 'charred_tree', density: 0.003 }],
+    plants: [{ block: 'ash_lily', density: 0.03 }, { block: 'drift_puff', density: 0.05 }],
+    particles: [{ kind: 'ash', color: '#c8c2bc', rate: 14 }],
+    skyColor: '#3a3634', fogColor: '#7a7470', grassColor: '#b8b2ac',
+    mobs: { day: [{ ...DRAKES, weight: 30 }, WISPS] },
+    structures: [...EMBER_STRUCTS],
+    hazards: ['long falls', 'Magma Drakes'],
+  }),
+  biome({
+    name: 'phoenix_roost', displayName: 'Phoenix Roost', ember: 'plains',
+    climate: [0.95, 0.55, 0.88, 0.9],
+    emberTerrain: { fill: -0.25, vertical: 0.4, shelves: 0.3, floor: 36, roof: 114, rough: 0.4, islands: 0.4 },
+    ...SURF('aurum_rock', 'aurum_rock', 'aurum_rock', 'aurum_rock'),
+    trees: [{ tree: 'phoenix_nest', density: 0.004 }],
+    plants: [{ block: 'fire_feather', density: 0.04 }, { block: 'sunspark', density: 0.02 }],
+    particles: [{ kind: 'ember', color: '#fff0a0', rate: 12, glow: true }],
+    skyColor: '#4a3004', fogColor: '#a8701a', grassColor: '#ffd040',
+    mobs: { day: [{ ...DRAKES, weight: 35 }, GUARDS] },
+    structures: [...EMBER_STRUCTS],
+    hazards: ['Magma Drakes', 'burning plumes'],
+  }),
+  biome({
+    name: 'smoke_veil', displayName: 'Smoke Veil', ember: 'plains',
+    climate: [0.12, 0.72, 0.32, 0.72],
+    emberTerrain: { fill: -0.08, vertical: 0.3, shelves: 0.5, floor: 38, roof: 110, rough: 0.4 },
+    ...SURF('soot_turf', 'smog_rock', 'smog_rock', 'smog_rock'),
+    trees: [{ tree: 'charred_tree', density: 0.002 }],
+    plants: [{ block: 'soot_fern', density: 0.1 }, { block: 'smoke_bell', density: 0.02 }],
+    particles: [{ kind: 'ash', color: '#4a4448', rate: 18 }, { kind: 'dust', color: '#6a6266', rate: 6 }],
+    skyColor: '#141214', fogColor: '#2e2a2c', grassColor: '#4a4448',
+    mobs: { day: [{ mob: 'ana_stalker', weight: 25 }, { ...WISPS, weight: 15 }, BRUTES] },
+    structures: [...EMBER_STRUCTS],
+    hazards: ['smoke hides the drops', 'Ana Stalkers'],
+  }),
+);

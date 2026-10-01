@@ -142,7 +142,7 @@ export interface TextureDef {
   seed?: number;
 }
 
-export type TreeShape = 'ball' | 'birch' | 'cone' | 'acacia' | 'wide' | 'bamboo' | 'mushroom' | 'dead' | 'cactus' | 'kelp' | 'fungus' | 'crystal' | 'tesseract';
+export type TreeShape = 'ball' | 'birch' | 'cone' | 'acacia' | 'wide' | 'bamboo' | 'mushroom' | 'dead' | 'cactus' | 'kelp' | 'fungus' | 'crystal' | 'tesseract' | 'spire';
 
 /** A tree / large-plant archetype (logs, leaves and the procedural 4D shape). */
 export interface TreeDef {
@@ -224,14 +224,16 @@ export interface BiomeDef {
   emberTerrain?: EmberTerrain;
   /** Damaging / slowing features the biome is known for (docs, F3). */
   hazards?: string[];
+  /** Blocks that replace some surface blocks (sulfur vents, mud vents, geysers). */
+  vents?: { block: string; density: number }[];
 }
 
 /**
  * Ember Depths terrain families: special shapes and features (see src/world/gen/EmberGen.ts):
- * prisms get basalt column tops hashed per W layer, canyons soul-glass strata, fungal sulfur
- * vents, sea is the Magma Sea.
+ * prisms get basalt column tops hashed per W layer, canyons soul-glass strata, falls molten
+ * cascades pouring off the overhangs, sea is the Magma Sea.
  */
-export type EmberStyle = 'plains' | 'prisms' | 'fungal' | 'sea' | 'ash' | 'canyons' | 'grove' | 'shattered';
+export type EmberStyle = 'plains' | 'prisms' | 'fungal' | 'sea' | 'ash' | 'canyons' | 'grove' | 'shattered' | 'falls';
 
 /**
  * The shape of Ember terrain: a 4D density field (solid where positive) built from these
