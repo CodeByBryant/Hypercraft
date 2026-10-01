@@ -57,6 +57,14 @@
   Hoodoo Badlands, Sunflower Plains, Pine Barrens, Geyser Basin (scalding geyser vents),
   Wisteria Woods (weeping purple trees), Boreal Bog, Burnt Woods, Kaleidoscope Fields, Olive
   Groves, Palm Isles; and the Abyssal Trench, Sargasso Sea and Lantern Reef oceans.
+- **12 more cave biomes (15 in all)** (`content/caves.ts`): Crystal Geodes, Mushroom
+  Caverns (giant glowing cave mushrooms), Frozen Caves, Magma Caves, Glowworm Grotto, Fossil
+  Galleries, Drowned Grottos, Webbed Hollows, Root Caverns, Sulfur Pits, Hyperlattice Caves,
+  Salt Caverns. Each decorates cave floors and ceilings with its own blocks and grows its own
+  floor and ceiling plants. Cave biomes are now picked from data: the nearest climate point in
+  (humidity, weirdness, depth), and about 40% of caves stay plain stone.
+- **100 biomes in all**: 52 Surface land biomes, 8 oceans, 15 cave biomes, 25 in the Ember
+  Depths.
   - New tree shapes `giant`, `mangrove`, `baobab`, `pine`, `palm`, `weeping`, `spire`; new
     terrain styles `pillars`, `hoodoos`, `glacier`; Surface biomes can have `vents` too.
   - New generator features from data: plants that hang from the underside of masses

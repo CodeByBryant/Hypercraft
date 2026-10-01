@@ -96,8 +96,12 @@ describe('Surface generator (Phase 2)', () => {
   it('underground biomes are reachable', () => {
     const g = gen(2024);
     const seen = new Set<number>();
-    for (let x = -3000; x <= 3000; x += 97) for (let w = -3000; w <= 3000; w += 97) seen.add(g.caveBiomeAt(x, 20, 71, w));
-    for (const n of ['lush_caves', 'dripstone_caves', 'silent_layer']) expect(seen.has(REG.biomeIndex(n))).toBe(true);
+    // Cave biomes are picked in 3D (humidity, weirdness, depth): sample many depths.
+    let k = 0;
+    for (let x = -3000; x <= 3000; x += 97) for (let w = -3000; w <= 3000; w += 97) seen.add(g.caveBiomeAt(x, 6 + ((k++ * 17) % 54), 71, w));
+    const caves = REG.biomes.filter((b) => b.kind === 'underground' && (b.realm ?? 'surface') === 'surface').map((b) => b.name);
+    expect(caves.length).toBeGreaterThanOrEqual(15);
+    expect(caves.filter((n) => !seen.has(REG.biomeIndex(n)))).toEqual([]);
   });
 
   it('carves caves below the surface', () => {

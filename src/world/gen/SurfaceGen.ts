@@ -95,6 +95,8 @@ export class SurfaceGenerator {
   private readonly treesOf: ResolvedTree[][];
   private readonly plantsOf: { id: number; density: number; placement: string }[][];
   private readonly ventsOf: { id: number; density: number }[][];
+  /** Underground biomes: [humidity, weirdness, depth, biome index] each. */
+  private readonly caveClimate: Float64Array;
   /** Underground biomes: floor block, ceiling block (0 = keep stone), [floor, ceiling] plant tables. */
   private readonly caveFloor: Uint16Array;
   private readonly caveCeil: Uint16Array;
@@ -150,6 +152,7 @@ export class SurfaceGenerator {
     );
     this.plantsOf = this.biomes.map((b) => b.plants.map((p) => ({ id: id(p.block), density: p.density, placement: p.placement ?? 'surface' })));
     this.ventsOf = this.biomes.map((b) => (b.vents ?? []).map((v) => ({ id: id(v.block), density: v.density })));
+    this.caveClimate = Float64Array.from(this.biomes.flatMap((b, i) => (b.kind === 'underground' && (b.realm ?? 'surface') === 'surface' ? [b.climate[0], b.climate[1], b.climate[2], i] : [])));
     this.caveFloor = Uint16Array.from(this.biomes.map((b) => (b.kind === 'underground' ? id(b.surface) : 0)));
     this.caveCeil = Uint16Array.from(this.biomes.map((b) => (b.kind === 'underground' && b.ceiling ? id(b.ceiling) : 0)));
     this.cavePlants = [];
@@ -344,11 +347,25 @@ export class SurfaceGenerator {
     return this.caveBiome(this.nCaveHum.n3(x / 170, z / 170, w / 170), this.nCaveWeird.n3(x / 220, z / 220, w / 220), y);
   }
 
+  /**
+   * The cave biome nearest to (humidity, weirdness, depth) among the underground biomes'
+   * climate points, or -1 (plain stone caves) when none is close.
+   */
   private caveBiome(hum: number, weird: number, y: number): number {
-    if (y < 28 && weird > 0.42) return this.idx.silent!;
-    if (hum > 0.3) return this.idx.lush!;
-    if (hum < -0.3) return this.idx.drip!;
-    return -1;
+    // Spread the noise over 0..1 (it clusters around 0), like the surface climate.
+    const h = 0.5 + 0.5 * Math.tanh(2.6 * hum), wd = 0.5 + 0.5 * Math.tanh(2.6 * weird);
+    const depth = Math.max(0, Math.min(1, (this.sea - y) / Math.max(1, this.sea - 4)));
+    const cl = this.caveClimate;
+    let best = -1, bd = 0.075;
+    for (let k = 0; k < cl.length; k += 4) {
+      const a = h - cl[k]!, b = wd - cl[k + 1]!, c = depth - cl[k + 2]!;
+      const d2 = a * a + b * b + c * c * 0.6;
+      if (d2 < bd) {
+        bd = d2;
+        best = cl[k + 3]!;
+      }
+    }
+    return best;
   }
 
   // ------------------------------------------------------------------ generate
