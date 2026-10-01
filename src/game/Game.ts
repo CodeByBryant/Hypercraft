@@ -45,6 +45,8 @@ import type { SavedState, WorldInfo } from '../save/WorldInfo';
 import type { GameMode } from '../physics/Player';
 import type { Located } from '../world/gen/protocol';
 import { BossDirector } from './Boss';
+import { FireSystem } from './Fire';
+import { BURN_FIRE, BURN_LAVA } from '../content/fire';
 import { findPortal, framedAxes, portalCenter, portalDestination, scalePosition, frameCells, interiorCells, type PortalBox, type PortalRecord, type PortalShape } from './Portals';
 
 /** How the player arrives in a realm: through a portal (find or build its twin) or a respawn. */
@@ -233,6 +235,12 @@ export class Game {
   private checkBed = false;
   /** Boss fights: attacks, telegraphs and the HUD boss bar. */
   readonly bosses: BossDirector;
+  /** Fire spread and burn-out (every lit or spreading fire). */
+  readonly fire: FireSystem;
+  /** Seconds the player keeps burning (touching fire 8 s, lava 15 s; water puts it out). */
+  burning = 0;
+  private burnTick = 0;
+  private flameT = 0;
   /** Lit portals in every realm (saved with the world): arrivals look for their twins. */
   portals: PortalRecord[] = [];
   /** Seconds spent standing in a portal (the trip starts at 4 s, 1 s in creative). */
@@ -325,9 +333,17 @@ export class Game {
     }
     this.blockEntities = new BlockEntities(this.world);
 
+    this.fire = new FireSystem({
+      world: this.world,
+      random: Math.random,
+      rainingAt: (x, y, z, w) => this.rainingAt(x, y, z, w),
+      difficulty: () => DIFFICULTY[this.info.difficulty] ?? 2,
+      ignited: (x, y, z, w) => void this.lightPortal(x, y, z, w),
+    });
     this.world.onBlockChange((x, y, z, w, o, n) => {
       this.light.onBlockChanged(x, y, z, w, o, n);
       this.portalBlockChanged(x, y, z, w, o, n);
+      this.fire.blockChanged(x, y, z, w, o, n);
       this.fluids.onBlockChanged(x, y, z, w, o, n);
       // Breaking a chest or furnace spills its contents.
       const spill = this.blockEntities.onBlockChanged(x, y, z, w, o, n);
@@ -634,6 +650,7 @@ export class Game {
       }
       this.updateAtlas();
       if (!this.traveling) this.updatePortal(dt);
+      this.burnEffects(dt);
     }
 
     // Fixed-rate world ticks.
@@ -643,6 +660,7 @@ export class Game {
       this.tickAcc -= 0.05;
       this.env.tick();
       this.fluids.tick();
+      this.fire.tick();
       this.blockEntities.tick(0.05);
       ticks++;
     }
@@ -1193,20 +1211,46 @@ export class Game {
     return v !== VOID_VOXEL && PORTAL_FRAME[voxelId(v)] === 1;
   }
 
-  /** Flint and steel / fire charge on a block: light a portal frame there, or start a fire. */
+  /**
+   * Flint and steel / fire charge on a block: light a portal frame there, or start a fire in
+   * the cell in front of the clicked face.
+   */
   ignite(): boolean {
     if (!this.hasTarget) return false;
     const t = this.target;
     const c = [t.x, t.y, t.z, t.w];
     c[t.axis] = c[t.axis]! + t.sign;
     if (this.lightPortal(c[0]!, c[1]!, c[2]!, c[3]!)) return true;
-    // A fire on top of a solid block (soul fire on soul sand and soul soil).
-    if (t.axis !== 1 || t.sign < 0) return false;
-    if (this.world.getBlock(c[0]!, c[1]!, c[2]!, c[3]!) !== 0) return false;
-    const below = voxelId(t.voxel);
-    if (!REG.solid[below]) return false;
-    const soul = below === REG.id('soul_sand') || below === REG.id('soul_soil');
-    return this.world.setBlock(c[0]!, c[1]!, c[2]!, c[3]!, REG.id(soul ? 'soul_fire' : 'fire'));
+    return this.startFire(c[0]!, c[1]!, c[2]!, c[3]!);
+  }
+
+  /**
+   * Start a fire in an air cell that stands on something solid or touches something that
+   * burns (soul fire on soul sand and soul soil).
+   */
+  startFire(x: number, y: number, z: number, w: number): boolean {
+    const world = this.world;
+    if (world.getBlock(x, y, z, w) !== 0) return false;
+    const bv = world.getBlock(x, y - 1, z, w);
+    const below = bv === VOID_VOXEL ? 0 : voxelId(bv);
+    let fuel = false;
+    for (let a = 0; a < 4 && !fuel; a++)
+      for (const s of [-1, 1]) {
+        const v = world.getBlock(x + (a === 0 ? s : 0), y + (a === 1 ? s : 0), z + (a === 2 ? s : 0), w + (a === 3 ? s : 0));
+        if (v !== VOID_VOXEL && REG.ignite[voxelId(v)]! > 0) fuel = true;
+      }
+    if (!REG.solid[below] && !fuel) return false;
+    if (below === REG.id('soul_sand') || below === REG.id('soul_soil')) return world.setBlock(x, y, z, w, REG.id('soul_fire'));
+    return this.fire.setFire(x, y, z, w);
+  }
+
+  /** Rain is falling on a cell: rain or thunder, a rainy biome there, and open sky above. */
+  rainingAt(x: number, y: number, z: number, w: number): boolean {
+    const wx = this.env.weather;
+    if (wx !== 'rain' && wx !== 'thunder') return false;
+    const b = this.world.biomeAt(x, z, w);
+    if (b >= 0 && REG.biomes[b]!.precipitation !== 'rain') return false;
+    return this.world.skyHeight(x, z, w) <= y;
   }
 
   /** Fill a valid portal frame around (x, y, z, w) with portal membrane. */
@@ -1651,13 +1695,20 @@ export class Game {
     this.envDamageTimer -= dt;
     if (this.envDamageTimer <= 0 && vulnerable && !p.frozen) {
       this.envDamageTimer = 0.5;
-      if (p.inLava) this.hurtPlayer(4, null, 'Tried to swim in lava');
-      else {
+      if (p.inLava) {
+        this.hurtPlayer(4, null, 'Tried to swim in lava');
+        this.burning = Math.max(this.burning, BURN_LAVA);
+      } else {
         const c = this.contactDamage();
-        if (c > 0) this.hurtPlayer(REG.damage[c]!, null, REG.blocks[c]!.displayName ?? REG.blocks[c]!.name);
+        if (c > 0) {
+          const fire = FIRE_IDS[c] === 1;
+          this.hurtPlayer(REG.damage[c]!, null, fire ? 'Went up in flames' : (REG.blocks[c]!.displayName ?? REG.blocks[c]!.name));
+          if (fire) this.burning = Math.max(this.burning, BURN_FIRE);
+        }
       }
       if (p.pos[p.up]! < -32) this.hurtPlayer(4, null, 'Fell out of the world');
     }
+    this.updateBurning(dt, vulnerable);
     if (v.dead && !this.deathHandled) {
       this.deathHandled = true;
       this.bowDraw = 0;
@@ -1671,6 +1722,49 @@ export class Game {
         this.dropAtCell(x, y, z, w, s);
       }
       this.onDeath?.(v.deathCause);
+    }
+  }
+
+  /** Flames on burning mobs, smoke over fires near the player. */
+  private burnEffects(dt: number): void {
+    this.flameT -= dt;
+    if (this.flameT > 0) return;
+    this.flameT = 0.08;
+    const p = this.player.pos, cam = this.player.cam;
+    for (const m of this.mobs.list) {
+      if (m.burning <= 0) continue;
+      if (Math.abs(m.pos[0]! - p[0]!) > 32 || Math.abs(m.pos[2]! - p[2]!) > 32 || Math.abs(m.pos[3]! - p[3]!) > 32) continue;
+      const r = m.width * 0.5;
+      this.particles.burst(m.pos[0]! + (Math.random() - 0.5) * r * 2, m.pos[1]! + Math.random() * m.height, m.pos[2]! + (Math.random() - 0.5) * r * 2, m.pos[3]!, cam, 'flame', Math.random() < 0.5 ? '#ff7a1a' : '#ffc040', 2, 0.4, 0.05, true);
+    }
+    // Wisps of smoke and sparks over the fires near you (not in your face).
+    let n = 0;
+    for (const f of this.fire.cells()) {
+      if (n >= 24) break;
+      const d = Math.max(Math.abs(f.x + 0.5 - p[0]!), Math.abs(f.z + 0.5 - p[2]!), Math.abs(f.w + 0.5 - p[3]!));
+      if (d > 24 || d < 2 || Math.random() < 0.6) continue;
+      n++;
+      if (Math.random() < 0.5) this.particles.burst(f.x + 0.5, f.y + 1, f.z + 0.5, f.w + 0.5, cam, 'poof', '#7a7470', 1, 0.15, 0.2, false);
+      else this.particles.burst(f.x + 0.5, f.y + 0.5, f.z + 0.5, f.w + 0.5, cam, 'flame', '#ffb040', 1, 0.3, 0.3, true);
+    }
+  }
+
+  /** Burning: 1 damage a second until it runs out; water and rain put it out. */
+  private updateBurning(dt: number, vulnerable: boolean): void {
+    const p = this.player;
+    if (this.burning > 0) {
+      const head = Math.floor(p.pos[1]! + p.height);
+      if (!vulnerable || p.inWater || this.rainingAt(Math.floor(p.pos[0]!), head, Math.floor(p.pos[2]!), Math.floor(p.pos[3]!))) this.burning = 0;
+    }
+    if (this.burning <= 0) {
+      this.burnTick = 0;
+      return;
+    }
+    this.burning = Math.max(0, this.burning - dt);
+    this.burnTick += dt;
+    if (this.burnTick >= 1) {
+      this.burnTick -= 1;
+      if (!p.inLava) this.hurtPlayer(1, null, 'Burned to death');
     }
   }
 

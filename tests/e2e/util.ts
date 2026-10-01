@@ -84,6 +84,11 @@ export interface Hc {
   portals(): { realm: string; axis: number; thin?: number; min: number[]; max: number[] }[];
   portalTime(): number;
   traveling(): string | null;
+  startFire(x: number, y: number, z: number, w: number): boolean;
+  fires(): number;
+  fireTicks(n: number): void;
+  burning(): number;
+  mobBurning(id: number): number;
   boss(): { id: number; name: string; health: number; max: number; phase: number; mode: string; pillars: { x: number; y: number; z: number; w: number; erupt: number }[]; warning: string } | null;
   spawnBoss(name: string, x: number, y: number, z: number, w: number): number;
   hurtMob(id: number, amount: number): boolean;

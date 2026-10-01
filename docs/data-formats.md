@@ -24,13 +24,23 @@ list of errors (unknown texture, duplicate name, missing air, bad gravity axisâ€
   biomeTint: 0,                // 0 none, 1 grass colour, 2 foliage colour
   damage: 0,                   // contact damage per second
   hardness: 2,                 // mining time (Phase 3)
+  flammable: [5, 20],          // fire: [ignite odds, burn odds] 0..100 (else from tags)
+  animation: undefined,        // 'flame' (flickers) | 'churn' (slow drift, magma)
+  tags: ['planks'],            // 'fireproof', 'infiniburn' and the fire.ts tags matter to fire
   textures: { all: 'cobblestone' } // or { top, bottom, side }
 }
 ```
 
 Numeric ids are assigned in list order at startup and are **not** stable across versions;
 anything persisted must store names. A voxel is `id | meta << 12` (meta: fluid level,
-orientation, slab half).
+orientation, slab half, a fire's age).
+
+**Fire** (`src/content/fire.ts`): `FLAMMABLE_TAGS` maps tags to Minecraft-style odds
+(`planks [5, 20]`, `log [5, 5]`, `leaves [30, 60]`, `wool [30, 60]`, `plant [60, 100]`), and
+`FLAMMABLE_BLOCKS` gives odds to blocks no tag covers (bookshelf, thatch, hay). A block's own
+`flammable` wins; the `fireproof` tag wins over everything. Fire on top of an `infiniburn`
+block never burns out. `BURN_FIRE` / `BURN_LAVA` are the seconds a touch of fire or lava sets
+players and mobs burning.
 
 ## Shapes (`src/content/shapes.ts`)
 

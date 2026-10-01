@@ -44,12 +44,12 @@ function topped(name: string, top: [TexturePattern, Hex[]], side: string, o: Opt
 function log(name: string, side: [TexturePattern, Hex[]], top: [TexturePattern, Hex[]], o: Opt = {}): void {
   tex(`${name}_side`, side[0], side[1], o);
   tex(`${name}_top`, top[0], top[1]);
-  EMBER_BLOCKS.push({ name, render: 'opaque', solid: true, textures: { top: `${name}_top`, bottom: `${name}_top`, side: `${name}_side` }, hardness: 2, tags: ['log', 'ember_wood'], ...strip(o) });
+  EMBER_BLOCKS.push({ name, render: 'opaque', solid: true, textures: { top: `${name}_top`, bottom: `${name}_top`, side: `${name}_side` }, hardness: 2, tags: ['log', 'ember_wood', 'fireproof'], ...strip(o) });
 }
 
 function plant(name: string, pattern: TexturePattern, colors: Hex[], o: Opt = {}): void {
   tex(name, pattern, colors, { density: o.density ?? 0.5 });
-  EMBER_BLOCKS.push({ name, render: 'cutout', solid: false, shape: 'plant', opaque: false, textures: { all: name }, replaceable: true, hardness: 0, tags: ['plant'], ...strip(o) });
+  EMBER_BLOCKS.push({ name, render: 'cutout', solid: false, shape: 'plant', opaque: false, textures: { all: name }, replaceable: true, hardness: 0, tags: ['plant', 'fireproof'], ...strip(o) });
 }
 
 function ore(name: string, host: Hex[], fleck: Hex, o: Opt = {}): void {
@@ -58,7 +58,7 @@ function ore(name: string, host: Hex[], fleck: Hex, o: Opt = {}): void {
 
 // ---------------------------------------------------------------- common rock and glow
 const CINDER: Hex[] = ['#6e2a22', '#52201b', '#ff7a2a'];
-cube('cinder', 'speckle', CINDER, { density: 0.035, hardness: 0.4, tags: ['cinder'] });
+cube('cinder', 'speckle', CINDER, { density: 0.035, hardness: 0.4, tags: ['cinder', 'infiniburn'] });
 cube('cinder_bricks', 'bricks', ['#4a1a1a', '#3c1515', '#1e0a0a'], { hardness: 2, tags: ['cinder_bricks'] });
 cube('cracked_cinder_bricks', 'bricks', ['#4a1a1a', '#351313', '#ff5a1a'], { hardness: 2, tags: ['cinder_bricks'] });
 cube('chiseled_cinder_bricks', 'metal', ['#541e1e', '#2a0c0c', '#7a2a24'], { hardness: 2, tags: ['cinder_bricks'] });
@@ -74,19 +74,19 @@ cube('hypercinder_ore', 'cracks', ['#3a1612', '#2a0e0c', '#ff3aa8'], { density: 
 cube('ancient_slag', 'cracks', ['#3a2a24', '#2a1e1a', '#9a6a3a'], { density: 0.1, hardness: 30, tags: ['ore'] });
 // Fire burns forever on cinder; soul fire is blue. Both hurt.
 tex('fire', 'flame', ['#d8300a', '#ff9a1a', '#fff2a0']);
-EMBER_BLOCKS.push({ name: 'fire', render: 'cutout', solid: false, shape: 'plant', opaque: false, textures: { all: 'fire' }, emission: 15, damage: 1, replaceable: true, hardness: 0, tags: ['fire'] });
+EMBER_BLOCKS.push({ name: 'fire', render: 'cutout', solid: false, shape: 'plant', opaque: false, textures: { all: 'fire' }, emission: 15, damage: 1, replaceable: true, hardness: 0, animation: 'flame', tags: ['fire'] });
 tex('soul_fire', 'flame', ['#0a6a8a', '#2ad8f0', '#d8ffff']);
-EMBER_BLOCKS.push({ name: 'soul_fire', displayName: 'Soul Fire', render: 'cutout', solid: false, shape: 'plant', opaque: false, textures: { all: 'soul_fire' }, emission: 10, damage: 2, replaceable: true, hardness: 0, tags: ['fire'] });
+EMBER_BLOCKS.push({ name: 'soul_fire', displayName: 'Soul Fire', render: 'cutout', solid: false, shape: 'plant', opaque: false, textures: { all: 'soul_fire' }, emission: 10, damage: 2, replaceable: true, hardness: 0, animation: 'flame', tags: ['fire'] });
 // Magma pillars summoned by the Magma Regent: a damaging, glowing column (no flow).
 tex('erupting_magma', 'fluid', ['#c8420a', '#ff9a1f', '#fff08a']);
-EMBER_BLOCKS.push({ name: 'erupting_magma', displayName: 'Erupting Magma', render: 'opaque', solid: false, opaque: false, textures: { all: 'erupting_magma' }, emission: 15, damage: 6, hardness: -1 });
+EMBER_BLOCKS.push({ name: 'erupting_magma', displayName: 'Erupting Magma', render: 'opaque', solid: false, opaque: false, textures: { all: 'erupting_magma' }, emission: 15, damage: 6, hardness: -1, animation: 'churn' });
 
 // ---------------------------------------------------------------- Cinder Plains
-topped('ember_moss', ['speckle', ['#9a2e1a', '#7a2414', '#ffb040']], 'cinder', { density: 0.14, hardness: 0.4 });
-cube('smoldering_cinder', 'cracks', ['#5a2018', '#461812', '#ff8a2a'], { density: 0.15, emission: 4, hardness: 0.6 });
+topped('ember_moss', ['speckle', ['#9a2e1a', '#7a2414', '#ffb040']], 'cinder', { density: 0.14, hardness: 0.4, tags: ['infiniburn'] });
+cube('smoldering_cinder', 'cracks', ['#5a2018', '#461812', '#ff8a2a'], { density: 0.15, emission: 4, hardness: 0.6, tags: ['infiniburn'] });
 log('emberwood_log', ['log_side', ['#3a1a14', '#2a120e']], ['log_top', ['#6a2a1a', '#4a1e14', '#ff6a1a']]);
 tex('ember_leaves', 'leaves', ['#ff6a1a', '#d8400a'], { density: 0.28 });
-EMBER_BLOCKS.push({ name: 'ember_leaves', render: 'cutout', solid: true, opaque: false, lightOpacity: 1, textures: { all: 'ember_leaves' }, emission: 7, hardness: 0.2, tags: ['leaves'] });
+EMBER_BLOCKS.push({ name: 'ember_leaves', render: 'cutout', solid: true, opaque: false, lightOpacity: 1, textures: { all: 'ember_leaves' }, emission: 7, hardness: 0.2, tags: ['leaves', 'fireproof'] });
 plant('ember_grass', 'flame', ['#8a1a0a', '#ff5a1a', '#ffb050'], { emission: 5 });
 plant('fire_blossom', 'flower', ['#5a1a10', '#5a1a10', '#ff8a2a'], { emission: 9 });
 
@@ -110,7 +110,7 @@ plant('brimstone_sprouts', 'plant', ['#8a7a1a', '#fff27a'], { density: 0.35 });
 
 // ---------------------------------------------------------------- Magma Sea
 cube('pumice', 'cells', ['#8a7a70', '#6a5c54', '#a89a90'], { hardness: 0.6 });
-cube('magma_crust', 'cracks', ['#2a1210', '#1e0c0a', '#ff6a1a'], { density: 0.2, emission: 8, damage: 1, hardness: 0.6 });
+cube('magma_crust', 'cracks', ['#2a1210', '#1e0c0a', '#ff6a1a'], { density: 0.2, emission: 8, damage: 1, hardness: 0.6, tags: ['infiniburn'] });
 cube('scorched_stone', 'speckle', ['#4a3a34', '#3a2c28', '#8a4a2a'], { density: 0.05, hardness: 1.5 });
 plant('lava_reeds', 'plant', ['#5a1a0a', '#ff7a2a'], { density: 0.3, emission: 4 });
 plant('flame_lily', 'flower', ['#2a4a1a', '#2a4a1a', '#ff4a1a'], { emission: 8 });
@@ -123,8 +123,8 @@ plant('ash_tuft', 'plant', ['#6a6664', '#b8b4b0'], { density: 0.4 });
 plant('withered_bloom', 'flower', ['#3a3634', '#3a3634', '#c8b8a8']);
 
 // ---------------------------------------------------------------- Soul Glass Canyons
-cube('soul_sand', 'noise', ['#4a3a2e', '#3a2c22'], { amount: 0.12, hardness: 0.5, slows: 0.45 });
-cube('soul_soil', 'speckle', ['#3e3026', '#30241c', '#5ad8e8'], { density: 0.03, hardness: 0.5 });
+cube('soul_sand', 'noise', ['#4a3a2e', '#3a2c22'], { amount: 0.12, hardness: 0.5, slows: 0.45, tags: ['infiniburn'] });
+cube('soul_soil', 'speckle', ['#3e3026', '#30241c', '#5ad8e8'], { density: 0.03, hardness: 0.5, tags: ['infiniburn'] });
 tex('soul_glass', 'crystal', ['#3ab8c8', '#2a8a9a', '#c8ffff'], { alpha: 0.45 });
 EMBER_BLOCKS.push({ name: 'soul_glass', render: 'translucent', solid: true, opaque: false, textures: { all: 'soul_glass' }, emission: 4, hardness: 0.6, alpha: 0.55, tags: ['glass'] });
 cube('soul_stone', 'bands', ['#3a4a50', '#2e3c42', '#46585e'], { amount: 0.05, hardness: 1.5 });
@@ -132,11 +132,11 @@ plant('soul_fern', 'plant', ['#1a4a50', '#5ad8e8'], { density: 0.4, emission: 3 
 plant('wisp_bloom', 'flower', ['#1a3a40', '#1a3a40', '#8affff'], { emission: 11 });
 
 // ---------------------------------------------------------------- Emberglass Grove
-cube('glowing_cinder', 'speckle', ['#7a2e1a', '#5e2214', '#ffd070'], { density: 0.12, emission: 5, hardness: 0.4 });
+cube('glowing_cinder', 'speckle', ['#7a2e1a', '#5e2214', '#ffd070'], { density: 0.12, emission: 5, hardness: 0.4, tags: ['infiniburn'] });
 tex('ember_crystal', 'crystal', ['#ff8a2a', '#e8601a', '#fff0c0'], { alpha: 0.75 });
-EMBER_BLOCKS.push({ name: 'ember_crystal', render: 'translucent', solid: true, opaque: false, textures: { all: 'ember_crystal' }, emission: 10, hardness: 1.5, alpha: 0.8, tags: ['log', 'crystal'] });
+EMBER_BLOCKS.push({ name: 'ember_crystal', render: 'translucent', solid: true, opaque: false, textures: { all: 'ember_crystal' }, emission: 10, hardness: 1.5, alpha: 0.8, tags: ['log', 'crystal', 'fireproof'] });
 tex('ember_bloom', 'crystal', ['#ffc050', '#ff8a2a', '#ffffff'], { alpha: 0.9 });
-EMBER_BLOCKS.push({ name: 'ember_bloom', render: 'cutout', solid: true, opaque: false, lightOpacity: 1, textures: { all: 'ember_bloom' }, emission: 13, hardness: 0.3, tags: ['leaves', 'crystal'] });
+EMBER_BLOCKS.push({ name: 'ember_bloom', render: 'cutout', solid: true, opaque: false, lightOpacity: 1, textures: { all: 'ember_bloom' }, emission: 13, hardness: 0.3, tags: ['leaves', 'crystal', 'fireproof'] });
 plant('blazecap', 'mushroom', ['#e8c8a8', '#ffb050'], { emission: 12 });
 plant('crystal_sprouts', 'bud', ['#ff8a2a', '#ffc050', '#fff0c0'], { emission: 8 });
 

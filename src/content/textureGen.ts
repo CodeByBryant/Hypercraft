@@ -349,9 +349,16 @@ export function generateTexture(def: TextureDef, index: number): Uint8Array {
           }
           case 'flame': {
             // Fire: tongues of flame (alpha cut-out), red at the base to yellow-white tips.
-            const tongue = hash4f(u >> 1, 0, s >> 1, 31, seed);
-            const top = 6 + tongue * 10 + 2 * noise.n3(u * 0.4, 0, s * 0.4);
-            a = v < top && hash4f(u, v >> 1, s, 32, seed) < 0.8 ? 1 : 0;
+            // Each tongue rises and falls periodically along s (a whole number of cycles per
+            // 16 texels), so scrolling through the solid texture, which the ray marcher does
+            // for animated blocks, makes the flames flicker without a seam.
+            const tc = u >> 1;
+            const ph = hash4f(tc, 0, 0, 31, seed) * Math.PI * 2;
+            const k = 1 + Math.floor(hash4f(tc, 1, 0, 31, seed) * 2);
+            const wave = 0.5 + 0.5 * Math.sin((s / TEX_SIZE) * Math.PI * 2 * k + ph);
+            const top = 4 + hash4f(tc, 2, 0, 31, seed) * 5 + wave * 7;
+            const edge = (u & 1) === 1 && v > top - 3 ? 0.55 : 0.88;
+            a = v < top && hash4f(u, v >> 1, s, 32, seed) < edge ? 1 : 0;
             const t2 = v / Math.max(1, top);
             col = t2 < 0.45 ? mix(c0, c1, t2 / 0.45) : mix(c1, c2, (t2 - 0.45) / 0.55);
             break;

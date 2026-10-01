@@ -12,6 +12,7 @@ import { TERRAIN_BLOCKS, TERRAIN_TEXTURES } from './terrain';
 import { FUNCTIONAL_BLOCKS, FUNCTIONAL_TEXTURES } from './functional';
 import { STRUCTURE_BLOCKS, STRUCTURE_TEXTURES } from './structureBlocks';
 import { EMBER_BIOMES, EMBER_BLOCKS, EMBER_TEXTURES, EMBER_TREES } from './ember';
+import { FLAMMABLE_BLOCKS, FLAMMABLE_TAGS } from './fire';
 import type { BiomeDef, BlockDef, Box4, Hex, RealmDef, ShapeDef, TextureDef, TreeDef } from './types';
 
 /** A voxel is a uint16: block id in the low 12 bits, a 4-bit meta nibble on top. */
@@ -127,6 +128,12 @@ export class Registry {
   readonly fluid = new Uint8Array(MAX_BLOCK_IDS);
   readonly replaceable = new Uint8Array(MAX_BLOCK_IDS);
   readonly damage = new Float32Array(MAX_BLOCK_IDS);
+  /** Fire (content/fire.ts): ignite and burn odds 0..100, fire burns forever on top. */
+  readonly ignite = new Uint8Array(MAX_BLOCK_IDS);
+  readonly burn = new Uint8Array(MAX_BLOCK_IDS);
+  readonly infiniburn = new Uint8Array(MAX_BLOCK_IDS);
+  /** Texture animation for the GPU: 0 none, 1 flame, 2 churn. */
+  readonly anim = new Uint8Array(MAX_BLOCK_IDS);
   /** Movement speed multiplier inside the block (1 = none). */
   readonly slow = new Float32Array(MAX_BLOCK_IDS).fill(1);
   readonly hardness = new Float32Array(MAX_BLOCK_IDS);
@@ -224,6 +231,15 @@ export class Registry {
       this.fluid[id] = b.fluid === 'water' ? FLUID_WATER : b.fluid === 'lava' ? FLUID_LAVA : FLUID_NONE;
       this.replaceable[id] = b.replaceable ? 1 : 0;
       this.damage[id] = b.damage ?? 0;
+      const tags = b.tags ?? [];
+      let odds = b.flammable ?? FLAMMABLE_BLOCKS[b.name] ?? null;
+      if (!odds) for (const t of tags) if (FLAMMABLE_TAGS[t] && (!odds || FLAMMABLE_TAGS[t]![0] > odds[0])) odds = FLAMMABLE_TAGS[t]!;
+      if (odds && !tags.includes('fireproof')) {
+        this.ignite[id] = Math.max(0, Math.min(100, odds[0]));
+        this.burn[id] = Math.max(0, Math.min(100, odds[1]));
+      }
+      this.infiniburn[id] = tags.includes('infiniburn') ? 1 : 0;
+      this.anim[id] = b.animation === 'flame' ? 1 : b.animation === 'churn' ? 2 : 0;
       this.slow[id] = Math.max(0.01, Math.min(1, b.slows ?? 1));
       this.hardness[id] = b.hardness ?? 1;
       const shapeCollision = sb ? this.shapes[sb.base]!.collision : COLLISION_FULL;
@@ -363,7 +379,7 @@ export class Registry {
         0;
       out[id * 4 + 1] = (this.texTop[id]! | (this.texBottom[id]! << 10) | (this.texSide[id]! << 20)) >>> 0;
       out[id * 4 + 2] = this.tintRgba[id]!;
-      out[id * 4 + 3] = 0;
+      out[id * 4 + 3] = this.anim[id]!;
     }
     return out;
   }

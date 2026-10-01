@@ -53,6 +53,14 @@ export interface BlockDef {
   slows?: number;
   /** Seconds to mine by hand (Phase 3 uses it; Phase 1 creative breaks instantly). */
   hardness?: number;
+  /**
+   * Fire: [ignite odds, burn odds], each 0..100 (how readily fire spreads next to the block,
+   * and how readily it burns the block away). Overrides the tag table in content/fire.ts.
+   * Tags 'fireproof' (never burns) and 'infiniburn' (fire on top burns forever) also apply.
+   */
+  flammable?: [number, number];
+  /** Texture animation in the ray marcher: flames flicker; churn drifts slowly (magma). */
+  animation?: 'flame' | 'churn';
   tags?: string[];
 }
 

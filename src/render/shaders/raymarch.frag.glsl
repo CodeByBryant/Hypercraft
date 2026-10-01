@@ -212,6 +212,15 @@ int fluidOf(uvec4 bi) { return int((bi.x >> 21) & 3u); }
 bool fullOf(uvec4 bi) { return ((bi.x >> 23) & 1u) != 0u; }
 bool lightOpaqueOf(uvec4 bi) { return ((bi.x >> 24) & 1u) != 0u; }
 
+// Animated textures: flames flicker by scrolling through the solid texture's third axis
+// (their tongues rise and fall along it); churn drifts slowly (magma).
+vec3 animUVS(uvec4 bi, vec3 uvs) {
+  int a = int(bi.w & 3u);
+  if (a == 1) return vec3(uvs.x, uvs.y, fract(uvs.z + uTime * 1.3));
+  if (a == 2) return fract(uvs + vec3(uTime * 0.03, uTime * 0.05, uTime * 0.09));
+  return uvs;
+}
+
 int shapeIndex(uvec4 bi, uint vox) {
   int mode = variantModeOf(bi);
   int meta = int((vox >> 12) & 15u);
@@ -432,7 +441,7 @@ bool surfaceHit(vec4 o, vec4 d, vec4 invD, ivec4 cell, int enterAxis, float tEnt
     s.uvs = facetUVS(s.axis, s.p - vec4(cell));
     if (render == R_CUTOUT) {
       int tex = facetTexture(bi, s.axis, s.ns);
-      if (texel(tex, s.uvs).a < 0.5) {
+      if (texel(tex, animUVS(bi, s.uvs)).a < 0.5) {
         // See through the hole to the inside of the far facet.
         s.t = tExit;
         s.axis = exitAxis;
@@ -441,7 +450,7 @@ bool surfaceHit(vec4 o, vec4 d, vec4 invD, ivec4 cell, int enterAxis, float tEnt
         s.lcell = cell;
         s.uvs = facetUVS(s.axis, s.p - vec4(cell));
         tex = facetTexture(bi, s.axis, s.ns);
-        if (texel(tex, s.uvs).a < 0.5) return false;
+        if (texel(tex, animUVS(bi, s.uvs)).a < 0.5) return false;
       }
     }
     return true;
@@ -488,7 +497,7 @@ bool surfaceHit(vec4 o, vec4 d, vec4 invD, ivec4 cell, int enterAxis, float tEnt
     s.uvs = facetUVS(s.axis, f);
     if (render == R_CUTOUT) {
       int tex = facetTexture(bi, s.axis, s.ns);
-      if (texel(tex, s.uvs).a < 0.5) return false;
+      if (texel(tex, animUVS(bi, s.uvs)).a < 0.5) return false;
     }
     return true;
   }
@@ -508,7 +517,7 @@ bool surfaceHit(vec4 o, vec4 d, vec4 invD, ivec4 cell, int enterAxis, float tEnt
       if (th < tEnter || th > tExit || th >= best) continue;
       vec4 f = o + d * th - c0;
       vec3 uv = vec3(fract(f.x + f.z * 0.5 + f.w * 0.25), f.y, fract(f.z + f.w));
-      if (texel(int(bi.y >> 20) & 1023, uv).a < 0.5) continue;
+      if (texel(int(bi.y >> 20) & 1023, animUVS(bi, uv)).a < 0.5) continue;
       best = th;
       bn = n * -sign(dn);
       buv = uv;
@@ -626,6 +635,7 @@ vec3 shade(Surf s, vec4 d, uint vox, uvec4 bi, float t, out float alpha) {
   if (fl != 0 || renderOf(bi) == R_TRANS) {
     uvs = fract(uvs + vec3(uTime * 0.021, uTime * (fl == 2 ? 0.013 : 0.035), uTime * 0.017));
   }
+  uvs = animUVS(bi, uvs);
   vec4 tx = texel(tex, uvs);
   vec3 albedo = tx.rgb;
   alpha = tx.a;

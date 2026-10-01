@@ -136,7 +136,9 @@ Honest list as of Phase 6 (the Ember Depths, portals, the Magma Regent). Items t
   with a platform, so it can end up floating or inside a cliff.
 - **Portal membranes are full translucent cells**, not thin sheets. Walking along the
   normal, you are inside the membrane for one cell.
-- **Fire doesn't spread**, and fire you light never goes out on its own; punch it out.
+- **Generated fires** (the Ember Depths' eternal fire) only start ticking once a block next to
+  them changes. Lava pools only set things alight when lava is placed or flows; still lava
+  that was generated next to a tree doesn't ignite it.
 - **The Magma Regent** always spawns from its caldera, once. It doesn't respawn after it
   dies, and there is only one per caldera.
 - **Lava pillars** only replace air and plants, so a pillar under a roof is shorter. They

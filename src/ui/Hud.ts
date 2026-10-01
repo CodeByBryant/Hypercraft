@@ -49,6 +49,7 @@ export class Hud {
   private readonly toast: HTMLDivElement;
   private readonly sleepBox: HTMLDivElement;
   private readonly portalFx: HTMLDivElement;
+  private readonly burnFx: HTMLDivElement;
   private readonly bossBar: HTMLDivElement;
   private readonly bossName: HTMLDivElement;
   private readonly bossFill: HTMLDivElement;
@@ -110,6 +111,8 @@ export class Hud {
     this.bossWarn = el('div', 'boss-warning', this.root);
     // Standing in a portal: the view swirls violet as the trip approaches.
     this.portalFx = el('div', 'portal-fx', this.root);
+    // On fire: flames lick up from the bottom of the screen.
+    this.burnFx = el('div', 'burn-fx', this.root);
     // Sleeping in a bed: the screen fades to night-blue; you can get up before the night passes.
     this.sleepBox = el('div', 'sleep', this.root);
     el('div', 'sleep-text', this.sleepBox, 'Z z z');
@@ -247,6 +250,8 @@ export class Hud {
     }
     const swirl = Math.min(1, g.portalTime / (g.player.mode === 'creative' || g.player.mode === 'spectator' ? 1 : 4));
     this.portalFx.style.opacity = swirl > 0 ? (0.25 + 0.6 * swirl).toFixed(3) : '0';
+    const burning = g.burning > 0;
+    if (this.burnFx.classList.contains('on') !== burning) this.burnFx.classList.toggle('on', burning);
     // Per-frame combat feedback.
     const onMob = g.targetMob !== null;
     if (this.crosshair.classList.contains('mob') !== onMob) this.crosshair.classList.toggle('mob', onMob);

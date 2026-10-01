@@ -15,8 +15,8 @@ import { SPRITE_FLAKE, SPRITE_GLOW, SPRITE_SOFT, SPRITE_SQUARE } from '../render
 import type { World } from '../world/World';
 
 /** Biome particle kinds plus effect kinds used by bursts (hits, deaths, explosions). */
-type Kind = ParticleDef['kind'] | 'smoke' | 'spark' | 'poof';
-export type BurstKind = 'smoke' | 'spark' | 'poof';
+type Kind = ParticleDef['kind'] | 'smoke' | 'spark' | 'poof' | 'flame';
+export type BurstKind = 'smoke' | 'spark' | 'poof' | 'flame';
 
 interface KindCfg {
   shape: number;
@@ -57,6 +57,7 @@ const K: Record<Kind, KindCfg> = {
   smoke: { shape: SPRITE_SOFT, size: 0.22, life: [0.9, 1.6], vy: [0.6, 1.2], drift: 0, sway: 0.1, spin: 0, y: [0, 0], sky: false, water: false, wander: 0, drag: 1.8 },
   spark: { shape: SPRITE_GLOW, size: 0.06, life: [0.4, 0.8], vy: [0, 0], drift: 0, sway: 0, spin: 0, y: [0, 0], sky: false, water: false, wander: 0, gravity: 14, drag: 1.2 },
   poof: { shape: SPRITE_SOFT, size: 0.14, life: [0.5, 0.9], vy: [0.3, 0.8], drift: 0, sway: 0.05, spin: 0, y: [0, 0], sky: false, water: false, wander: 0, drag: 2.5 },
+  flame: { shape: SPRITE_GLOW, size: 0.08, life: [0.35, 0.7], vy: [0.8, 1.6], drift: 0, sway: 0.15, spin: 0, y: [0, 0], sky: false, water: false, wander: 0, gravity: -1.5, drag: 1.4 },
 };
 
 const MAX = 768;

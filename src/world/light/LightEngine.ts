@@ -69,7 +69,10 @@ export class LightEngine {
   }
 
   /** A block changed: remove light that depended on the old state, then re-propagate. */
-  onBlockChanged(x: number, y: number, z: number, w: number, _oldV: number, newV: number): void {
+  onBlockChanged(x: number, y: number, z: number, w: number, oldV: number, newV: number): void {
+    // Light depends on the block id only: a meta change (a fire ageing, a fluid level, a
+    // facing) changes nothing.
+    if ((oldV & 0xfff) === (newV & 0xfff)) return;
     const world = this.world;
     const l = world.getLight(x, y, z, w);
     if (l !== 0) {

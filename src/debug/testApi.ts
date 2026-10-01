@@ -385,6 +385,17 @@ export function installTestApi(game: Game, screen?: InventoryScreen): void {
       return m ? game.mobs.damage(m, amount, null) : false;
     },
     traveling: () => game.traveling,
+    // ---- Fire
+    /** Start a fire in an air cell (needs solid ground or fuel next to it), like flint and steel. */
+    startFire: (x: number, y: number, z: number, w: number) => game.startFire(x, y, z, w),
+    /** Fires being ticked, and fast-forward `n` world ticks of fire. */
+    fires: () => game.fire.count,
+    fireTicks(n: number): void {
+      for (let i = 0; i < n; i++) game.fire.tick();
+    },
+    /** Seconds the player keeps burning. */
+    burning: () => game.burning,
+    mobBurning: (id: number) => game.mobs.list.find((m) => m.id === id)?.burning ?? -1,
     /** Every structure name (data-driven list). */
     structureNames: () => STRUCTURES.map((s) => s.name),
     villagers: () =>

@@ -110,7 +110,7 @@ cube('red_mushroom_cap', 'cap', ['#c0302a', '#f4ece0'], { hardness: 0.2 });
 cube('brown_mushroom_cap', 'cap', ['#8f6a4a', '#c9a986'], { hardness: 0.2 });
 cube('basalt', 'dripstone', ['#4a4a4f', '#3b3b40'], { hardness: 1.25 });
 cube('scoria', 'cells', ['#5c3a32', '#3d241f', '#7a4e40'], { hardness: 1.5 });
-cube('magma_block', 'fluid', ['#b8420f', '#ff8a1f', '#ffd24a'], { emission: 3, damage: 1, hardness: 0.5 });
+cube('magma_block', 'fluid', ['#b8420f', '#ff8a1f', '#ffd24a'], { emission: 3, damage: 1, hardness: 0.5, animation: 'churn', tags: ['infiniburn'] });
 cube('ash_soil', 'speckle', ['#6b6868', '#5a5757', '#a8a4a0'], { density: 0.08, hardness: 0.5 });
 cube('skystone', 'noise', ['#c7cfe0', '#b4bdd0'], { amount: 0.06, hardness: 1.5 });
 cube('hollow_stone', 'crystal', ['#8b8fb8', '#767aa3', '#c9ccff'], { hardness: 1.5 });

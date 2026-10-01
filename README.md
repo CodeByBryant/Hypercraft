@@ -85,6 +85,10 @@ makes it pulse violet and is named at the top of the screen.
 damage, death drops your inventory and shows a respawn screen (hardcore: spectator). Mobs spawn
 from each biome's tables all around you in 4D, not only in your slice.
 
+**Fire** spreads like Minecraft's, in 4D: through wood, leaves, wool and plants along all
+eight face directions, burning them away. Touch it (or lava) and you burn until it runs out
+or you reach water; mobs burn too. It burns forever on cinder and magma.
+
 **The Ember Depths**: build an obsidian portal frame like Minecraft's (4 × 5, corners
 optional) and light it with flint and steel, or go full 4D and frame a 3D box of air on every
 face (a hyper-portal; 10 blocks at minimum around a 1 × 2 × 1 interior). Stand in it for 4 s. One block in the Ember Depths is 8 on the Surface, along x, z **and** w.

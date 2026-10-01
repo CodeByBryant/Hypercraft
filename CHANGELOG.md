@@ -10,6 +10,18 @@
   one gets Minecraft's corners), and breaking a block next to a flat portal that is not part
   of its frame no longer collapses it. A new e2e test lights a flat frame with the real flint
   and steel in a saved world, travels, and comes back to the same portal.
+- **Fire is real.** It flickers (the ray marcher scrolls the flame texture's tongues through
+  its solid third axis; magma churns the same way), and it behaves like Minecraft's, in 4D:
+  - It spreads to flammable blocks (planks, logs, leaves, wool, plants, hay, bookshelves…)
+    across all 8 face neighbours and jumps to nearby air that touches fuel, burns them away,
+    and burns out on ordinary ground or in the rain. Fire on cinder, ember moss or magma burns
+    forever. The Ember Depths' wood and plants are fireproof, like the Nether's.
+  - Flammability is data: tags in `content/fire.ts` plus per-block `flammable` odds.
+  - Touching fire or lava sets you burning (8 s / 15 s, 1 damage a second, flames on the
+    screen); water and rain put you out. Mobs burn the same way (with flames), the undead in
+    sunlight too.
+  - Flint and steel lights fires on any face next to something solid or flammable, and lava
+    sets nearby fuel alight as it flows. Fire that spreads into a portal frame lights it.
 
 ## 0.6.0 — Phase 6: The Ember Depths, 4D portals, the Magma Regent (2026-09-30)
 

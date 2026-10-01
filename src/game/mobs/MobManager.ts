@@ -15,6 +15,9 @@ import { Pathfinder } from './Pathfinder';
 import { rayBall, rayBox, rayCapsule } from './intersect';
 import type { ItemStack } from '../items/ItemStack';
 import type { VillagerData } from '../Trading';
+import { BURN_FIRE, BURN_LAVA } from '../../content/fire';
+
+let FIRE_ID = -1, SOUL_FIRE_ID = -1;
 
 /** A persistent mob as saved in its column's data. */
 export interface SavedMob {
@@ -88,6 +91,9 @@ export class Mob {
   layTimer = 0;
   spinTimer = 4;
   burnTimer = 0;
+  /** Seconds the mob keeps burning (fire, lava, the sun for undead); water puts it out. */
+  burning = 0;
+  fireTouch = 0;
   noiseAt: Float64Array | null = null;
   /** Bosses: where the arena is (they return there and heal when you flee). */
   home: Float64Array | null = null;
@@ -378,15 +384,31 @@ export class MobManager {
 
   private environment(m: Mob, dt: number, h: MobHost): void {
     const def = m.def;
-    if (m.inLava && !def.fireproof) this.damage(m, 4 * dt * 2, null);
-    if (def.burnsInDay && h.daylight > 0.6 && !m.inWater) {
-      const top = Math.floor(m.pos[1]! + m.height);
-      if (this.world.skyHeight(Math.floor(m.pos[0]!), Math.floor(m.pos[2]!), Math.floor(m.pos[3]!)) <= top) {
-        m.burnTimer += dt;
-        if (m.burnTimer > 1) {
-          m.burnTimer = 0;
+    if (!def.fireproof) {
+      if (m.inLava) {
+        this.damage(m, 4 * dt * 2, null);
+        m.burning = Math.max(m.burning, BURN_LAVA);
+      } else if (this.touchingFire(m)) {
+        m.burning = Math.max(m.burning, BURN_FIRE);
+        m.fireTouch += dt;
+        if (m.fireTouch > 0.5) {
+          m.fireTouch = 0;
           this.damage(m, 1, null);
         }
+      }
+      // Undead burn in the sun.
+      if (def.burnsInDay && h.daylight > 0.6 && !m.inWater) {
+        const top = Math.floor(m.pos[1]! + m.height);
+        if (this.world.skyHeight(Math.floor(m.pos[0]!), Math.floor(m.pos[2]!), Math.floor(m.pos[3]!)) <= top) m.burning = Math.max(m.burning, BURN_FIRE);
+      }
+    }
+    if (m.inWater || def.fireproof) m.burning = 0;
+    if (m.burning > 0) {
+      m.burning = Math.max(0, m.burning - dt);
+      m.burnTimer += dt;
+      if (m.burnTimer > 1) {
+        m.burnTimer = 0;
+        this.damage(m, 1, null);
       }
     }
     if (def.lays) {
@@ -396,6 +418,20 @@ export class MobManager {
         h.dropItem(m.pos[0]!, m.pos[1]! + 0.3, m.pos[2]!, m.pos[3]!, { id: IREG.id(def.lays.item), count: 1, damage: 0 });
       }
     }
+  }
+
+  /** Is a fire block inside the mob's body (feet or middle)? */
+  private touchingFire(m: Mob): boolean {
+    if (FIRE_ID < 0) {
+      FIRE_ID = REG.id('fire');
+      SOUL_FIRE_ID = REG.id('soul_fire');
+    }
+    const x = Math.floor(m.pos[0]!), z = Math.floor(m.pos[2]!), w = Math.floor(m.pos[3]!);
+    for (const dy of [0.1, m.height * 0.5]) {
+      const id = this.world.getBlock(x, Math.floor(m.pos[1]! + dy), z, w) & 0xfff;
+      if (id === FIRE_ID || id === SOUL_FIRE_ID) return true;
+    }
+    return false;
   }
 
   // ---------------------------------------------------------------- AI
