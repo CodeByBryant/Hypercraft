@@ -46,6 +46,12 @@ export class Persistence implements ColumnSource {
     const bytes = await this.store.loadColumn(this.info.id, this.realm, cx, cz, cw);
     if (!bytes) return null;
     const col = deserializeColumn(bytes, cx, cz, cw, this.remap);
+    // Saved before the realm changed height (save version 1): forget it so the streamer
+    // generates the column afresh (the new one overwrites it once it is edited).
+    if (col.chunks.length !== REG.realm(this.realm).heightChunks) {
+      this.saved.delete(`${cx},${cz},${cw}`);
+      return null;
+    }
     col.dirty = false;
     return col;
   }

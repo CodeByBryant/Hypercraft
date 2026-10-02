@@ -98,7 +98,7 @@ describe('Surface generator (Phase 2)', () => {
     const seen = new Set<number>();
     // Cave biomes are picked in 3D (humidity, weirdness, depth): sample many depths.
     let k = 0;
-    for (let x = -3000; x <= 3000; x += 97) for (let w = -3000; w <= 3000; w += 97) seen.add(g.caveBiomeAt(x, 6 + ((k++ * 17) % 54), 71, w));
+    for (let x = -3000; x <= 3000; x += 97) for (let w = -3000; w <= 3000; w += 97) seen.add(g.caveBiomeAt(x, 6 + ((k++ * 17) % 96), 71, w));
     const caves = REG.biomes.filter((b) => b.kind === 'underground' && (b.realm ?? 'surface') === 'surface').map((b) => b.name);
     expect(caves.length).toBeGreaterThanOrEqual(15);
     expect(caves.filter((n) => !seen.has(REG.biomeIndex(n)))).toEqual([]);
@@ -118,11 +118,18 @@ describe('Surface generator (Phase 2)', () => {
   it('generates Ana Sheets: cavities thin along W but wide in X and Z', () => {
     // Scan the columns covering one 96-block W cell at a fixed (cx, cz).
     let found = 0;
-    for (let cx = 0; cx < 3 && !found; cx++)
-      for (let cw = 0; cw < 6 && !found; cw++) {
+    // Big caverns cut through the sheet in places, so keep scanning until enough of it runs
+    // through solid rock.
+    for (let cx = 0; cx < 6 && found <= 20; cx++)
+      for (let cw = 0; cw < 6 && found <= 20; cw++) {
         const { blocks } = genColumn(31337, cx, 2, cw);
-        const at = (x: number, y: number, z: number, w: number) => (w < 0 || w > 15 ? 1 : blocks[denseIndex(x, y, z, w)]!);
-        for (let y = 12; y < 50; y++)
+        // Open: air, or water where the sheet runs below an aquifer's water table.
+        const water = REG.id('water');
+        const at = (x: number, y: number, z: number, w: number) => {
+          const v = w < 0 || w > 15 ? 1 : blocks[denseIndex(x, y, z, w)]!;
+          return v === water ? 0 : v;
+        };
+        for (let y = 30; y < 96; y++)
           for (let w = 1; w < 14; w++)
             for (let z = 2; z < 14; z++)
               for (let x = 2; x < 14; x++) {
@@ -134,22 +141,25 @@ describe('Surface generator (Phase 2)', () => {
     expect(found).toBeGreaterThan(20);
   });
 
-  it('places ores by depth (deep variants only near bedrock)', () => {
+  it('places ores by depth, plenty of them (deep variants only in the deepstone layer)', () => {
     const counts = new Map<string, number>();
     const deepHigh: string[] = [];
     for (let k = 0; k < 6; k++) {
       const { blocks } = genColumn(55, k, -k, 2 * k);
-      for (let y = 1; y < 128; y++)
+      for (let y = 1; y < realm.heightChunks * 16; y++)
         for (let i = 0; i < COLUMN_LAYER; i++) {
           const v = blocks[i + y * COLUMN_LAYER]!;
           const def = REG.blocks[voxelId(v)]!;
           if (!def.tags?.includes('ore')) continue;
           counts.set(def.name, (counts.get(def.name) ?? 0) + 1);
-          if (def.name.startsWith('deep_') && y >= 12) deepHigh.push(`${def.name}@${y}`);
+          if (def.name.startsWith('deep_') && y >= 48) deepHigh.push(`${def.name}@${y}`);
         }
     }
-    expect(counts.get('coal_ore') ?? 0).toBeGreaterThan(50);
-    expect(counts.get('iron_ore') ?? 0).toBeGreaterThan(20);
+    // Minecraft-like: thousands of coal and iron per 4D column (~100+ per 3D slice chunk).
+    expect(counts.get('coal_ore') ?? 0).toBeGreaterThan(6000);
+    expect((counts.get('iron_ore') ?? 0) + (counts.get('deep_iron_ore') ?? 0)).toBeGreaterThan(6000);
+    expect(counts.get('copper_ore') ?? 0).toBeGreaterThan(3000);
+    for (const n of ['deep_gold_ore', 'deep_azurite_ore', 'deep_fluxite_ore', 'deep_hyperite_ore']) expect(counts.get(n) ?? 0, n).toBeGreaterThan(30);
     expect(deepHigh).toEqual([]);
   });
 

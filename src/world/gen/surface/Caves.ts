@@ -1,20 +1,23 @@
-// 4D cave fields for one column, sampled on a 4-block lattice and interpolated.
+// 4D cave fields for one column, sampled on a 4-block lattice and interpolated (Minecraft
+// 1.18-style caves, in 4D):
 //
-//  cheese    big 4D blobs          -> hyper-caverns (3D blobs in any slice: walkable caves)
-//  worm1..3  three zero sets       -> worm tunnels: 1D curves in 4D, thickened (a slice
-//                                     crosses them as pockets that drift as you move kata/ana)
-//  fissure   one zero set          -> thin 3D sheets in 4D (cracks/crawlways in a slice)
+//  cheese        big 4D blobs        -> caverns, larger the deeper you go
+//  spaghetti 1,2 two zero sets       -> tunnels: in 4D the band where both fields are near
+//                                       zero is a thickened 2D surface, so every 3D slice
+//                                       cuts it as winding tunnels (three zero sets would be
+//                                       1D curves in 4D, which a slice almost never meets)
+//  noodle 1,2    two zero sets       -> narrow winding passages, finer and wigglier
 //
-// Ana Sheets, ravines, rivers and sinkholes are analytic (see SurfaceGen).
+// Ana Sheets, ravines, aquifers, rivers and sinkholes are analytic (see SurfaceGen).
 
 import { SimplexNoise } from '../../../math/noise';
 
 export const NF = 5; // fields
 export const F_CHEESE = 0;
-export const F_W1 = 1;
-export const F_W2 = 2;
-export const F_W3 = 3;
-export const F_FISSURE = 4;
+export const F_S1 = 1;
+export const F_S2 = 2;
+export const F_N1 = 3;
+export const F_N2 = 4;
 
 export class CaveFields {
   readonly LY: number;
@@ -23,10 +26,10 @@ export class CaveFields {
   readonly colv: Float32Array;
   private readonly nCheese: SimplexNoise;
   private readonly nCheese2: SimplexNoise;
-  private readonly nW1: SimplexNoise;
-  private readonly nW2: SimplexNoise;
-  private readonly nW3: SimplexNoise;
-  private readonly nFis: SimplexNoise;
+  private readonly nS1: SimplexNoise;
+  private readonly nS2: SimplexNoise;
+  private readonly nN1: SimplexNoise;
+  private readonly nN2: SimplexNoise;
 
   constructor(seed: number, height: number) {
     this.LY = (height >> 2) + 1;
@@ -35,10 +38,10 @@ export class CaveFields {
     this.rowv = new Float32Array(5 * this.LY * NF);
     this.nCheese = new SimplexNoise(seed ^ 0xc001);
     this.nCheese2 = new SimplexNoise(seed ^ 0xc002);
-    this.nW1 = new SimplexNoise(seed ^ 0xc003);
-    this.nW2 = new SimplexNoise(seed ^ 0xc004);
-    this.nW3 = new SimplexNoise(seed ^ 0xc005);
-    this.nFis = new SimplexNoise(seed ^ 0xc006);
+    this.nS1 = new SimplexNoise(seed ^ 0xc003);
+    this.nS2 = new SimplexNoise(seed ^ 0xc004);
+    this.nN1 = new SimplexNoise(seed ^ 0xc005);
+    this.nN2 = new SimplexNoise(seed ^ 0xc006);
   }
 
   fill(X0: number, Z0: number, W0: number): void {
@@ -51,11 +54,11 @@ export class CaveFields {
           for (let ix = 0; ix < 5; ix++) {
             const X = X0 + ix * 4, Z = Z0 + iz * 4, W = W0 + iw * 4;
             const o = ((ix + 5 * (iz + 5 * iw)) * LY + ly) * NF;
-            lat[o] = this.nCheese.n4(X / 38, Y / 24, Z / 38, W / 38) + 0.45 * this.nCheese2.n4(X / 16, Y / 11, Z / 16, W / 16);
-            lat[o + 1] = this.nW1.n4(X / 46, Y / 30, Z / 46, W / 46);
-            lat[o + 2] = this.nW2.n4(X / 46, Y / 30, Z / 46, W / 46);
-            lat[o + 3] = this.nW3.n4(X / 46, Y / 30, Z / 46, W / 46);
-            lat[o + 4] = this.nFis.n4(X / 60, Y / 40, Z / 60, W / 60);
+            lat[o] = this.nCheese.n4(X / 52, Y / 30, Z / 52, W / 52) + 0.4 * this.nCheese2.n4(X / 18, Y / 12, Z / 18, W / 18);
+            lat[o + 1] = this.nS1.n4(X / 70, Y / 44, Z / 70, W / 70);
+            lat[o + 2] = this.nS2.n4(X / 70, Y / 44, Z / 70, W / 70);
+            lat[o + 3] = this.nN1.n4(X / 34, Y / 24, Z / 34, W / 34);
+            lat[o + 4] = this.nN2.n4(X / 34, Y / 24, Z / 34, W / 34);
           }
     }
   }

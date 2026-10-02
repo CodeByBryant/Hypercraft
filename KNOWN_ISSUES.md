@@ -7,11 +7,15 @@ Honest list as of Phase 6 (the Ember Depths, portals, the Magma Regent). Items t
   software GL, about 3 s per 360p frame). GPU-independent metrics look healthy (about 25 ray
   steps per pixel, see `docs/benchmarks/phase-1.md`), but 60 fps at 360p on integrated GPUs
   must be confirmed with `?bench=1` on real hardware.
-- **GPU memory**: Phase 2 terrain is much busier than the Phase 1 test terrain: about 980
-  non-uniform block bricks per column (was ≈530), so brick pools at render distance 4 are
-  larger (see `docs/benchmarks/phase-2.md`). Options: 8-bit palette bricks, fewer isolated
-  ore bricks, shrinking pools. Default render distance may need to drop to 3 on low-end
-  devices (Phase 12 settings presets).
+- **GPU and CPU memory**: the deeper Surface (192 tall, Minecraft-density ores and caves)
+  has about 1600 non-uniform block bricks per column (was ≈760 at 128 tall), so brick pools
+  and the CPU column cache are roughly twice as big as in Phase 6: at render distance 4 the
+  block pool is about 23 layers (≈190 MB of GPU memory). Options: 8-bit palette bricks,
+  fewer isolated ore bricks, shrinking pools. Default render distance may need to drop to 3
+  on low-end devices (Phase 12 settings presets).
+- **Old saves after the underground rework**: Surface columns saved at the old height are
+  regenerated (edits there are lost), and the player, bed and portals are lifted 56 blocks.
+  Builds in the Ember Depths are kept.
 - **Pool regrow hitch**: when a brick pool fills up it is recreated larger and *every*
   resident chunk is re-uploaded, which is a visible stall. The initial size is estimated from
   the render distance, so this should be rare.

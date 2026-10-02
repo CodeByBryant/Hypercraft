@@ -327,8 +327,8 @@ no levels, and it leaves after about a day and a half.
 ## Realms (`src/content/realms.ts`)
 
 ```ts
-{ name: 'surface', displayName: 'The Surface', heightChunks: 8, gravityAxis: 1, gravity: 32,
-  seaLevel: 48, generator: 'surface', coordinateScale: 1, dayCycle: true, ambient: 0.035,
+{ name: 'surface', displayName: 'The Surface', heightChunks: 12, gravityAxis: 1, gravity: 32,
+  seaLevel: 104, generator: 'surface', coordinateScale: 1, dayCycle: true, ambient: 0.035,
   weather: ['clear','rain','snow','thunder','phase_storm'], skyColor: '#7aa9ff',
   fogColor: '#c3dbff', floorBlock: 'bedrock', ceilingBlock: null }
 ```

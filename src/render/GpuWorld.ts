@@ -165,7 +165,7 @@ export class GpuWorld {
     this.world = world;
     this.maxLayers = Math.min(64, gl.getParameter(gl.MAX_ARRAY_TEXTURE_LAYERS) as number);
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-    const est = this.estimateLayers(world.N);
+    const est = this.estimateLayers(world.N, world.heightChunks);
     this.blockPool = new BrickPool(gl, gl.R16UI, est);
     this.lightPool = new BrickPool(gl, gl.R8UI, Math.max(2, Math.ceil(est * 0.6)));
     this.resize(world.N, world.heightChunks);
@@ -181,10 +181,11 @@ export class GpuWorld {
     this.atlasData = atlas.data;
   }
 
-  private estimateLayers(N: number): number {
-    // ~30% of the window's columns resident (slice-shaped shell), ~850 non-uniform block
-    // bricks each on Phase 2 terrain (measured ~790 at render distance 4).
-    const bricks = N * N * N * 0.3 * 850;
+  private estimateLayers(N: number, heightChunks: number): number {
+    // ~30% of the window's columns resident (slice-shaped shell), ~140 non-uniform block
+    // bricks per chunk of height (measured ~1600 per 12-chunk Surface column: ores and caves
+    // break up most underground bricks).
+    const bricks = N * N * N * 0.3 * 140 * heightChunks;
     return Math.max(2, Math.min(this.maxLayers, Math.ceil(bricks / BRICKS_PER_LAYER)));
   }
 

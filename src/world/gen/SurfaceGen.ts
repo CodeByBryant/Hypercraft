@@ -40,12 +40,16 @@ export interface ColumnSample {
 
 interface OreCfg {
   id: number;
+  /** The deepstone variant. */
   deep: number;
   minY: number;
   maxY: number;
-  veins: number;
-  len: [number, number];
+  /** Fraction of the host rock in [minY, maxY] that becomes this ore. */
+  share: number;
+  /** Ball radius range; a vein is 1-3 balls. */
   r: [number, number];
+  /** Mean vein volume (cells). */
+  veinVolume: number;
   mountains?: boolean;
   salt: number;
 }
@@ -56,6 +60,17 @@ interface ResolvedTree {
   leaves: number;
   density: number;
 }
+
+/** The deepstone layer (Minecraft's deepslate): below DEEP_LO, dithered up to DEEP_HI. */
+const DEEP_LO = 40;
+const DEEP_HI = 48;
+/** Caves at or below this are lava (Minecraft's lava aquifers). */
+const LAVA_Y = 12;
+/** Water tables of flooded regions. */
+const AQUIFER_LO = 30;
+const AQUIFER_HI = 80;
+/** Ana Sheets (huge 2D cavities, one per 96-block W cell) start at this height. */
+const SHEET_Y = 40;
 
 const SALT_TREE = 0x7ee5;
 const SALT_PLANT = 0x62a5;
@@ -175,26 +190,23 @@ export class SurfaceGenerator {
     const I = this.ids;
     this.host = new Uint8Array(4096);
     for (const n of ['stone', 'limestone', 'savanna_stone', 'weathered_stone', 'fossil_stone', 'frost_stone', 'silent_shale', 'tidestone', 'deepstone', 'basalt', 'hollow_stone', 'sandstone']) this.host[REG.id(n)] = 1;
-    const ore = (name: string, deep: string | null, minY: number, maxY: number, veins: number, len: [number, number], r: [number, number], salt: number, mountains = false): OreCfg => ({
-      id: id(name),
-      deep: deep ? id(deep) : id(name),
-      minY,
-      maxY,
-      veins,
-      len,
-      r,
-      salt,
-      mountains,
-    });
+    // Every Surface biome's own stone holds ores too.
+    for (const b of this.biomes) if (b.stone && (b.realm ?? 'surface') === 'surface' && REG.solid[REG.id(b.stone)]) this.host[REG.id(b.stone)] = 1;
+    // share: fraction of the host rock in [minY, maxY] that becomes this ore (Minecraft-like:
+    // coal about 1%, iron 0.7%, diamonds under 0.1%).
+    const ore = (name: string, deep: string | null, minY: number, maxY: number, share: number, r: [number, number], salt: number, mountains = false): OreCfg => {
+      const rm = (r[0] + r[1]) / 2;
+      return { id: id(name), deep: deep ? id(deep) : id(name), minY, maxY, share, r, salt, mountains, veinVolume: 2 * ((Math.PI * Math.PI) / 2) * rm ** 4 };
+    };
     this.ores = [
-      ore('coal_ore', null, 8, 120, 4.5, [2, 5], [1.0, 1.5], 1),
-      ore('copper_ore', null, 16, 90, 2.6, [2, 4.5], [0.9, 1.4], 2),
-      ore('iron_ore', 'deep_iron_ore', 2, 70, 3.0, [2, 4], [0.9, 1.3], 3),
-      ore('gold_ore', 'deep_gold_ore', 2, 34, 1.0, [1.5, 3.5], [0.8, 1.2], 4),
-      ore('azurite_ore', 'deep_azurite_ore', 2, 40, 1.0, [1.5, 3.5], [0.8, 1.2], 5),
-      ore('fluxite_ore', 'deep_fluxite_ore', 2, 22, 1.4, [2, 4], [0.8, 1.2], 6),
-      ore('verdant_ore', null, 40, 128, 1.0, [1, 2], [0.7, 1.0], 7, true),
-      ore('hyperite_ore', 'deep_hyperite_ore', 2, 16, 0.45, [1, 2.5], [0.7, 1.0], 8),
+      ore('coal_ore', null, 50, 180, 0.012, [1.1, 1.8], 1),
+      ore('copper_ore', null, 40, 130, 0.0055, [1.0, 1.7], 2),
+      ore('iron_ore', 'deep_iron_ore', 8, 140, 0.006, [1.0, 1.6], 3),
+      ore('gold_ore', 'deep_gold_ore', 6, 70, 0.0015, [0.9, 1.4], 4),
+      ore('azurite_ore', 'deep_azurite_ore', 6, 80, 0.0012, [0.9, 1.4], 5),
+      ore('fluxite_ore', 'deep_fluxite_ore', 4, 48, 0.0035, [0.9, 1.5], 6),
+      ore('verdant_ore', null, 100, 180, 0.0012, [0.7, 1.0], 7, true),
+      ore('hyperite_ore', 'deep_hyperite_ore', 4, 36, 0.0008, [0.8, 1.2], 8),
     ];
     void I;
     this.garden = options.garden ?? false;
@@ -339,7 +351,7 @@ export class SurfaceGenerator {
     const sh = hash4(cell, 0, 0, 0, this.seed ^ SALT_SHEET);
     const wc = cell * 96 + 48 + 20 * this.nSheet.n2(x / 150 + cell * 7.3, z / 150);
     if (this.nSheetMask.n3(x / 300, z / 300, wc / 300) <= -0.15) return null;
-    return { w: wc, y: 16 + (sh % 28) + 5 * this.nSheet.n2(x / 90, z / 90 + 50) };
+    return { w: wc, y: SHEET_Y + (sh % 44) + 5 * this.nSheet.n2(x / 90, z / 90 + 50) };
   }
 
   /** Underground (cave) biome index at a position, or -1 for plain caves. */
@@ -466,7 +478,7 @@ export class SurfaceGenerator {
           const biomeStoneLo = topY - 15;
           for (let y = 4; y < soil; y++) {
             let v: number;
-            if (y < 10 || (y < 13 && hash4f(X, y, Z, W, seed) < 0.5)) v = deepstone;
+            if (y < DEEP_LO || (y < DEEP_HI && hash4f(X, y, Z, W, seed) < (DEEP_HI - y) / (DEEP_HI - DEEP_LO))) v = deepstone;
             else if (y >= bandLo) v = this.mesaBand(y, bandShift);
             else if (y >= biomeStoneLo) v = stoneB;
             else v = STONE;
@@ -493,14 +505,16 @@ export class SurfaceGenerator {
           const sh = hash4(cell, 0, 0, 0, seed ^ SALT_SHEET);
           const wc = cell * sheetCell + 48 + 20 * this.nSheet.n2(X / 150 + cell * 7.3, Z / 150);
           const inSheetW = Math.abs(W + 0.5 - wc) < 1.0 && this.nSheetMask.n3(X / 300, Z / 300, W / 300) > -0.15;
-          const yc = 16 + (sh % 28) + 5 * this.nSheet.n2(X / 90, Z / 90 + 50);
+          const yc = SHEET_Y + (sh % 44) + 5 * this.nSheet.n2(X / 90, Z / 90 + 50);
           const sheetLo = inSheetW ? Math.ceil(yc - 2) : 1e9, sheetHi = inSheetW ? Math.min(topY - 5, Math.floor(yc + 1)) : -1;
           // Ravine: a thin 2D sheet in (x, z, w), cut vertically.
           const ravMask = this.nRavMask.n3(X / 360, Z / 360, W / 360);
           const rav = ravMask > 0.3 ? Math.abs(this.nRavine.n3(X / 120, Z / 120, W / 120)) : 1;
           const ravFloor = h - 14 - Math.floor(26 * Math.min(1, (ravMask - 0.3) * 3));
-          const flooded = this.nCaveHum.n3(X / 170, Z / 170, W / 170) > 0.45;
-          const fisTop = topY - 7;
+          // Aquifers: in wet regions, caves below the region's water table are flooded.
+          const wet = this.nCaveHum.n3(X / 170, Z / 170, W / 170) > 0.3;
+          const table = wet ? AQUIFER_LO + Math.floor((AQUIFER_HI - AQUIFER_LO) * (0.5 + 0.5 * this.nCaveWeird.n3(X / 300 + 17, Z / 300, W / 300))) : -1;
+          const noodleTop = sea - 8;
           const yTop = H - 1;
           for (let y = 4; y <= yEnd && y < yTop; y++) {
             if (y > carveTop) {
@@ -511,20 +525,24 @@ export class SurfaceGenerator {
             const ly = y >> 2, t = (y & 3) * 0.25;
             const o = ly * nf, o2 = o + nf;
             const cheese = cv[o]! + (cv[o2]! - cv[o]!) * t;
-            let carve = cheese > 0.56 + 0.12 * (y / H);
+            // Caverns open up the deeper you go (and close in toward the surface).
+            const depth01 = y < sea ? (sea - y) / sea : 0;
+            let carve = cheese > 0.62 - 0.26 * depth01;
             if (!carve) {
-              const r = 0.062 + 0.03 * (cheese * 0.5 + 0.5);
-              const w1 = cv[o + 1]! + (cv[o2 + 1]! - cv[o + 1]!) * t;
-              if (w1 < r && w1 > -r) {
-                const w2 = cv[o + 2]! + (cv[o2 + 2]! - cv[o + 2]!) * t;
-                if (w2 < r && w2 > -r) {
-                  const w3 = cv[o + 3]! + (cv[o2 + 3]! - cv[o + 3]!) * t;
-                  carve = w3 < r && w3 > -r;
-                }
+              // Spaghetti tunnels, wider in the deep.
+              const r = 0.055 + 0.035 * depth01 + 0.02 * (cheese * 0.5 + 0.5);
+              const s1 = cv[o + 1]! + (cv[o2 + 1]! - cv[o + 1]!) * t;
+              if (s1 < r && s1 > -r) {
+                const s2 = cv[o + 2]! + (cv[o2 + 2]! - cv[o + 2]!) * t;
+                carve = s2 < r && s2 > -r;
               }
-              if (!carve && y <= fisTop && cheese > -0.1) {
-                const f = cv[o + 4]! + (cv[o2 + 4]! - cv[o + 4]!) * t;
-                carve = f < 0.02 && f > -0.02;
+              // Noodle passages, below the near-surface rock.
+              if (!carve && y <= noodleTop) {
+                const n1 = cv[o + 3]! + (cv[o2 + 3]! - cv[o + 3]!) * t;
+                if (n1 < 0.04 && n1 > -0.04) {
+                  const n2 = cv[o + 4]! + (cv[o2 + 4]! - cv[o + 4]!) * t;
+                  carve = n2 < 0.04 && n2 > -0.04;
+                }
               }
               if (!carve) carve = y >= sheetLo && y <= sheetHi && Math.abs(y + 0.5 - yc) < 1.5;
               if (!carve && y > ravFloor && rav < 0.022 * Math.min(1, (y - ravFloor) / 8)) {
@@ -535,7 +553,7 @@ export class SurfaceGenerator {
                 carve = true;
               }
             }
-            if (carve) blocks[i + y * L] = y <= 10 ? LAVA : flooded && y < 22 ? WATER : 0;
+            if (carve) blocks[i + y * L] = y <= LAVA_Y ? LAVA : y < table ? WATER : 0;
           }
         }
       }
@@ -665,52 +683,58 @@ export class SurfaceGenerator {
         }
   }
 
+  /**
+   * Ores at Minecraft-like densities. Each ore places clusters of 1-3 small 4D balls (a vein)
+   * per 16^4 cell, enough to make `share` of the host rock in its height range ore. Heights
+   * follow a triangle between minY and maxY (peaking in the middle, like Minecraft's).
+   */
   private oreVeins(cx: number, cz: number, cw: number, blocks: Uint16Array, mountOf: Float32Array): void {
     const X0 = cx * 16, Z0 = cz * 16, W0 = cw * 16;
-    const host = this.host;
+    const host = this.host, deepstone = this.ids.deepstone!;
+    const H = this.height;
     for (const ore of this.ores) {
+      // Veins per 16^4 cell: share of the range's volume over the mean vein volume.
+      const per = (ore.share * 4096 * (ore.maxY - ore.minY)) / ore.veinVolume;
       for (let a = cx - 1; a <= cx + 1; a++)
         for (let b = cz - 1; b <= cz + 1; b++)
           for (let d = cw - 1; d <= cw + 1; d++) {
             const n0 = hash4(a, b, d, ore.salt, this.seed ^ SALT_VEIN);
-            const count = Math.floor(ore.veins + (n0 & 1023) / 1024);
+            const count = Math.floor(per + (n0 & 1023) / 1024);
             for (let k = 0; k < count; k++) {
-              const hsh = hash4(a, b, d, ore.salt * 97 + k, this.seed ^ SALT_VEIN);
-              const f = (s: number) => hash4f(a, b, d, ore.salt * 131 + k * 7 + s, this.seed ^ SALT_VEIN);
-              const px = a * 16 + f(1) * 16, pz = b * 16 + f(2) * 16, pw = d * 16 + f(3) * 16;
-              const py = ore.minY + f(4) * (ore.maxY - ore.minY);
+              const hh = hash4(a, b, d, ore.salt * 4099 + k, this.seed ^ SALT_VEIN);
+              // Position from the hash bits (cheap): 16^3 in x, z, w and a triangle in y.
+              const px = a * 16 + (hh & 15) + 0.5, pz = b * 16 + ((hh >>> 4) & 15) + 0.5, pw = d * 16 + ((hh >>> 8) & 15) + 0.5;
+              if (px < X0 - 4 || px > X0 + 20 || pz < Z0 - 4 || pz > Z0 + 20 || pw < W0 - 4 || pw > W0 + 20) continue;
+              const tri = (((hh >>> 12) & 255) + ((hh >>> 20) & 255)) / 510;
+              const py = ore.minY + tri * (ore.maxY - ore.minY);
               if (ore.mountains) {
                 const li = Math.floor(px - X0), lz = Math.floor(pz - Z0), lw = Math.floor(pw - W0);
-                if (li < 0 || li > 15 || lz < 0 || lz > 15 || lw < 0 || lw > 15) continue;
-                if (mountOf[li + (lz << 4) + (lw << 8)]! < 0.5) continue;
+                if (li < 0 || li > 15 || lz < 0 || lz > 15 || lw < 0 || lw > 15 || mountOf[li + (lz << 4) + (lw << 8)]! < 0.5) continue;
               }
-              let dx = f(5) - 0.5, dy = (f(6) - 0.5) * 0.6, dz = f(7) - 0.5, dw = f(8) - 0.5;
-              const dl = Math.hypot(dx, dy, dz, dw) || 1;
-              dx /= dl;
-              dy /= dl;
-              dz /= dl;
-              dw /= dl;
-              const L = ore.len[0] + (hsh & 255) / 255 * (ore.len[1] - ore.len[0]);
-              const r = ore.r[0] + ((hsh >>> 8) & 255) / 255 * (ore.r[1] - ore.r[0]);
-              const ext = L + r + 1;
-              const x0 = Math.max(0, Math.floor(px - ext - X0)), x1 = Math.min(15, Math.floor(px + ext - X0));
-              const z0 = Math.max(0, Math.floor(pz - ext - Z0)), z1 = Math.min(15, Math.floor(pz + ext - Z0));
-              const w0 = Math.max(0, Math.floor(pw - ext - W0)), w1 = Math.min(15, Math.floor(pw + ext - W0));
-              const y0 = Math.max(1, Math.floor(py - ext)), y1 = Math.min(this.height - 1, Math.floor(py + ext));
-              if (x0 > x1 || z0 > z1 || w0 > w1) continue;
-              const r2 = r * r;
-              for (let y = y0; y <= y1; y++)
-                for (let w = w0; w <= w1; w++)
-                  for (let z = z0; z <= z1; z++)
-                    for (let x = x0; x <= x1; x++) {
-                      const qx = x + X0 + 0.5 - px, qy = y + 0.5 - py, qz = z + Z0 + 0.5 - pz, qw = w + W0 + 0.5 - pw;
-                      let t = qx * dx + qy * dy + qz * dz + qw * dw;
-                      t = t < -L ? -L : t > L ? L : t;
-                      const ex = qx - t * dx, ey = qy - t * dy, ez = qz - t * dz, ew = qw - t * dw;
-                      if (ex * ex + ey * ey + ez * ez + ew * ew > r2) continue;
-                      const idx = x + (z << 4) + (w << 8) + y * COLUMN_LAYER;
-                      if (host[blocks[idx]!]) blocks[idx] = y < 12 ? ore.deep : ore.id;
-                    }
+              const h2 = hash4(a, b, d, ore.salt * 8191 + k, this.seed ^ SALT_VEIN);
+              const balls = 1 + (h2 % 3);
+              // The vein runs along one of the four axes, a ball every 1.5 blocks.
+              const ax = (h2 >>> 2) & 3;
+              for (let j = 0; j < balls; j++) {
+                const off = (j - (balls - 1) / 2) * 1.5;
+                const bx = px + (ax === 0 ? off : 0), by = py + (ax === 1 ? off : 0), bz = pz + (ax === 2 ? off : 0), bw = pw + (ax === 3 ? off : 0);
+                const r = ore.r[0] + (((h2 >>> (4 + j * 6)) & 63) / 63) * (ore.r[1] - ore.r[0]);
+                const r2 = r * r;
+                const x0 = Math.max(0, Math.floor(bx - r - X0)), x1 = Math.min(15, Math.floor(bx + r - X0));
+                const z0 = Math.max(0, Math.floor(bz - r - Z0)), z1 = Math.min(15, Math.floor(bz + r - Z0));
+                const w0 = Math.max(0, Math.floor(bw - r - W0)), w1 = Math.min(15, Math.floor(bw + r - W0));
+                const y0 = Math.max(1, Math.floor(by - r)), y1 = Math.min(H - 1, Math.floor(by + r));
+                for (let y = y0; y <= y1; y++)
+                  for (let w = w0; w <= w1; w++)
+                    for (let z = z0; z <= z1; z++)
+                      for (let x = x0; x <= x1; x++) {
+                        const qx = x + X0 + 0.5 - bx, qy = y + 0.5 - by, qz = z + Z0 + 0.5 - bz, qw = w + W0 + 0.5 - bw;
+                        if (qx * qx + qy * qy + qz * qz + qw * qw > r2) continue;
+                        const idx = x + (z << 4) + (w << 8) + y * COLUMN_LAYER;
+                        const old = blocks[idx]!;
+                        if (host[old]) blocks[idx] = old === deepstone ? ore.deep : ore.id;
+                      }
+              }
             }
           }
     }
@@ -726,7 +750,7 @@ export class SurfaceGenerator {
           const hsh = hash4(a, b, d, 2, this.seed ^ SALT_GEODE);
           if ((hsh & 255) > 34) continue;
           const cx = a * S + 6 + ((hsh >>> 8) & 31) * 0.9, cz = b * S + 6 + ((hsh >>> 13) & 31) * 0.9, cw = d * S + 6 + ((hsh >>> 18) & 31) * 0.9;
-          const cy = 14 + ((hsh >>> 23) & 31);
+          const cy = 20 + ((hsh >>> 23) & 63);
           this.ball(blocks, X0, Z0, W0, cx, cy, cz, cw, R, (old, dist, x, y, z, w) => {
             if (!this.host[old] && old !== I.deepstone) return old;
             if (dist > 4.6) return I.geode_shell!;
@@ -922,7 +946,7 @@ export class SurfaceGenerator {
               blocks[idx] = POINTED_DRIPSTONE; // plain stalagmites
             } else if (ceil && r < 0.014) {
               blocks[idx] = POINTED_DRIPSTONE; // plain stalactites
-            } else if (floor && y < 50 && r > 0.995) {
+            } else if (floor && y < this.sea - 30 && r > 0.995) {
               blocks[idx - L] = LUMINOUS_MOSS;
             }
           }

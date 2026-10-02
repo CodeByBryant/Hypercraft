@@ -46,10 +46,10 @@ export const STRUCTURES: StructureDef[] = [
   { name: 'shipwreck', displayName: 'Shipwreck', placement: 'underwater', spacing: 112, chance: 0.4, builder: 'shipwreck', radius: 9, salt: 0x5213 },
   { name: 'sunken_monument', displayName: 'Sunken Monument', placement: 'underwater', spacing: 224, chance: 0.5, builder: 'sunken_monument', radius: 12, salt: 0x5214 },
   // Underground.
-  { name: 'dungeon', displayName: 'Dungeon', placement: 'underground', spacing: 44, chance: 0.3, builder: 'dungeon', radius: 5, y: [12, 44], salt: 0x5301 },
-  { name: 'hypermine', displayName: 'Hypermine', placement: 'underground', spacing: 176, chance: 0.45, builder: 'hypermine', radius: 34, y: [18, 36], salt: 0x5302 },
-  { name: 'library_ruins', displayName: 'Library Ruins', placement: 'underground', spacing: 176, chance: 0.35, builder: 'library', radius: 8, y: [14, 34], salt: 0x5303 },
-  { name: 'deep_silent_vault', displayName: 'Deep Silent Vault', placement: 'underground', spacing: 144, chance: 0.45, builder: 'silent_vault', radius: 8, y: [6, 16], salt: 0x5304 },
+  { name: 'dungeon', displayName: 'Dungeon', placement: 'underground', spacing: 44, chance: 0.3, builder: 'dungeon', radius: 5, y: [16, 92], salt: 0x5301 },
+  { name: 'hypermine', displayName: 'Hypermine', placement: 'underground', spacing: 176, chance: 0.45, builder: 'hypermine', radius: 34, y: [30, 72], salt: 0x5302 },
+  { name: 'library_ruins', displayName: 'Library Ruins', placement: 'underground', spacing: 176, chance: 0.35, builder: 'library', radius: 8, y: [24, 70], salt: 0x5303 },
+  { name: 'deep_silent_vault', displayName: 'Deep Silent Vault', placement: 'underground', spacing: 144, chance: 0.45, builder: 'silent_vault', radius: 8, y: [8, 26], salt: 0x5304 },
   // Reachable only through an Ana Sheet: sealed rooms right beside the sheet along W.
   { name: 'ana_vault', displayName: 'Ana Vault', placement: 'sheet', spacing: 112, chance: 0.5, builder: 'ana_vault', radius: 6, salt: 0x5305 },
 

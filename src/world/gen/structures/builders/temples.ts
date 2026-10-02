@@ -158,9 +158,11 @@ export function ruins(b: Builder): void {
 export function skyTower(b: Builder): void {
   const sky = id('skystone'), glass = id('glass'), moss = id('cloud_moss');
   const floors = b.int(4, 6);
-  const g = b.ground(0, 0, 0) - b.originY;
+  // The floors climb along c; centre the climb on the origin so the tower stays within its radius.
+  const c0 = -Math.floor(((floors - 1) * 5) / 2);
+  const g = b.ground(0, 0, c0) - b.originY;
   for (let f = 0; f < floors; f++) {
-    const y = g + 3 + f * 6, c = f * 5;
+    const y = g + 3 + f * 6, c = c0 + f * 5;
     b.box(-3, y, -3, c - 2, 3, y, 3, c + 2, sky);
     b.box(-3, y + 1, -3, c - 2, 3, y + 1, 3, c + 2, moss, IF_AIR);
     for (const [a, bb] of [
@@ -179,6 +181,6 @@ export function skyTower(b: Builder): void {
     } else b.chest(0, y + 1, 0, c, 'sky_tower');
   }
   // The base: a skystone plinth on the ground.
-  b.foundation(-2, -2, -2, 2, 2, 2, g + 1, sky, 8);
-  b.box(-2, g + 1, -2, -2, 2, g + 1, 2, 2, sky);
+  b.foundation(-2, -2, c0 - 2, 2, 2, c0 + 2, g + 1, sky, 8);
+  b.box(-2, g + 1, -2, c0 - 2, 2, g + 1, 2, c0 + 2, sky);
 }

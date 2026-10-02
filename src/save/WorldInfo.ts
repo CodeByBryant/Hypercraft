@@ -46,7 +46,11 @@ export interface WorldInfo {
   state?: SavedState;
 }
 
-export const SAVE_VERSION = 1;
+/**
+ * 2: the Surface became 192 blocks tall with the sea at 104 (was 128 and 48); older saves
+ * regenerate their Surface columns and the player, bed and portals move up by 56.
+ */
+export const SAVE_VERSION = 2;
 
 /** Seed from user text: integers are used as-is (like Minecraft), text is hashed, empty = random. */
 export function seedFromText(text: string): number {

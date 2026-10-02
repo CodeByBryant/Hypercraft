@@ -11,10 +11,10 @@ export const REALMS: RealmDef[] = [
   {
     name: 'surface',
     displayName: 'The Surface',
-    heightChunks: 8,
+    heightChunks: 12,
     gravityAxis: 1,
     gravity: 32,
-    seaLevel: 48,
+    seaLevel: 104,
     generator: 'surface',
     coordinateScale: 1,
     dayCycle: true,

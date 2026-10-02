@@ -486,6 +486,22 @@ export class Game {
 
   /** Restore player/world state from a save. */
   private restore(st: SavedState): void {
+    // Save version 1: the Surface was 128 blocks tall with the sea at 48; it is now 192 with
+    // the sea at 104. Move everything on the Surface up with it.
+    if ((this.info.version ?? 1) < 2) {
+      const lift = 56;
+      if (st.realm === 'surface' && st.player.pos.length === 4) st.player.pos[1] = st.player.pos[1]! + lift;
+      const bed = st.player.data?.bed;
+      if (Array.isArray(bed) && bed.length === 4) bed[1] = (bed[1] as number) + lift;
+      const portals = st.data?.portals;
+      if (Array.isArray(portals))
+        for (const r of portals as PortalRecord[])
+          if (r.realm === 'surface') {
+            r.min[1] += lift;
+            r.max[1] += lift;
+          }
+      this.info.version = 2;
+    }
     const p = this.player;
     const sp = st.player;
     if (sp.pos.length === 4) p.setPosition(sp.pos[0]!, sp.pos[1]!, sp.pos[2]!, sp.pos[3]!);

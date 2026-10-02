@@ -71,6 +71,33 @@
     (`placement: 'ceiling'`), vents (`vents`), molten cascades (the `falls` family) and
     tapering 4D spires (tree shape `spire`).
 
+- **The Surface underground is twice as deep, with Minecraft-style caves and ores.**
+  - The Surface is 192 blocks tall (was 128) and sea level is y 104 (was 48), so there are
+    about 100 blocks of rock under your feet instead of 45. Below y 40–48 the rock turns to
+    deepstone (Minecraft's deepslate), dithered across the boundary.
+  - Caves follow Minecraft 1.18's recipe, in 4D: **cheese caverns** (big 4D blobs that grow
+    the deeper you go), **spaghetti tunnels** and narrower **noodle passages** (each the band
+    where two noise fields are both near zero, which in 4D is a thickened surface, so every 3D
+    slice cuts it as winding tunnels). About 13% of the deep underground is open (plus water
+    and lava), against 3–5% before. Ravines, Ana Sheets, sinkholes and rivers stay.
+  - **Aquifers**: in wet regions, caves under the region's water table (y 30–80) are flooded;
+    caves at y 12 and below are lava.
+  - **Ores at Minecraft-like densities**: every ore is placed as small 4D vein clusters sized
+    to make a set share of the rock in its height band ore (coal about 1.2%, iron 0.6%,
+    copper 0.55%, gold 0.15%, hyperite under 0.1%), with heights on a triangle that peaks in
+    the middle of the band, like Minecraft's. A 3D slice of one chunk holds about 140 coal,
+    190 iron, 125 copper, 30 fluxite, 19 gold and 4–5 hyperite. Before, ores were a few
+    stray specks. Deep variants form wherever the host rock is deepstone, and every Surface
+    biome's own stone hosts ores too. Verdant is found in mountains, three times as often.
+  - Dungeons, hypermines, libraries, vaults, geodes and Ana Sheets moved down into the new
+    depth range. The sky tower is centred on its origin, so it stays inside its radius.
+  - Worlds saved before this (save version 1) keep their saved Surface columns only if they
+    have the new height; others regenerate. On load, the player, their bed and Surface
+    portals are lifted 56 blocks so they are not buried.
+  - The GPU brick pool is sized for the deeper columns (about 1600 non-uniform bricks per
+    Surface column, up from 760), so it does not need to regrow on the first load.
+  - Generation is about 55 ms per Surface column (192 tall).
+
 ### Added
 - **Night vision** in creative and spectator: **N**, or the 👁 NV touch button. Everything is
   lit like a sunny day (keeping a hint of the realm's tint); the HUD shows NIGHT VISION. It is
