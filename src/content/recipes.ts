@@ -6,6 +6,7 @@ import type { RecipeDef } from './types';
 import { TIERS } from './tiers';
 import { ARMOR_RECIPES } from './armor';
 import { FOOD_RECIPES } from './food';
+import { BREWING_RECIPES } from './potions';
 
 export const RECIPES: RecipeDef[] = [
   // Wood.
@@ -146,3 +147,6 @@ RECIPES.push(
   { type: 'shaped', pattern: ['III', ' i ', 'iii'], key: { I: 'iron_block', i: 'iron_ingot' }, result: 'anvil' },
   { type: 'shaped', pattern: ['sls', 'p p'], key: { s: 'stick', l: 'stone_slab', p: '#planks' }, result: 'grindstone' },
 );
+
+// Phase 7: brewing.
+RECIPES.push(...BREWING_RECIPES);

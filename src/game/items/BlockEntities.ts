@@ -7,6 +7,7 @@ import { IREG } from '../../content/itemRegistry';
 import type { FurnaceKind } from '../../content/types';
 import type { Column, World } from '../../world/World';
 import { CRAFTING } from './Crafting';
+import { BREWING, BREW_FUEL, BREW_INGREDIENTS, BREW_TIME } from '../../content/potions';
 import { loadStack, saveStack, type Container, type ItemStack, type SavedStack } from './ItemStack';
 
 
@@ -42,7 +43,29 @@ export interface SpawnerData {
   delay: number;
 }
 
-export type BlockEntityData = ChestData | FurnaceData | SpawnerData;
+/** Brewing stand (Phase 7): three bottles, an ingredient, Cinder Powder fuel. */
+export interface BrewingData {
+  type: 'brewing';
+  /** [bottle, bottle, bottle, ingredient, fuel] */
+  slots: (SavedStack | null)[];
+  /** Brews left from the last fuel item. */
+  fuel: number;
+  /** Seconds into the current brew. */
+  brew: number;
+}
+
+export type BlockEntityData = ChestData | FurnaceData | SpawnerData | BrewingData;
+
+/** Can a brewing stand brew these three bottles with this ingredient? */
+export function brewable(slots: (SavedStack | null)[]): boolean {
+  const ing = slots[3];
+  if (!ing) return false;
+  for (let i = 0; i < 3; i++) {
+    const b = slots[i];
+    if (b && BREWING.has(`${b[0]}|${ing[0]}`)) return true;
+  }
+  return false;
+}
 
 /** Spawner rules (Minecraft-like): player within 16 blocks, up to 6 of the mob within 8. */
 const SPAWNER_RANGE = 16;
@@ -65,6 +88,7 @@ export class BlockEntities {
   /** Loaded spawners by world key. */
   private readonly spawners = new Map<string, [number, number, number, number]>();
   private readonly spawnerId: number;
+  private readonly brewingId: number;
   /** Loaded mob spawners (F3, tests). */
   get spawnerCount(): number {
     return this.spawners.size;
@@ -83,6 +107,7 @@ export class BlockEntities {
   constructor(private readonly world: World) {
     this.chestId = REG.id('chest');
     this.spawnerId = REG.id('mob_spawner');
+    this.brewingId = REG.id('brewing_stand');
     for (const [kind, unlit, lit] of [
       ['furnace', 'furnace', 'lit_furnace'],
       ['blast_furnace', 'blast_furnace', 'lit_blast_furnace'],
@@ -96,7 +121,11 @@ export class BlockEntities {
 
   /** Does this block id carry an entity? */
   hasEntity(id: number): boolean {
-    return id === this.chestId || this.furnaceBlocks.has(id);
+    return id === this.chestId || this.furnaceBlocks.has(id) || id === this.brewingId;
+  }
+
+  isBrewing(id: number): boolean {
+    return id === this.brewingId;
   }
 
   furnaceKind(id: number): FurnaceKind | null {
@@ -124,11 +153,16 @@ export class BlockEntities {
     const k = this.localKey(x, y, z, w);
     let d = m[k];
     if (!d && this.hasEntity(id)) {
-      d = id === this.chestId ? { type: 'chest', slots: new Array(CHEST_SLOTS).fill(null) } : { type: 'furnace', kind: this.furnaceBlocks.get(id)!.kind, slots: [null, null, null], burn: 0, burnMax: 0, cook: 0, cookMax: 10 };
+      d =
+        id === this.chestId
+          ? { type: 'chest', slots: new Array(CHEST_SLOTS).fill(null) }
+          : id === this.brewingId
+            ? { type: 'brewing', slots: [null, null, null, null, null], fuel: 0, brew: 0 }
+            : { type: 'furnace', kind: this.furnaceBlocks.get(id)!.kind, slots: [null, null, null], burn: 0, burnMax: 0, cook: 0, cookMax: 10 };
       m[k] = d;
       this.touch(col);
     }
-    if (d?.type === 'furnace') this.active.set(`${x},${y},${z},${w}`, [x, y, z, w]);
+    if (d?.type === 'furnace' || d?.type === 'brewing') this.active.set(`${x},${y},${z},${w}`, [x, y, z, w]);
     return d ?? null;
   }
 
@@ -154,7 +188,7 @@ export class BlockEntities {
       }
       return [];
     }
-    if (n !== o && this.furnaceBlocks.has(n)) this.active.set(`${x},${y},${z},${w}`, [x, y, z, w]);
+    if (n !== o && (this.furnaceBlocks.has(n) || n === this.brewingId)) this.active.set(`${x},${y},${z},${w}`, [x, y, z, w]);
     if (!this.hasEntity(o) || this.hasEntity(n)) return [];
     const col = this.col(x, z, w);
     if (!col) return [];
@@ -178,10 +212,10 @@ export class BlockEntities {
     const m = col.extra.be as Record<string, BlockEntityData> | undefined;
     if (!m) return;
     for (const [k, d] of Object.entries(m)) {
-      if (d.type !== 'furnace' && d.type !== 'spawner') continue;
+      if (d.type !== 'furnace' && d.type !== 'spawner' && d.type !== 'brewing') continue;
       const [lx, y, lz, lw] = k.split(',').map(Number) as [number, number, number, number];
       const x = col.cx * 16 + lx, z = col.cz * 16 + lz, w = col.cw * 16 + lw;
-      (d.type === 'furnace' ? this.active : this.spawners).set(`${x},${y},${z},${w}`, [x, y, z, w]);
+      (d.type === 'spawner' ? this.spawners : this.active).set(`${x},${y},${z},${w}`, [x, y, z, w]);
     }
   }
 
@@ -246,6 +280,21 @@ export class BlockEntities {
           touch();
         },
       };
+    if (d.type === 'brewing')
+      return {
+        size: 5,
+        get: (i) => loadStack(d.slots[i]),
+        set: (i, s) => {
+          d.slots[i] = saveStack(s);
+          touch();
+        },
+        accepts: (i, s) => {
+          const n = IREG.name(s.id);
+          if (i < 3) return IREG.tags[s.id]!.has('potion') && s.count === 1;
+          if (i === 3) return BREW_INGREDIENTS.has(n);
+          return BREW_FUEL[n] !== undefined;
+        },
+      };
     return {
       size: 3,
       get: (i) => loadStack(d.slots[i]),
@@ -272,13 +321,17 @@ export class BlockEntities {
       const col = this.col(x, z, w);
       const v = this.world.getBlock(x, y, z, w);
       const fb = this.furnaceBlocks.get(v & 0xfff);
-      if (!col || !fb) {
+      if (!col || (!fb && (v & 0xfff) !== this.brewingId)) {
         this.active.delete(key);
         continue;
       }
       const d = this.map(col)[this.localKey(x, y, z, w)];
-      if (!d || d.type !== 'furnace') {
-        if (!fb.lit) this.active.delete(key);
+      if (d?.type === 'brewing') {
+        if (this.tickBrewing(d, dt)) this.touch(col);
+        continue;
+      }
+      if (!d || d.type !== 'furnace' || !fb) {
+        if (!fb?.lit) this.active.delete(key);
         continue;
       }
       // Idle furnaces cost one check.
@@ -296,6 +349,39 @@ export class BlockEntities {
     this.swapping = true;
     this.world.setBlock(x, y, z, w, makeVoxel(fb.swap, voxelMeta(v)));
     this.swapping = false;
+  }
+
+  /** One brewing stand step; true if anything changed. */
+  private tickBrewing(d: BrewingData, dt: number): boolean {
+    if (!brewable(d.slots)) {
+      const was = d.brew;
+      d.brew = 0;
+      return was !== 0;
+    }
+    if (d.brew <= 0) {
+      // Each brew burns one charge of fuel when it starts.
+      if (d.fuel <= 0) {
+        const f = loadStack(d.slots[4]);
+        const per = f ? BREW_FUEL[IREG.name(f.id)] : undefined;
+        if (!f || !per) return false;
+        f.count--;
+        d.slots[4] = f.count > 0 ? saveStack(f) : null;
+        d.fuel = per;
+      }
+      d.fuel--;
+    }
+    d.brew += dt;
+    if (d.brew < BREW_TIME) return true;
+    d.brew = 0;
+    const ing = loadStack(d.slots[3])!;
+    for (let i = 0; i < 3; i++) {
+      const b = d.slots[i];
+      const out = b ? BREWING.get(`${b[0]}|${IREG.name(ing.id)}`) : undefined;
+      if (out) d.slots[i] = [out, 1];
+    }
+    ing.count--;
+    d.slots[3] = ing.count > 0 ? saveStack(ing) : null;
+    return true;
   }
 
   private tickFurnace(d: FurnaceData, dt: number): void {

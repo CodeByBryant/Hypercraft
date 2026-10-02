@@ -1421,3 +1421,21 @@ select {
   color: rgba(80, 120, 255, 0.35);
   font-size: 18px;
 }
+.brew-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.brew-progress {
+  width: 48px;
+}
+.brew-fuel {
+  width: 120px;
+  height: 4px;
+  background: rgba(0, 0, 0, 0.5);
+}
+.brew-fuel > div {
+  height: 100%;
+  background: #ffb030;
+}

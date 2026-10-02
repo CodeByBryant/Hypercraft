@@ -125,3 +125,52 @@ test('enchanting table (4D bookshelves), anvil screen, 4D Vision shows key block
   await page.screenshot({ path: `${dir()}/vision.png` });
   expect(errors).toEqual([]);
 });
+
+test('brewing stand brews, potions are drunk and splashed', async ({ page }) => {
+  test.setTimeout(300_000);
+  const errors: string[] = [];
+  await boot(page, 'res=270&rd=2&seed=brew', errors);
+  const r = await page.evaluate(async () => {
+    const hc = window.__hc;
+    hc.setMobSpawning(false);
+    hc.clearMobs();
+    const p = hc.state().pos.map(Math.floor);
+    const [x, y, z, w] = [p[0]! + 2, p[1]!, p[2]!, p[3]!];
+    hc.setBlock(x, y, z, w, 'brewing_stand');
+    hc.beSet(x, y, z, w, 0, 'potion_water');
+    hc.beSet(x, y, z, w, 1, 'potion_water');
+    hc.beSet(x, y, z, w, 3, 'ember_wart');
+    hc.beSet(x, y, z, w, 4, 'cinder_powder');
+    hc.tickWorld(21);
+    const first = [hc.beGet(x, y, z, w, 0), hc.beGet(x, y, z, w, 1), hc.beGet(x, y, z, w, 3)];
+    hc.beSet(x, y, z, w, 3, 'sugar');
+    hc.tickWorld(21);
+    const second = hc.beGet(x, y, z, w, 0);
+    // Drink a strong swiftness potion.
+    hc.setMode('survival');
+    hc.clearInventory();
+    hc.give('potion_swiftness_strong');
+    hc.select(0);
+    await hc.holdUse(2200);
+    const drank = { effects: hc.survival().effects, inv: hc.inventory() };
+    // Splash poison on a cow next to you.
+    const cow = hc.spawnMobAhead('ana_cow', 2.5);
+    hc.clearInventory();
+    hc.give('splash_potion_poison');
+    hc.select(0);
+    hc.setView({ pitch: -40 });
+    await hc.frames(2);
+    hc.use();
+    await hc.frames(40);
+    const cowHit = hc.mobs().find((m) => m.id === cow);
+    return { first, second, drank, cowHealth: cowHit?.health ?? -1, self: hc.survival().effects };
+  });
+  expect(r.first[0]?.[0]).toBe('potion_awkward');
+  expect(r.first[1]?.[0]).toBe('potion_awkward');
+  expect(r.first[2]).toBeNull(); // the wart was used up
+  expect(r.second?.[0]).toBe('potion_swiftness');
+  expect(r.drank.effects.find((e) => e[0] === 'speed')?.[1]).toBe(1);
+  expect(r.drank.inv.some(([, n]) => n === 'glass_bottle')).toBe(true);
+  expect(r.self.some((e) => e[0] === 'poison') || r.cowHealth < 10).toBe(true);
+  expect(errors).toEqual([]);
+});

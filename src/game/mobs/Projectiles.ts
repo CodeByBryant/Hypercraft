@@ -22,6 +22,8 @@ export interface Projectile {
   fire?: boolean;
   /** Punch: extra knockback level. */
   knock?: number;
+  /** Thrown things that burst on impact (splash potions, bottles o' enchanting). */
+  burst?: boolean;
 }
 
 export interface ProjectileHost {
@@ -30,6 +32,8 @@ export interface ProjectileHost {
   hurtPlayer(amount: number, from: Float64Array, cause: string): void;
   /** A stuck player arrow was walked over; returns true if it was collected. */
   collect(item: number): boolean;
+  /** A bursting projectile hit something (splash potion, experience bottle). */
+  impact?(item: number, pos: Float64Array): void;
   eye: Float64Array;
   hidden: Float64Array;
 }
@@ -38,9 +42,9 @@ export class Projectiles {
   readonly list: Projectile[] = [];
   private readonly prev = new Float64Array(4);
 
-  spawn(from: ArrayLike<number>, vel: ArrayLike<number>, damage: number, item: number, byPlayer: boolean, opts?: { fire?: boolean; knock?: number }): void {
+  spawn(from: ArrayLike<number>, vel: ArrayLike<number>, damage: number, item: number, byPlayer: boolean, opts?: { fire?: boolean; knock?: number; burst?: boolean }): void {
     if (this.list.length > 128) this.list.shift();
-    this.list.push({ pos: Float64Array.from(from), vel: Float64Array.from(vel), damage, item, byPlayer, age: 0, stuck: false, fire: opts?.fire, knock: opts?.knock });
+    this.list.push({ pos: Float64Array.from(from), vel: Float64Array.from(vel), damage, item, byPlayer, age: 0, stuck: false, fire: opts?.fire, knock: opts?.knock, burst: opts?.burst });
   }
 
   update(dt: number, world: World, mobs: MobManager, h: ProjectileHost): void {
@@ -77,8 +81,20 @@ export class Projectiles {
         const v = world.getBlock(Math.floor(a.pos[0]!), Math.floor(a.pos[1]!), Math.floor(a.pos[2]!), Math.floor(a.pos[3]!)) & 0xfff;
         if (REG.collision[v] !== COLLISION_NONE) {
           for (let k = 0; k < 4; k++) a.pos[k] = this.prev[k]!;
+          if (a.burst) {
+            h.impact?.(a.item, a.pos);
+            this.list.splice(i, 1);
+            removed = true;
+            break;
+          }
           a.stuck = true;
           a.age = 0;
+          break;
+        }
+        if (a.burst && a.byPlayer && this.hitMob(mobs, a.pos)) {
+          h.impact?.(a.item, a.pos);
+          this.list.splice(i, 1);
+          removed = true;
           break;
         }
         if (a.byPlayer) {

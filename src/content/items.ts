@@ -5,6 +5,7 @@ import type { Hex, ItemDef, ToolKind } from './types';
 import { TIERS } from './tiers';
 import { ARMOR_ITEMS } from './armor';
 import { FOOD_ITEMS } from './food';
+import { BREWING_ITEMS, POTION_ITEMS } from './potions';
 
 const HANDLE: Hex = '#8a6a3c';
 
@@ -116,6 +117,7 @@ for (const t of TIERS) {
 // Phase 7.
 ITEMS.push(...ARMOR_ITEMS, ...FOOD_ITEMS);
 ITEMS.push({ name: 'enchanted_book', displayName: 'Enchanted Book', maxStack: 1, icon: { shape: 'book', colors: ['#6a3aa8', '#3a1a6a', '#ffd86a'] }, group: 'tools', tags: ['glint'] });
+ITEMS.push(...BREWING_ITEMS, ...POTION_ITEMS);
 
 /** Blocks without an item (fluids, portals, technical and "lit" state blocks). */
 export const NO_ITEM_BLOCKS = new Set(['air', 'water', 'lava', 'portal', 'lit_furnace', 'lit_blast_furnace', 'lit_smoker', 'mob_spawner', 'red_bed_head', 'blue_bed_head', 'white_bed_head', 'frosted_ice']);

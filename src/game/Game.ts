@@ -50,6 +50,7 @@ import { BURN_FIRE, BURN_LAVA } from '../content/fire';
 import { findPortal, framedAxes, portalCenter, portalDestination, scalePosition, frameCells, interiorCells, type PortalBox, type PortalRecord, type PortalShape } from './Portals';
 import { EffectList } from './Effects';
 import { EFFECT_BY_NAME } from '../content/effects';
+import { potionEffect } from '../content/potions';
 import { Experience, Hunger, MAX_FOOD, armorApplies, armorReduce, armorWear, epfReduce, isFireDamage, type DamageKind } from './Survival';
 import { KeyBlocks } from './KeyBlocks';
 import { applyOffer, countBookshelves, enchantOffers, type EnchantOffer } from './Stations';
@@ -136,7 +137,8 @@ export type ScreenRequest =
   | { kind: 'trade'; mob: number }
   | { kind: 'enchanting'; pos: [number, number, number, number] }
   | { kind: 'anvil'; pos: [number, number, number, number] }
-  | { kind: 'grindstone'; pos: [number, number, number, number] };
+  | { kind: 'grindstone'; pos: [number, number, number, number] }
+  | { kind: 'brewing'; pos: [number, number, number, number] };
 
 /** Stations that open a screen of their own (block name -> screen kind). */
 const STATION_SCREENS: Record<string, 'enchanting' | 'anvil' | 'grindstone'> = { enchanting_table: 'enchanting', anvil: 'anvil', grindstone: 'grindstone' };
@@ -533,6 +535,7 @@ export class Game {
       },
       eye: this.eyePos,
       hidden: this.player.cam.H,
+      impact: (item, pos) => this.burstAt(item, pos),
     };
 
     this.params = {
@@ -2683,6 +2686,42 @@ export class Game {
     if (points > 0) this.orbs.spawn(p[0]!, p[1]! + 0.9, p[2]!, p[3]!, points);
   }
 
+  /** A thrown potion or bottle o' enchanting burst at `pos`. */
+  burstAt(item: number, pos: ArrayLike<number>): void {
+    const name = IREG.name(item);
+    const [x, y, z, w] = [pos[0]!, pos[1]!, pos[2]!, pos[3]!];
+    if (name === 'xp_bottle') {
+      this.particles.burst(x, y, z, w, this.player.cam, 'spark', '#a8ff4a', 14, 2, 0.4, true);
+      this.orbs.spawn(x, y + 0.3, z, w, 3 + Math.floor(Math.random() * 9));
+      return;
+    }
+    const color = IREG.def(item).icon?.colors[0] ?? '#3f76e4';
+    this.particles.burst(x, y, z, w, this.player.cam, 'poof', color, 24, 2.5, 0.8);
+    this.particles.burst(x, y, z, w, this.player.cam, 'spark', color, 12, 3, 0.4, true);
+    const eff = potionEffect(name);
+    // Everything within 4 blocks (in 4D) is splashed, less the further it is.
+    const p = this.player;
+    const dp = Math.hypot(p.pos[0]! - x, p.pos[1]! + 0.9 - y, p.pos[2]! - z, p.pos[3]! - w);
+    if (dp < 4) {
+      const k = 1 - dp / 4;
+      if (!eff) this.burning = 0; // plain water puts you out
+      else if (EFFECT_BY_NAME.get(eff[0])?.instant) this.applyEffect(eff[0], 0, k > 0.5 ? eff[2] : Math.max(0, eff[2] - 1));
+      else if (eff[1] * k >= 1) this.applyEffect(eff[0], eff[1] * k, eff[2]);
+    }
+    for (const m of [...this.mobs.list]) {
+      const dm = Math.hypot(m.pos[0]! - x, m.pos[1]! + m.height * 0.5 - y, m.pos[2]! - z, m.pos[3]! - w);
+      if (dm >= 4) continue;
+      const k = 1 - dm / 4;
+      if (!eff) {
+        m.burning = 0;
+        continue;
+      }
+      m.playerHit = Math.max(m.playerHit, 3);
+      if (EFFECT_BY_NAME.get(eff[0])?.instant) this.mobs.applyEffect(m, eff[0], 0, k > 0.5 ? eff[2] : Math.max(0, eff[2] - 1));
+      else if (eff[1] * k >= 1) this.mobs.applyEffect(m, eff[0], eff[1] * k, eff[2]);
+    }
+  }
+
   // ------------------------------------------------------------------ eating and drinking
 
   /** Can this be eaten or drunk right now (hold use)? */
@@ -2758,7 +2797,7 @@ export class Game {
       }
       if (this.blockEntities.hasEntity(tid)) {
         const fk = this.blockEntities.furnaceKind(tid);
-        this.onOpenScreen?.(fk ? { kind: 'furnace', pos, furnace: fk } : { kind: 'chest', pos });
+        this.onOpenScreen?.(fk ? { kind: 'furnace', pos, furnace: fk } : this.blockEntities.isBrewing(tid) ? { kind: 'brewing', pos } : { kind: 'chest', pos });
         return;
       }
     }
@@ -2818,6 +2857,36 @@ export class Game {
       if (!this.hasTarget) return;
       const placed = this.placeAtTarget(use === 'water_bucket' ? REG.id('water') : REG.id('lava'));
       if (placed && survival) this.inv.set(this.hotbarIndex, { id: IREG.id('bucket'), count: 1, damage: 0 });
+      return;
+    }
+    if (use === 'glass_bottle') {
+      // Fill from water (the source stays, like Minecraft's).
+      const hit = this.fluidHit;
+      if (!raycast(this.world, this.eyePos, this.pickDir, reach, hit, true) || REG.fluid[voxelId(hit.voxel)] !== FLUID_WATER) return;
+      const water: ItemStack = { id: IREG.id('potion_water'), count: 1, damage: 0 };
+      if (!survival) {
+        if (this.inv.add(water) > 0) this.throwStack(water);
+        return;
+      }
+      held.count--;
+      this.inv.set(this.hotbarIndex, held.count > 0 ? held : null);
+      if (held.count <= 0) this.inv.set(this.hotbarIndex, water);
+      else if (this.inv.add(water) > 0) this.throwStack(water);
+      return;
+    }
+    if (use === 'splash_potion' || use === 'xp_bottle') {
+      // Throw it: it bursts where it lands.
+      const p = this.player, e = this.eyePos, f = p.cam.fwd;
+      const from = this.tmp4;
+      for (let k = 0; k < 4; k++) from[k] = e[k]! + f[k]! * 0.4;
+      const v = this.tmpMin;
+      for (let k = 0; k < 4; k++) v[k] = f[k]! * 13;
+      v[p.up] = v[p.up]! + 3;
+      this.projectiles.spawn(from, v, 0, held.id, true, { burst: true });
+      if (survival) {
+        held.count--;
+        this.inv.set(this.hotbarIndex, held.count > 0 ? held : null);
+      }
       return;
     }
     if (use === 'flint_and_steel') {

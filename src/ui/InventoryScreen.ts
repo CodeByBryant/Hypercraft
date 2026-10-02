@@ -9,7 +9,9 @@ import type { Game, ScreenRequest } from '../game/Game';
 import { CRAFTING, type CompiledRecipe } from '../game/items/Crafting';
 import { HOTBAR_SIZE, MAIN_END, ARMOR_START, OFFHAND } from '../game/items/Inventory';
 import { SlotContainer, canMerge, insertInto, withCount, type Container, type ItemStack } from '../game/items/ItemStack';
-import type { FurnaceData } from '../game/items/BlockEntities';
+import type { BrewingData, FurnaceData } from '../game/items/BlockEntities';
+import { BREW_TIME, potionEffect } from '../content/potions';
+import { EFFECT_BY_NAME, roman } from '../content/effects';
 import { countIn } from '../game/items/ItemStack';
 import { levelProgress, price, repFactor, soldOut } from '../game/Trading';
 import { LEVEL_NAMES } from '../content/trades';
@@ -58,6 +60,7 @@ export class InventoryScreen {
   private anvilName: string | null = null;
   private container: Container | null = null;
   private furnace: FurnaceData | null = null;
+  private brewing: BrewingData | null = null;
   private flameEl: HTMLDivElement | null = null;
   private progressEl: HTMLDivElement | null = null;
   private tab: 'inventory' | 'creative' = 'inventory';
@@ -130,6 +133,7 @@ export class InventoryScreen {
     this.gridSize = 0;
     this.container = null;
     this.furnace = null;
+    this.brewing = null;
     this.work = null;
     this.anvilName = null;
     if (req.kind === 'inventory') {
@@ -144,6 +148,7 @@ export class InventoryScreen {
       const [x, y, z, w] = req.pos;
       this.container = this.game.blockEntities.container(x, y, z, w);
       if (req.kind === 'furnace') this.furnace = this.game.blockEntities.get(x, y, z, w) as FurnaceData;
+      if (req.kind === 'brewing') this.brewing = this.game.blockEntities.get(x, y, z, w) as BrewingData;
     }
     this.root.classList.add('open');
     this.render();
@@ -186,7 +191,7 @@ export class InventoryScreen {
       const [x, y, z, w] = r.pos;
       const id = this.game.world.getBlock(x, y, z, w) & 0xfff;
       const name = REG.blocks[id]?.name ?? '';
-      const ok = SCREEN_BLOCK[r.kind] ? name === SCREEN_BLOCK[r.kind] : this.game.blockEntities.furnaceKind(id) !== null;
+      const ok = SCREEN_BLOCK[r.kind] ? name === SCREEN_BLOCK[r.kind] : r.kind === 'brewing' ? name === 'brewing_stand' : this.game.blockEntities.furnaceKind(id) !== null;
       const e = this.game.eye();
       const far = Math.hypot(x + 0.5 - e[0]!, y + 0.5 - e[1]!, z + 0.5 - e[2]!, w + 0.5 - e[3]!) > 9;
       if (!ok || far) {
@@ -195,7 +200,7 @@ export class InventoryScreen {
       }
     }
     this.refreshTimer -= dt;
-    if (this.game.inv.version !== this.lastInvVersion || (this.furnace && this.refreshTimer <= 0)) {
+    if (this.game.inv.version !== this.lastInvVersion || ((this.furnace || this.brewing) && this.refreshTimer <= 0)) {
       this.refreshTimer = 0.15;
       this.render();
     }
@@ -261,6 +266,7 @@ export class InventoryScreen {
     else if (req.kind === 'enchanting') this.renderEnchanting(main, req.pos);
     else if (req.kind === 'anvil') this.renderAnvil(main);
     else if (req.kind === 'grindstone') this.renderGrindstone(main);
+    else if (req.kind === 'brewing') this.renderBrewing(main);
     else this.renderFurnace(main, req.furnace);
     h('div', 'inv-title', main, 'INVENTORY');
     const mainGrid = h('div', 'inv-grid', main);
@@ -482,6 +488,28 @@ export class InventoryScreen {
     const r = grindstone(this.work!.get(0), this.work!.get(1));
     if (r) this.paint(res.el, r.out);
     h('div', 'inv-hint', main, 'Removes enchantments (curses stay) and gives some experience back; two of the same item merge their durability.');
+  }
+
+  /** Brewing stand: ingredient on top, fuel on the left, three bottles below. */
+  private renderBrewing(main: HTMLElement): void {
+    h('div', 'inv-title', main, 'BREWING STAND');
+    const box = h('div', 'brew-box', main);
+    const top = h('div', 'inv-row', box);
+    const fuel = this.slot(top, this.container, 4);
+    fuel.el.title = 'Fuel: Cinder Powder';
+    const ing = this.slot(top, this.container, 3);
+    ing.el.title = 'Ingredient';
+    const d = this.brewing;
+    const prog = h('div', 'progress brew-progress', top);
+    const fill = h('div', '', prog);
+    fill.style.width = `${Math.round(d && d.brew > 0 ? (d.brew / BREW_TIME) * 100 : 0)}%`;
+    const fuelBar = h('div', 'brew-fuel', box);
+    const ff = h('div', '', fuelBar);
+    ff.style.width = `${Math.round(((d?.fuel ?? 0) / 20) * 100)}%`;
+    fuelBar.title = `${d?.fuel ?? 0} brews of fuel left`;
+    const bottles = h('div', 'inv-row', box);
+    for (let i = 0; i < 3; i++) this.slot(bottles, this.container, i).el.title = 'Bottle';
+    h('div', 'inv-hint', main, 'Water bottle + Ember Wart = Awkward Potion; add an ingredient for an effect; Fluxite Dust makes it last, Emberglass Dust stronger, Sulfur a splash potion.');
   }
 
   private renderChest(main: HTMLElement): void {
@@ -844,7 +872,17 @@ export class InventoryScreen {
     const fromPlayer = c === g.inv;
     const moving = withCount(st, st.count);
     if (fromPlayer) {
-      if (this.container && this.req?.kind === 'furnace') {
+      if (this.container && this.req?.kind === 'brewing') {
+        const n = IREG.name(st.id);
+        if (IREG.tags[st.id]!.has('potion')) {
+          for (let i = 0; i < 3 && moving.count > 0; i++)
+            if (!this.container.get(i)) {
+              this.container.set(i, withCount(moving, 1));
+              moving.count--;
+            }
+        } else if (n === 'cinder_powder') insertInto(this.container, moving, 4, 5);
+        else insertInto(this.container, moving, 3, 4);
+      } else if (this.container && this.req?.kind === 'furnace') {
         const fuel = CRAFTING.fuel(st.id) > 0;
         const smeltable = CRAFTING.smelt(st.id, this.req.furnace) !== null;
         if (smeltable) insertInto(this.container, moving, 0, 1);
@@ -957,6 +995,12 @@ export function stackTip(s: ItemStack): string {
   if (a && a.points > 0) lines.push(`  +${a.points} armour${a.toughness ? `, +${a.toughness} toughness` : ''} (${ARMOR_SLOTS.indexOf(a.slot) >= 0 ? a.slot : ''})`);
   const f = IREG.food[s.id];
   if (f && f.nutrition > 0) lines.push(`  Food ${f.nutrition}, saturation ${f.saturation}`);
+  const pe = potionEffect(IREG.name(s.id));
+  if (pe) {
+    const def = EFFECT_BY_NAME.get(pe[0]);
+    const t = Math.round(pe[1]);
+    lines.push(`  ${def?.displayName ?? pe[0]}${pe[2] > 0 ? ' ' + roman(pe[2] + 1) : ''}${def?.instant ? '' : ` (${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')})`}`);
+  }
   const max = IREG.durability[s.id]!;
   if (max > 0) lines.push(`  Durability ${max - s.damage}/${max}`);
   return lines.join('\n');

@@ -144,3 +144,8 @@ set(['enchanting_table', 'anvil'], { tool: 'pickaxe', tier: 0 });
 set(['grindstone', 'brewing_stand'], { tool: 'pickaxe', tier: 0 });
 set(['smithing_table'], { tool: 'axe' });
 set(['frosted_ice'], { drops: 'none' });
+
+// Phase 7 brewing ingredients: emberglass crumbles into dust (like glowstone); ember ferns
+// carry ember wart.
+set(['emberglass'], { drops: [{ item: 'emberglass_dust', count: [2, 4] }] });
+set(['ember_fern'], { shears: true, drops: [{ item: 'ember_wart', chance: 0.4 }] });

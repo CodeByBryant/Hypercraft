@@ -625,3 +625,16 @@ const enchanted: Record<string, LootTable['pools'][number]> = {
   village_library: { rolls: W(0, 1), entries: [{ item: 'book', weight: 2, enchant: 'random' }] },
 };
 for (const [name, pool] of Object.entries(enchanted)) LOOT_TABLES[name]?.pools.push(pool);
+
+// Potions and brewing ingredients.
+const brews: Record<string, LootTable['pools'][number]> = {
+  witch_hut: { rolls: W(2, 4), entries: [{ item: 'potion_healing', weight: 4 }, { item: 'potion_swiftness', weight: 3 }, { item: 'splash_potion_poison', weight: 3 }, { item: 'potion_night_vision', weight: 3 }, { item: 'weaver_eye', weight: 4, count: W(1, 3) }, { item: 'sugar', weight: 4, count: W(1, 4) }, { item: 'glass_bottle', weight: 4, count: W(1, 3) }, { item: 'ember_wart', weight: 3, count: W(1, 3) }] },
+  dungeon: { rolls: W(0, 1), entries: [{ item: 'potion_healing', weight: 2 }, { item: 'xp_bottle', weight: 2, count: W(1, 4) }] },
+  citadel_storage: { rolls: W(1, 2), entries: [{ item: 'ember_wart', weight: 6, count: W(2, 7) }, { item: 'cinder_powder', weight: 3, count: W(1, 3) }] },
+  citadel_treasure: { rolls: W(0, 1), entries: [{ item: 'potion_fire_resistance', weight: 3 }, { item: 'ember_wart', weight: 4, count: W(3, 8) }] },
+  deep_silent_vault: { rolls: W(0, 2), entries: [{ item: 'potion_anchor', weight: 2 }, { item: 'potion_phase_sight', weight: 2 }, { item: 'xp_bottle', weight: 3, count: W(2, 6) }] },
+  ana_vault: { rolls: W(0, 1), entries: [{ item: 'potion_phase_sight_long', weight: 2 }, { item: 'xp_bottle', weight: 2, count: W(1, 4) }] },
+  library: { rolls: W(0, 1), entries: [{ item: 'xp_bottle', weight: 3, count: W(1, 3) }] },
+  shipwreck_supply: { rolls: W(0, 1), entries: [{ item: 'potion_water_breathing', weight: 2 }] },
+};
+for (const [name, pool] of Object.entries(brews)) LOOT_TABLES[name]?.pools.push(pool);

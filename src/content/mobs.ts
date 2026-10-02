@@ -376,7 +376,7 @@ export const MOBS: MobDef[] = [
     width: 0.55,
     height: 0.8,
     parts: [ball([0, 0.45, -0.1, 0], 0.32, '#3a3030'), ball([0, 0.45, 0.28, 0], 0.18, '#2a2020', 'head'), ball([0.06, 0.52, 0.44, 0.06], 0.04, '#ff2020', 'head', 0, true), ...spiderLegs('#2a2020', 0.45, 0.62)],
-    drops: [{ item: 'string', count: [0, 2] }],
+    drops: [{ item: 'string', count: [0, 2] }, { item: 'weaver_eye', count: [0, 1], chance: 0.5 }],
     spins: { block: 'cobweb', every: [7, 12] },
   },
   {
