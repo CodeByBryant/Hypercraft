@@ -56,6 +56,7 @@ import { KeyBlocks } from './KeyBlocks';
 import { applyOffer, countBookshelves, enchantOffers, type EnchantOffer } from './Stations';
 import { Farming } from './Farming';
 import { BUSHES, PLANTS } from '../content/farming';
+import { ARROWS } from '../content/ores';
 import type { Container } from './items/ItemStack';
 import { XpOrbs } from './XpOrbs';
 import { Vision4D } from './Vision4D';
@@ -294,6 +295,10 @@ export class Game {
   private sliceSenseT = 0;
   /** Holding up a shield (main hand or off hand). */
   blocking = false;
+  /** Lit TNT: seconds left on each fuse (keyed by cell). */
+  private readonly tnt = new Map<string, { x: number; y: number; z: number; w: number; fuse: number }>();
+  private readonly tntId = REG.id('tnt');
+  private readonly tntLitId = REG.id('tnt_lit');
   private shieldUp = 0;
   /** Enchanting table seed: the offers stay the same until you enchant something. */
   enchSeed = (Math.random() * 0x7fffffff) | 0;
@@ -425,6 +430,7 @@ export class Game {
       rainingAt: (x, y, z, w) => this.rainingAt(x, y, z, w),
       difficulty: () => DIFFICULTY[this.info.difficulty] ?? 2,
       ignited: (x, y, z, w) => void this.lightPortal(x, y, z, w),
+      primeTnt: (x, y, z, w) => this.primeTnt(x, y, z, w),
     });
     this.keyBlocks = new KeyBlocks(this.world);
     this.farming = new Farming({
@@ -837,6 +843,7 @@ export class Game {
       this.fire.tick();
       this.blockEntities.tick(0.05);
       this.farming.tick();
+      this.tickTnt(0.05);
       ticks++;
     }
     if (ticks >= 5) this.tickAcc = 0;
@@ -1555,10 +1562,33 @@ export class Game {
   ignite(): boolean {
     if (!this.hasTarget) return false;
     const t = this.target;
+    if (this.primeTnt(t.x, t.y, t.z, t.w)) return true;
     const c = [t.x, t.y, t.z, t.w];
     c[t.axis] = c[t.axis]! + t.sign;
     if (this.lightPortal(c[0]!, c[1]!, c[2]!, c[3]!)) return true;
     return this.startFire(c[0]!, c[1]!, c[2]!, c[3]!);
+  }
+
+  /** Light the TNT at a cell (if there is some): it blows after `fuse` seconds. */
+  primeTnt(x: number, y: number, z: number, w: number, fuse = 4): boolean {
+    if ((this.world.getBlock(x, y, z, w) & 0xfff) !== this.tntId) return false;
+    this.world.setBlock(x, y, z, w, this.tntLitId);
+    this.tnt.set(`${x},${y},${z},${w}`, { x, y, z, w, fuse });
+    return true;
+  }
+
+  /** Burn down the fuses; a fuse that ends on its lit TNT block sets off a blast. */
+  private tickTnt(dt: number): void {
+    if (!this.tnt.size) return;
+    for (const [k, t] of this.tnt) {
+      t.fuse -= dt;
+      if (Math.random() < dt * 6) this.particles.burst(t.x + 0.5, t.y + 1.05, t.z + 0.5, t.w + 0.5, this.player.cam, 'smoke', '#8a8a8a', 1, 0.6, 0.1);
+      if (t.fuse > 0) continue;
+      this.tnt.delete(k);
+      if ((this.world.getBlock(t.x, t.y, t.z, t.w) & 0xfff) !== this.tntLitId) continue; // mined
+      this.world.setBlock(t.x, t.y, t.z, t.w, 0);
+      this.explode(t.x + 0.5, t.y + 0.5, t.z + 0.5, t.w + 0.5, 4);
+    }
   }
 
   /**
@@ -2121,16 +2151,30 @@ export class Game {
     const p = this.player;
     const power = bowPower(this.bowDraw);
     if (power < 0.1) return;
-    const arrow = IREG.id('arrow');
     const survival = p.mode === 'survival' || p.mode === 'adventure';
     const bowStack = this.held;
+    // Ammunition: the off hand first, then the hotbar, then the rest (Minecraft's order).
+    let slot = -1;
+    for (const i of [OFFHAND, ...Array.from({ length: 36 }, (_, k) => k)]) {
+      const s = this.inv.get(i);
+      if (s && IREG.tags[s.id]!.has('arrow')) {
+        slot = i;
+        break;
+      }
+    }
+    const arrow = slot >= 0 ? this.inv.get(slot)!.id : IREG.id('arrow');
+    const kind = ARROWS[IREG.name(arrow)] ?? ARROWS.arrow!;
     if (survival) {
-      if (countIn(this.inv, arrow) <= 0) {
+      if (slot < 0) {
         this.message?.('No arrows');
         return;
       }
-      // Infinity: one arrow is enough.
-      if (enchLevel(bowStack, 'infinity') === 0) removeFrom(this.inv, (s) => s.id === arrow, 1);
+      // Infinity: one plain arrow is enough (silver and spectral arrows are used up).
+      if (enchLevel(bowStack, 'infinity') === 0 || IREG.name(arrow) !== 'arrow') {
+        const s = this.inv.get(slot)!;
+        s.count--;
+        this.inv.set(slot, s.count > 0 ? s : null);
+      }
     }
     const e = this.eyePos, f = p.cam.fwd;
     const from = this.tmp4;
@@ -2139,8 +2183,8 @@ export class Game {
     const v = this.tmpMin;
     for (let k = 0; k < 4; k++) v[k] = f[k]! * ARROW_SPEED * power;
     const pw = enchLevel(bowStack, 'power');
-    const dmg = arrowDamage(power) * (pw > 0 ? 1 + 0.25 * (pw + 1) : 1);
-    this.projectiles.spawn(from, v, dmg, arrow, true, { fire: enchLevel(bowStack, 'flame') > 0, knock: enchLevel(bowStack, 'punch') });
+    const dmg = arrowDamage(power) * (pw > 0 ? 1 + 0.25 * (pw + 1) : 1) * kind.damage;
+    this.projectiles.spawn(from, v, dmg, arrow, true, { fire: enchLevel(bowStack, 'flame') > 0, knock: enchLevel(bowStack, 'punch'), undead: kind.undead, glow: kind.glow });
     if (survival) this.wearHeld(1);
   }
 
@@ -2647,6 +2691,12 @@ export class Game {
             const v = this.world.getBlock(bx, by, bz, bw);
             if (v === 0 || v === VOID_VOXEL) continue;
             const id = v & 0xfff;
+            // TNT in the blast lights with a short fuse (chain reactions).
+            if (id === this.tntId) {
+              this.primeTnt(bx, by, bz, bw, 0.5 + Math.random());
+              continue;
+            }
+            if (id === this.tntLitId) continue;
             const hard = REG.hardness[id]!;
             if (hard < 0 || hard >= 30 || REG.fluid[id] !== 0) continue;
             if (!this.world.setBlock(bx, by, bz, bw, 0)) continue;
@@ -3409,6 +3459,8 @@ export class Game {
     } else this.keyBlocks.found = 0;
     // Phase Strike target: its 4D outline, so you know what you are swinging at.
     if (this.phaseTarget) this.vision.mobOne(lines, e, cam, this.mobs, this.phaseTarget, 0.85, 0.45, 1, 1.95);
+    // Spectral arrows: a hit mob glows through walls and off the slice.
+    for (const m of this.mobs.list) if (m.glowing > 0 && !lines.full) this.vision.mobOne(lines, e, cam, this.mobs, m, 1, 0.92, 0.45, 1.95);
     // Slice Sense: ores in the slices kata and ana of yours.
     for (let i = 0; i < this.sliceSense.length; i += 5) {
       const id = this.sliceSense[i + 4]!;

@@ -33,6 +33,8 @@ export interface FireHost {
   difficulty(): number;
   /** A new fire appeared (a portal frame around it lights). */
   ignited?(x: number, y: number, z: number, w: number): void;
+  /** Fire reached TNT: light it instead of burning it (true if it was TNT). */
+  primeTnt?(x: number, y: number, z: number, w: number): boolean;
 }
 
 interface Fire {
@@ -165,6 +167,7 @@ export class FireSystem {
     if (v === VOID_VOXEL) return;
     const odds = REG.burn[v & 0xfff]!;
     if (odds === 0 || h.random() * chance >= odds) return;
+    if (h.primeTnt?.(x, y, z, w)) return;
     if (h.random() * (age + 10) < 5 && !h.rainingAt(x, y, z, w)) this.setFire(x, y, z, w, Math.min(15, age + (h.random() < 0.2 ? 1 : 0)));
     else h.world.setBlock(x, y, z, w, 0);
   }

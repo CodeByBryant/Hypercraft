@@ -192,21 +192,27 @@ export class SurfaceGenerator {
     for (const n of ['stone', 'limestone', 'savanna_stone', 'weathered_stone', 'fossil_stone', 'frost_stone', 'silent_shale', 'tidestone', 'deepstone', 'basalt', 'hollow_stone', 'sandstone']) this.host[REG.id(n)] = 1;
     // Every Surface biome's own stone holds ores too.
     for (const b of this.biomes) if (b.stone && (b.realm ?? 'surface') === 'surface' && REG.solid[REG.id(b.stone)]) this.host[REG.id(b.stone)] = 1;
-    // share: fraction of the host rock in [minY, maxY] that becomes this ore (Minecraft-like:
-    // coal about 1%, iron 0.7%, diamonds under 0.1%).
+    // share: fraction of the host rock in [minY, maxY] aimed for (veins landing in air or
+    // overlapping lose some: the realised share is about a half to two thirds of it). About
+    // 2.5x Minecraft's density: ores show on most cave walls, and veins are fat enough that
+    // their 3D cross-sections read as veins (a 4D ball's slice is smaller than the ball).
     const ore = (name: string, deep: string | null, minY: number, maxY: number, share: number, r: [number, number], salt: number, mountains = false): OreCfg => {
       const rm = (r[0] + r[1]) / 2;
       return { id: id(name), deep: deep ? id(deep) : id(name), minY, maxY, share, r, salt, mountains, veinVolume: 2 * ((Math.PI * Math.PI) / 2) * rm ** 4 };
     };
     this.ores = [
-      ore('coal_ore', null, 50, 180, 0.012, [1.1, 1.8], 1),
-      ore('copper_ore', null, 40, 130, 0.0055, [1.0, 1.7], 2),
-      ore('iron_ore', 'deep_iron_ore', 8, 140, 0.006, [1.0, 1.6], 3),
-      ore('gold_ore', 'deep_gold_ore', 6, 70, 0.0015, [0.9, 1.4], 4),
-      ore('azurite_ore', 'deep_azurite_ore', 6, 80, 0.0012, [0.9, 1.4], 5),
-      ore('fluxite_ore', 'deep_fluxite_ore', 4, 48, 0.0035, [0.9, 1.5], 6),
-      ore('verdant_ore', null, 100, 180, 0.0012, [0.7, 1.0], 7, true),
-      ore('hyperite_ore', 'deep_hyperite_ore', 4, 36, 0.0008, [0.8, 1.2], 8),
+      ore('coal_ore', null, 24, 150, 0.032, [1.3, 2.1], 1),
+      ore('copper_ore', null, 30, 125, 0.016, [1.2, 2.0], 2),
+      ore('iron_ore', 'deep_iron_ore', 6, 135, 0.016, [1.2, 1.9], 3),
+      ore('gold_ore', 'deep_gold_ore', 4, 70, 0.005, [1.0, 1.6], 4),
+      ore('azurite_ore', 'deep_azurite_ore', 4, 80, 0.0045, [1.0, 1.6], 5),
+      ore('fluxite_ore', 'deep_fluxite_ore', 2, 50, 0.01, [1.0, 1.7], 6),
+      ore('verdant_ore', null, 100, 180, 0.004, [0.8, 1.2], 7, true),
+      ore('hyperite_ore', 'deep_hyperite_ore', 2, 36, 0.0024, [0.9, 1.4], 8),
+      ore('silver_ore', 'deep_silver_ore', 6, 90, 0.0055, [1.0, 1.6], 9),
+      ore('sulfur_ore', 'deep_sulfur_ore', 2, 60, 0.008, [1.1, 1.9], 10),
+      ore('lumenite_ore', 'deep_lumenite_ore', 10, 110, 0.0035, [0.9, 1.4], 11),
+      ore('tesserite_ore', 'deep_tesserite_ore', 2, 40, 0.0018, [0.9, 1.3], 12),
     ];
     void I;
     this.garden = options.garden ?? false;

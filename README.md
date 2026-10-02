@@ -87,8 +87,14 @@ from each biome's tables all around you in 4D, not only in your slice.
 
 **Underground**: about 100 blocks of rock under sea level (y 104), deepstone below y 40–48,
 Minecraft-style cheese caverns, spaghetti tunnels and noodle passages carved in 4D, flooded
-aquifers and lava at the bottom, 15 cave biomes, and ores at Minecraft-like densities: coal and
-copper up high, iron everywhere, gold, azurite, fluxite and hyperite in the deep.
+aquifers and lava at the bottom, 15 cave biomes, and rich ore: about 7% of the rock (coal and
+copper up high, iron everywhere; gold, azurite, fluxite, silver, sulfur, glowing lumenite and
+hyperite deeper; rare violet tesserite at the bottom).
+
+**Ores and their uses**: silver (silver arrows, twice as hard on the undead; Mirror Glass; a
+trim material), sulfur (**TNT**: light it and run, 4 s, chain reactions; fire charges, splash
+potions), lumenite (Lumen Blocks, **spectral arrows** that outline the mob you hit through walls
+and off your slice, enhanced potions), tesserite (Tesseract Blocks, phase dust, the 4D tools).
 
 **Night vision** (creative and spectator): press **N** or tap 👁 NV. In **spectator**, fly into
 the ground to see through it, like Minecraft: rock vanishes and the caves show.

@@ -8,6 +8,7 @@ import { FOOD_ITEMS } from './food';
 import { BREWING_ITEMS, POTION_ITEMS } from './potions';
 import { CROPS, FARM_ITEMS } from './farming';
 import { SMITHING_ITEMS } from './smithing';
+import { ORE_ITEMS } from './ores';
 
 const HANDLE: Hex = '#8a6a3c';
 
@@ -53,7 +54,7 @@ export const ITEMS: ItemDef[] = [
   material('glow_scale', 'Glow Scale', 'shard', ['#5ff4ff', '#1fa8c0', '#e8ffff']),
   material('wraith_essence', 'Wraith Essence', 'dust', ['#b8e8ff', '#6aa8d8', '#ffffff']),
   material('echo_shard', 'Echo Shard', 'shard', ['#0f5a64', '#083a44', '#35f0e0']),
-  { name: 'arrow', displayName: 'Arrow', icon: { shape: 'arrow', colors: ['#dcdcdc', '#8a8a8a', '#f4f4f4'] }, group: 'combat' },
+  { name: 'arrow', displayName: 'Arrow', icon: { shape: 'arrow', colors: ['#dcdcdc', '#8a8a8a', '#f4f4f4'] }, group: 'combat', tags: ['arrow'] },
   { name: 'bow', displayName: 'Bow', maxStack: 1, durability: 384, icon: { shape: 'bow', colors: ['#8a6a3c', '#5f4828', '#e8e8e8'] }, use: 'bow', group: 'combat' },
   { name: 'apple', displayName: 'Apple', icon: { shape: 'apple', colors: ['#d8302a', '#8a1a14', '#6b5130'] }, group: 'food' },
   { name: 'bucket', displayName: 'Bucket', maxStack: 16, icon: { shape: 'bucket', colors: ['#c8c8c8', '#7a7a7a'] }, use: 'bucket', group: 'tools' },
@@ -121,7 +122,7 @@ ITEMS.push(...ARMOR_ITEMS, ...FOOD_ITEMS);
 ITEMS.push({ name: 'enchanted_book', displayName: 'Enchanted Book', maxStack: 1, icon: { shape: 'book', colors: ['#6a3aa8', '#3a1a6a', '#ffd86a'] }, group: 'tools', tags: ['glint'] });
 ITEMS.push(...BREWING_ITEMS, ...POTION_ITEMS, ...FARM_ITEMS);
 // Smithing, shields, the Anchor Charm.
-ITEMS.push(...SMITHING_ITEMS);
+ITEMS.push(...SMITHING_ITEMS, ...ORE_ITEMS);
 ITEMS.push(
   { name: 'shield', displayName: 'Shield', maxStack: 1, durability: 336, enchantability: 1, icon: { shape: 'shield', colors: ['#8a6a3c', '#5f4828', '#c8c8c8'] }, use: 'shield', group: 'combat', tags: ['shield'] },
   { name: 'anchor_charm', displayName: 'Anchor Charm', maxStack: 1, icon: { shape: 'charm', colors: ['#6a8aa8', '#2a3a5a', '#f4d03f'] }, group: 'combat', tags: ['glint'] },
@@ -135,6 +136,7 @@ ITEMS.push(
 /** Blocks without an item (fluids, portals, technical and "lit" state blocks). */
 export const NO_ITEM_BLOCKS = new Set([
   ...CROPS.flatMap((c) => Array.from({ length: c.stages }, (_, k) => `${c.name}_${k}`)),
+  'tnt_lit',
   'sweet_berry_bush_young',
   'strawberry_bush_young',
   'farmland_moist','air', 'water', 'lava', 'portal', 'lit_furnace', 'lit_blast_furnace', 'lit_smoker', 'mob_spawner', 'red_bed_head', 'blue_bed_head', 'white_bed_head', 'frosted_ice']);

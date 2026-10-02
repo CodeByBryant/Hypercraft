@@ -42,6 +42,24 @@
     sets nearby fuel alight as it flows. Fire that spreads into a portal frame lights it.
 
 ### Changed
+- **Far more ore.** Surface ore went from under 2% of the rock to about 7% (coal 2.2%, iron
+  1.6%, copper 1.2%...), in fatter veins whose 3D cross-sections read as veins; coal moved
+  down into the rock (half its veins used to land in the air). The Ember Depths' quartz,
+  gilded cinder, hypercinder and Ancient Slag are 2–4x as common.
+- **Four new ores, each with uses** (each with a deepstone variant):
+  - *Silver* (y 6–90): ingots, nuggets, blocks; **silver arrows** (8 arrows + an ingot: 25%
+    more damage, double on the undead); **Mirror Glass**; a trim material; smiths buy it.
+  - *Sulfur* (y 2–60): **TNT** (sulfur and sand). Light it with flint and steel, a fire
+    charge, spreading fire or another blast; it blows after 4 s (a 4D radius-4 crater), and
+    TNT in a blast chains. Also fire charges and splash potions.
+  - *Lumenite* (y 10–110, glows in the dark): lumen dust. Four make a Lumen Block (which
+    breaks back into dust); **spectral arrows** (an arrow and four dust: the mob you hit glows
+    for 10 s, outlined through walls and off your slice); enhances potions like emberglass
+    dust.
+  - *Tesserite* (y 2–40, rare, violet glow, iron pickaxe): tesserite shards, Tesseract Blocks,
+    phase dust (one shard: two), and the 4D tools (Phase 7.7).
+  - Bows shoot the off hand's arrows first, then the hotbar's, like Minecraft; Infinity only
+    saves plain arrows. Fletchers, clerics and W-Walkers trade the new things; chests hold them.
 - **The Ember Depths fill their whole height**, like Minecraft's Nether. There was one floor,
   one ceiling and a 50–70 block empty chasm between them; now a 4D density field (sampled
   every 4 blocks and interpolated) makes masses, overhangs, ledges, arches, pillars and

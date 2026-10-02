@@ -24,6 +24,18 @@ export interface Projectile {
   knock?: number;
   /** Thrown things that burst on impact (splash potions, bottles o' enchanting). */
   burst?: boolean;
+  /** Damage multiplier on the undead (silver arrows). */
+  undead?: number;
+  /** Seconds a hit mob glows (spectral arrows: drawn through walls and off the slice). */
+  glow?: number;
+}
+
+export interface ProjectileOpts {
+  fire?: boolean;
+  knock?: number;
+  burst?: boolean;
+  undead?: number;
+  glow?: number;
 }
 
 export interface ProjectileHost {
@@ -42,9 +54,9 @@ export class Projectiles {
   readonly list: Projectile[] = [];
   private readonly prev = new Float64Array(4);
 
-  spawn(from: ArrayLike<number>, vel: ArrayLike<number>, damage: number, item: number, byPlayer: boolean, opts?: { fire?: boolean; knock?: number; burst?: boolean }): void {
+  spawn(from: ArrayLike<number>, vel: ArrayLike<number>, damage: number, item: number, byPlayer: boolean, opts?: ProjectileOpts): void {
     if (this.list.length > 128) this.list.shift();
-    this.list.push({ pos: Float64Array.from(from), vel: Float64Array.from(vel), damage, item, byPlayer, age: 0, stuck: false, fire: opts?.fire, knock: opts?.knock, burst: opts?.burst });
+    this.list.push({ pos: Float64Array.from(from), vel: Float64Array.from(vel), damage, item, byPlayer, age: 0, stuck: false, fire: opts?.fire, knock: opts?.knock, burst: opts?.burst, undead: opts?.undead, glow: opts?.glow });
   }
 
   update(dt: number, world: World, mobs: MobManager, h: ProjectileHost): void {
@@ -100,7 +112,9 @@ export class Projectiles {
         if (a.byPlayer) {
           const m = this.hitMob(mobs, a.pos);
           if (m) {
-            if (mobs.damage(m, a.damage, this.prev, h.eye, h.hidden, true, 1 + (a.knock ?? 0)) && a.fire && !m.def.fireproof) m.burning = Math.max(m.burning, 5);
+            const dmg = a.damage * (a.undead && m.def.undead ? a.undead : 1);
+            if (mobs.damage(m, dmg, this.prev, h.eye, h.hidden, true, 1 + (a.knock ?? 0)) && a.fire && !m.def.fireproof) m.burning = Math.max(m.burning, 5);
+            if (a.glow) m.glowing = Math.max(m.glowing, a.glow);
             this.list.splice(i, 1);
             removed = true;
           }

@@ -122,6 +122,8 @@ export class Mob {
   burnTimer = 0;
   /** Seconds the mob keeps burning (fire, lava, the sun for undead); water puts it out. */
   burning = 0;
+  /** Seconds it glows (spectral arrow): outlined through walls and off the slice. */
+  glowing = 0;
   fireTouch = 0;
   /** Seconds since the player last hurt it (> 0: a kill counts as the player's: experience). */
   playerHit = 0;
@@ -441,6 +443,7 @@ export class MobManager {
       m.hurt = Math.max(0, m.hurt - dt);
       m.attackCd -= dt;
       if (m.playerHit > 0) m.playerHit -= dt;
+      if (m.glowing > 0) m.glowing -= dt;
       if (m.effects) this.tickEffects(m, dt);
       const d4 = dist4(m.pos, p);
       m.near = d4 < 32;

@@ -15,6 +15,7 @@ export const FLAMMABLE_TAGS: Record<string, [number, number]> = {
 /** Blocks with odds of their own (no tag covers them). */
 export const FLAMMABLE_BLOCKS: Record<string, [number, number]> = {
   bookshelf: [30, 20],
+  tnt: [15, 100],
   thatch: [60, 20],
   hay_bale: [60, 20],
   oak_fence: [5, 20],

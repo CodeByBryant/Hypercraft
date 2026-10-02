@@ -41,6 +41,8 @@ export const TRIM_MATERIALS: Record<string, Hex> = {
   ember_quartz: '#f8e8e0',
   ancient_slag_ingot: '#7a4a30',
   fluxite_dust: '#ff3a3a',
+  silver_ingot: '#dfe6ee',
+  tesserite_shard: '#c86aff',
 };
 
 export const SMITHING_ITEMS: ItemDef[] = [

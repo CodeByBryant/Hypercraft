@@ -24,6 +24,9 @@ Honest list as of Phase 6 (the Ember Depths, portals, the Magma Regent). Items t
   (~0.5–1 s of fog-coloured unloaded areas at the edges). Inherent to 4D; can be softened
   with a larger hidden-axis margin.
 
+## Gameplay
+- Lit TNT is not saved: after a reload it stays lit without going off (mine it to get it back).
+
 ## Rendering
 - The camera is always upright (hidden axis never has a Y component), so cross-sections are
   always prisms along Y. Free SO(4) rotations are not exposed.

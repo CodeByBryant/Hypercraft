@@ -122,6 +122,9 @@ for (const [from, to] of Object.entries(CORRUPT)) {
   }
 }
 
+// Lumen dust (Lumenite) enhances potions like emberglass dust (Minecraft's glowstone).
+for (const [k, v] of [...BREWING]) if (k.endsWith('|emberglass_dust')) BREWING.set(k.replace('|emberglass_dust', '|lumen_dust'), v);
+
 /** Every item that can go in a brewing stand's ingredient slot. */
 export const BREW_INGREDIENTS = new Set([...BREWING.keys()].map((k) => k.split('|')[1]!));
 

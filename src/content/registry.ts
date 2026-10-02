@@ -17,6 +17,7 @@ import { WILDS_BIOMES, WILDS_BLOCKS, WILDS_TEXTURES, WILDS_TREES } from './wilds
 import { CAVE_BIOMES, CAVE_BLOCKS, CAVE_TEXTURES, CAVE_TREES } from './caves';
 import { STATION_BLOCKS, STATION_SHAPES, STATION_TEXTURES } from './stations';
 import { FARM_BLOCKS, FARM_TEXTURES } from './farming';
+import { ORE_BLOCKS, ORE_TEXTURES } from './ores';
 import type { BiomeDef, BlockDef, Box4, Hex, RealmDef, ShapeDef, TextureDef, TreeDef } from './types';
 
 /** A voxel is a uint16: block id in the low 12 bits, a 4-bit meta nibble on top. */
@@ -403,8 +404,8 @@ export class Registry {
   }
 }
 
-export const ALL_BLOCKS: BlockDef[] = [...BLOCKS, ...TERRAIN_BLOCKS, ...FUNCTIONAL_BLOCKS, ...STRUCTURE_BLOCKS, ...EMBER_BLOCKS, ...WILDS_BLOCKS, ...CAVE_BLOCKS, ...STATION_BLOCKS, ...FARM_BLOCKS];
-export const ALL_TEXTURES: TextureDef[] = [...TEXTURES, ...TERRAIN_TEXTURES, ...FUNCTIONAL_TEXTURES, ...STRUCTURE_TEXTURES, ...EMBER_TEXTURES, ...WILDS_TEXTURES, ...CAVE_TEXTURES, ...STATION_TEXTURES, ...FARM_TEXTURES];
+export const ALL_BLOCKS: BlockDef[] = [...BLOCKS, ...TERRAIN_BLOCKS, ...FUNCTIONAL_BLOCKS, ...STRUCTURE_BLOCKS, ...EMBER_BLOCKS, ...WILDS_BLOCKS, ...CAVE_BLOCKS, ...STATION_BLOCKS, ...FARM_BLOCKS, ...ORE_BLOCKS];
+export const ALL_TEXTURES: TextureDef[] = [...TEXTURES, ...TERRAIN_TEXTURES, ...FUNCTIONAL_TEXTURES, ...STRUCTURE_TEXTURES, ...EMBER_TEXTURES, ...WILDS_TEXTURES, ...CAVE_TEXTURES, ...STATION_TEXTURES, ...FARM_TEXTURES, ...ORE_TEXTURES];
 export const ALL_BIOMES: BiomeDef[] = [...BIOMES, ...WILDS_BIOMES, ...CAVE_BIOMES, ...EMBER_BIOMES];
 export const REG = new Registry(ALL_BLOCKS, [...SHAPES, ...STATION_SHAPES], ALL_TEXTURES, ALL_BIOMES, REALMS, [...TREES, ...EMBER_TREES, ...WILDS_TREES, ...CAVE_TREES]);
 

@@ -190,10 +190,11 @@ export class EmberGenerator {
     this.wts = new Float64Array(this.land.length);
     this.base = new Float64Array(this.land.length);
     this.ores = [
-      { id: id('ember_quartz_ore'), p: 0.55, r: [1.1, 1.8], y: [10, 118] },
-      { id: id('gilded_cinder'), p: 0.3, r: [1.0, 1.5], y: [10, 118] },
-      { id: id('hypercinder_ore'), p: 0.16, r: [0.9, 1.4], y: [10, 80] },
-      { id: id('ancient_slag'), p: 0.07, r: [0.6, 1.0], y: [8, 26] },
+      // Blobs per 8^4 cell (playtest: about 2.5x the old density, fatter blobs).
+      { id: id('ember_quartz_ore'), p: 1.3, r: [1.2, 2.0], y: [10, 118] },
+      { id: id('gilded_cinder'), p: 0.7, r: [1.1, 1.7], y: [10, 118] },
+      { id: id('hypercinder_ore'), p: 0.8, r: [1.0, 1.5], y: [10, 80] },
+      { id: id('ancient_slag'), p: 0.3, r: [0.7, 1.1], y: [8, 26] },
     ];
     for (const b of all) {
       this.host[b.stone] = 1;
@@ -618,7 +619,7 @@ export class EmberGenerator {
     this.structures.apply(cx, cz, cw, blocks, extra ?? {});
   }
 
-  /** Ore blobs: one chance per 8^4 cell per ore, a jittered 4D ball in host rock. */
+  /** Ore blobs: `p` per 8^4 cell per ore (the fraction is a chance), jittered 4D balls in host rock. */
   private oreBlobs(X0: number, Z0: number, W0: number, blocks: Uint16Array): void {
     const S8 = 8, M = 2;
     const seed = this.seed, host = this.host, L = COLUMN_LAYER;
@@ -627,23 +628,24 @@ export class EmberGenerator {
       for (let cw = Math.floor((W0 - M) / S8); cw <= Math.floor((W0 + 15 + M) / S8); cw++)
         for (let cz = Math.floor((Z0 - M) / S8); cz <= Math.floor((Z0 + 15 + M) / S8); cz++)
           for (let cx = Math.floor((X0 - M) / S8); cx <= Math.floor((X0 + 15 + M) / S8); cx++)
-            for (let cy = Math.floor(o.y[0] / S8); cy <= Math.floor(o.y[1] / S8); cy++) {
-              const h = hash4(cx, cy, cz, cw, seed ^ (SALT_ORE + k * 977));
-              if (h / 4294967296 >= o.p) continue;
-              const px = cx * S8 + ((h >>> 3) & 7) + 0.5, py = cy * S8 + ((h >>> 6) & 7) + 0.5, pz = cz * S8 + ((h >>> 9) & 7) + 0.5, pw = cw * S8 + ((h >>> 12) & 7) + 0.5;
-              if (py < o.y[0] || py > o.y[1]) continue;
-              const r = o.r[0] + (((h >>> 16) & 255) / 255) * (o.r[1] - o.r[0]);
-              const r2 = r * r;
-              for (let w = Math.max(0, Math.floor(pw - r - W0)); w <= Math.min(15, Math.floor(pw + r - W0)); w++)
-                for (let z = Math.max(0, Math.floor(pz - r - Z0)); z <= Math.min(15, Math.floor(pz + r - Z0)); z++)
-                  for (let x = Math.max(0, Math.floor(px - r - X0)); x <= Math.min(15, Math.floor(px + r - X0)); x++)
-                    for (let y = Math.max(1, Math.floor(py - r)); y <= Math.min(this.height - 2, Math.floor(py + r)); y++) {
-                      const dx = X0 + x + 0.5 - px, dy = y + 0.5 - py, dz = Z0 + z + 0.5 - pz, dw = W0 + w + 0.5 - pw;
-                      if (dx * dx + dy * dy + dz * dz + dw * dw > r2) continue;
-                      const i = x + (z << 4) + (w << 8) + y * L;
-                      if (host[blocks[i]! & 0xfff]) blocks[i] = o.id;
-                    }
-            }
+            for (let cy = Math.floor(o.y[0] / S8); cy <= Math.floor(o.y[1] / S8); cy++)
+              for (let j = 0; j < Math.ceil(o.p); j++) {
+                const h = hash4(cx, cy, cz, cw, seed ^ (SALT_ORE + k * 977 + j * 7919));
+                if (h / 4294967296 >= o.p - j) continue;
+                const px = cx * S8 + ((h >>> 3) & 7) + 0.5, py = cy * S8 + ((h >>> 6) & 7) + 0.5, pz = cz * S8 + ((h >>> 9) & 7) + 0.5, pw = cw * S8 + ((h >>> 12) & 7) + 0.5;
+                if (py < o.y[0] || py > o.y[1]) continue;
+                const r = o.r[0] + (((h >>> 16) & 255) / 255) * (o.r[1] - o.r[0]);
+                const r2 = r * r;
+                for (let w = Math.max(0, Math.floor(pw - r - W0)); w <= Math.min(15, Math.floor(pw + r - W0)); w++)
+                  for (let z = Math.max(0, Math.floor(pz - r - Z0)); z <= Math.min(15, Math.floor(pz + r - Z0)); z++)
+                    for (let x = Math.max(0, Math.floor(px - r - X0)); x <= Math.min(15, Math.floor(px + r - X0)); x++)
+                      for (let y = Math.max(1, Math.floor(py - r)); y <= Math.min(this.height - 2, Math.floor(py + r)); y++) {
+                        const dx = X0 + x + 0.5 - px, dy = y + 0.5 - py, dz = Z0 + z + 0.5 - pz, dw = W0 + w + 0.5 - pw;
+                        if (dx * dx + dy * dy + dz * dz + dw * dw > r2) continue;
+                        const i = x + (z << 4) + (w << 8) + y * L;
+                        if (host[blocks[i]! & 0xfff]) blocks[i] = o.id;
+                      }
+              }
     }
   }
 
