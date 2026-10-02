@@ -18,6 +18,8 @@ export interface ItemTag {
   rc?: number;
   /** W-Anchor: the marked spot [realm, x, y, z, w]. */
   mark?: [string, number, number, number, number];
+  /** Crossbow: the arrow it is loaded with. */
+  ammo?: string;
 }
 
 export interface ItemStack {

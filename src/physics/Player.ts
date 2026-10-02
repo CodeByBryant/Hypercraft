@@ -42,6 +42,9 @@ export class Player {
   eyeInWater = false;
   eyeInLava = false;
   onClimbable = false;
+  /** Hanging on a Hyper Rope: no gravity, moving along the hidden axis at `hangSpeed`. */
+  hanging = false;
+  hangSpeed = 3;
   /** Slowest movement multiplier of the blocks the body is in (cobwebs); 1 = free. */
   slow = 1;
   /** Phase 7 movement modifiers (set by the game each frame). */
@@ -268,7 +271,7 @@ export class Player {
     const creative = this.mode === 'creative' || this.mode === 'spectator';
     if (!creative) this.flying = false;
     if (this.mode === 'spectator') this.flying = true;
-    this.sneaking = input.sneak && !this.flying;
+    this.sneaking = input.sneak && !this.flying && !this.hanging;
     this.sprinting = input.sprint && input.forward > 0 && !this.sneaking;
     this.sampleFluids(world);
 
@@ -290,6 +293,7 @@ export class Player {
     const webbed = this.slow < 1 && this.mode !== 'spectator';
     if (webbed) speed *= this.slow;
     if (!this.flying) speed *= this.speedMul;
+    if (this.hanging && !this.flying) speed = this.hangSpeed;
 
     // Horizontal velocity: accelerate toward the wish velocity.
     const accel = this.flying ? 12 : this.onGround ? 22 : this.inWater || this.inLava ? 8 : 5;
@@ -330,6 +334,11 @@ export class Player {
       if (vy < -3) vy = -3;
       if (this.sneaking && vy < 0) vy = 0;
       if (input.jump || (this.hitWall && wl > 0.1)) vy = Math.max(vy, 2.8);
+    }
+    if (this.hanging && !this.flying) {
+      // On the rope: no falling (a fall is measured from where you let go), climb with jump.
+      vy = input.jump ? 2.8 : 0;
+      this.fallStart = this.pos[up]!;
     }
     if (webbed) {
       // Stuck in a web: barely sink, barely climb, and the fall ends here.

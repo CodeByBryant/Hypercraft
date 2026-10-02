@@ -22,12 +22,16 @@ function kindOf(itemId: number): ToolKind | null {
 
 /** Melee damage of a full-strength hit with `itemId` held (-1 = empty hand). */
 export function attackDamage(itemId: number): number {
+  const wd = itemId >= 0 ? IREG.def(itemId).weapon : undefined;
+  if (wd) return wd.damage;
   const k = kindOf(itemId);
   if (!k) return 1;
   return BASE[k] + (IREG.tier(itemId)?.damage ?? 0);
 }
 
 export function attackCooldown(itemId: number): number {
+  const wd = itemId >= 0 ? IREG.def(itemId).weapon : undefined;
+  if (wd) return wd.cooldown;
   const k = kindOf(itemId);
   return k ? COOLDOWN[k] : FIST_COOLDOWN;
 }
@@ -43,6 +47,7 @@ export function swingStrength(sinceLast: number, cooldown: number): number {
 
 /** Durability used by one hit: swords 1, other tools 2, non-tools 0. */
 export function hitWear(itemId: number): number {
+  if (itemId >= 0 && IREG.def(itemId).weapon) return 1;
   const k = kindOf(itemId);
   if (!k || k === 'shears') return 0;
   return k === 'sword' ? 1 : 2;

@@ -7,6 +7,7 @@ import type { Frame4 } from '../../math/frame';
 import type { SpriteBatch } from '../../render/SpriteBatch';
 import type { World } from '../../world/World';
 import type { Mob, MobManager } from './MobManager';
+import type { ItemStack } from '../items/ItemStack';
 
 const R = 0.14;
 
@@ -28,6 +29,13 @@ export interface Projectile {
   undead?: number;
   /** Seconds a hit mob glows (spectral arrows: drawn through walls and off the slice). */
   glow?: number;
+  /** Downward acceleration (default 20; 0: flies straight). */
+  gravity?: number;
+  /** Hyper-Chakram: flies out for `out` seconds, then back to the thrower, cutting every mob
+   * near its path (kata and ana of it too, within `hidden`); never sticks. */
+  boomerang?: { out: number; back: boolean; hidden: number; hit: Set<Mob> };
+  /** The thrown stack itself (chakram, dagger): returned or dropped, wear and all. */
+  stack?: ItemStack;
 }
 
 export interface ProjectileOpts {
@@ -36,6 +44,9 @@ export interface ProjectileOpts {
   burst?: boolean;
   undead?: number;
   glow?: number;
+  gravity?: number;
+  boomerang?: { out: number; hidden: number };
+  stack?: ItemStack;
 }
 
 export interface ProjectileHost {
@@ -46,6 +57,10 @@ export interface ProjectileHost {
   collect(item: number): boolean;
   /** A bursting projectile hit something (splash potion, experience bottle). */
   impact?(item: number, pos: Float64Array): void;
+  /** A chakram came back: into the inventory (or at your feet). */
+  returnStack?(st: ItemStack): void;
+  /** A thrown dagger fell after a hit: drop it there. */
+  dropStack?(pos: Float64Array, st: ItemStack): void;
   eye: Float64Array;
   hidden: Float64Array;
 }
@@ -56,7 +71,68 @@ export class Projectiles {
 
   spawn(from: ArrayLike<number>, vel: ArrayLike<number>, damage: number, item: number, byPlayer: boolean, opts?: ProjectileOpts): void {
     if (this.list.length > 128) this.list.shift();
-    this.list.push({ pos: Float64Array.from(from), vel: Float64Array.from(vel), damage, item, byPlayer, age: 0, stuck: false, fire: opts?.fire, knock: opts?.knock, burst: opts?.burst, undead: opts?.undead, glow: opts?.glow });
+    this.list.push({
+      pos: Float64Array.from(from),
+      vel: Float64Array.from(vel),
+      damage,
+      item,
+      byPlayer,
+      age: 0,
+      stuck: false,
+      fire: opts?.fire,
+      knock: opts?.knock,
+      burst: opts?.burst,
+      undead: opts?.undead,
+      glow: opts?.glow,
+      gravity: opts?.gravity,
+      boomerang: opts?.boomerang ? { out: opts.boomerang.out, back: false, hidden: opts.boomerang.hidden, hit: new Set() } : undefined,
+      stack: opts?.stack,
+    });
+  }
+
+  /** Hyper-Chakram flight: out, then home on the thrower; cuts mobs near its path. */
+  private boomerang(a: Projectile, dt: number, world: World, mobs: MobManager, h: ProjectileHost): boolean {
+    const b = a.boomerang!;
+    const p = h.playerPos;
+    if (!b.back && a.age > b.out) b.back = true;
+    if (b.back) {
+      let d2 = 0;
+      const to = this.prev;
+      for (let k = 0; k < 4; k++) {
+        to[k] = p[k]! + (k === 1 ? h.playerHeight * 0.6 : 0) - a.pos[k]!;
+        d2 += to[k]! * to[k]!;
+      }
+      const d = Math.sqrt(d2);
+      if (d < 1.2 || a.age > 8) {
+        if (a.stack) h.returnStack?.(a.stack);
+        return true;
+      }
+      const sp = Math.hypot(a.vel[0]!, a.vel[1]!, a.vel[2]!, a.vel[3]!) || 20;
+      for (let k = 0; k < 4; k++) a.vel[k] = (to[k]! / d) * Math.max(sp, 20);
+    }
+    for (let k = 0; k < 4; k++) a.pos[k] = a.pos[k]! + a.vel[k]! * dt;
+    // Going out, a wall turns it back; coming back, it passes through.
+    if (!b.back) {
+      const v = world.getBlock(Math.floor(a.pos[0]!), Math.floor(a.pos[1]!), Math.floor(a.pos[2]!), Math.floor(a.pos[3]!)) & 0xfff;
+      if (REG.collision[v] !== COLLISION_NONE) b.back = true;
+    }
+    // Every mob near the path, kata and ana of it within `hidden`, once per throw.
+    const H = h.hidden;
+    for (const m of mobs.list) {
+      if (b.hit.has(m) || m.def.profession) continue;
+      let dh = 0, d2 = 0;
+      for (let k = 0; k < 4; k++) {
+        const dk = a.pos[k]! - m.pos[k]! - (k === 1 ? m.height * 0.5 : 0);
+        dh += dk * H[k]!;
+        d2 += dk * dk;
+      }
+      const inSlice = d2 - dh * dh;
+      const r = m.width + 0.6;
+      if (inSlice > r * r || Math.abs(dh) > b.hidden + m.width) continue;
+      b.hit.add(m);
+      mobs.damage(m, a.damage, a.pos, null, h.hidden, true, 1);
+    }
+    return false;
   }
 
   update(dt: number, world: World, mobs: MobManager, h: ProjectileHost): void {
@@ -77,11 +153,15 @@ export class Projectiles {
         if (a.age > 30) this.list.splice(i, 1);
         continue;
       }
+      if (a.boomerang) {
+        if (this.boomerang(a, dt, world, mobs, h)) this.list.splice(i, 1);
+        continue;
+      }
       if (a.age > 10) {
         this.list.splice(i, 1);
         continue;
       }
-      a.vel[1] = a.vel[1]! - 20 * dt;
+      a.vel[1] = a.vel[1]! - (a.gravity ?? 20) * dt;
       const speed = Math.hypot(a.vel[0]!, a.vel[1]!, a.vel[2]!, a.vel[3]!);
       const steps = Math.max(1, Math.ceil((speed * dt) / 0.2));
       let removed = false;
@@ -115,6 +195,8 @@ export class Projectiles {
             const dmg = a.damage * (a.undead && m.def.undead ? a.undead : 1);
             if (mobs.damage(m, dmg, this.prev, h.eye, h.hidden, true, 1 + (a.knock ?? 0)) && a.fire && !m.def.fireproof) m.burning = Math.max(m.burning, 5);
             if (a.glow) m.glowing = Math.max(m.glowing, a.glow);
+            // A thrown dagger falls where it hit.
+            if (a.stack) h.dropStack?.(a.pos, a.stack);
             this.list.splice(i, 1);
             removed = true;
           }

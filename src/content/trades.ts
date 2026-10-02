@@ -32,7 +32,7 @@ export const PROFESSIONS: ProfessionDef[] = [
     trim: '#a8a8b0',
     levels: [
       [t([['coal', 15]], [V, 1], 16, 2), t([['iron_ingot', 4]], [V, 1], 12, 2), t([['silver_ingot', 4]], [V, 1], 12, 2), t([[V, 5]], ['iron_helmet', 1], 3, 2), t([[V, 4]], ['iron_boots', 1], 3, 2)],
-      [t([[V, 2]], ['iron_sword', 1], 3, 5), t([[V, 3]], ['iron_pickaxe', 1], 3, 5), t([[V, 3]], ['iron_axe', 1], 3, 5), t([[V, 9]], ['iron_chestplate', 1], 3, 5), t([[V, 7]], ['iron_leggings', 1], 3, 5)],
+      [t([[V, 2]], ['iron_sword', 1], 3, 5), t([[V, 3]], ['spear', 1], 3, 5), t([[V, 3]], ['iron_pickaxe', 1], 3, 5), t([[V, 3]], ['iron_axe', 1], 3, 5), t([[V, 9]], ['iron_chestplate', 1], 3, 5), t([[V, 7]], ['iron_leggings', 1], 3, 5)],
       [t([['gold_ingot', 3]], [V, 1], 12, 10), t([[V, 2]], ['shears', 1], 3, 10), t([[V, 6]], ['iron_sword', 1], 3, 10, [5, 19]), t([[V, 1]], ['anvil', 1], 3, 10)],
       [t([[V, 8], ['azurite', 1]], ['azurite_pickaxe', 1], 3, 15), t([[V, 8], ['azurite', 1]], ['azurite_sword', 1], 3, 15), t([[V, 14], ['azurite', 2]], ['azurite_chestplate', 1], 3, 15, [8, 20])],
       [t([[V, 20], ['hyperite', 1]], ['hyperite_pickaxe', 1], 3, 30, [10, 25]), t([[V, 16], ['hyperite', 1]], ['hyperite_sword', 1], 3, 30, [10, 25]), t([[V, 24], ['hyperite', 1]], ['hyperite_helmet', 1], 3, 30, [10, 25])],
@@ -97,7 +97,7 @@ export const PROFESSIONS: ProfessionDef[] = [
     trim: '#c8b890',
     levels: [
       [t([['stick', 32]], [V, 1], 16, 2), t([[V, 1]], ['arrow', 16], 12, 1)],
-      [t([['flint', 26]], [V, 1], 12, 5), t([[V, 2]], ['bow', 1], 12, 5)],
+      [t([['flint', 26]], [V, 1], 12, 5), t([[V, 2]], ['bow', 1], 12, 5), t([[V, 3]], ['crossbow', 1], 6, 5), t([[V, 1]], ['throwing_dagger', 4], 12, 5)],
       [t([['string', 14]], [V, 1], 16, 10), t([[V, 3]], ['arrow', 32], 12, 10), t([[V, 2]], ['silver_arrow', 8], 12, 10)],
       [t([['feather', 24]], [V, 1], 16, 15), t([[V, 2]], ['oak_fence', 8], 12, 15), t([[V, 2]], ['spectral_arrow', 6], 12, 15)],
       [t([[V, 6]], ['bow', 2], 12, 30)],
@@ -111,10 +111,10 @@ export const PROFESSIONS: ProfessionDef[] = [
     trim: '#c86aff',
     levels: [
       [t([['phase_dust', 8]], [V, 1], 16, 2), t([[V, 2]], ['phase_dust', 4], 12, 1)],
-      [t([[V, 4]], ['obsidian', 2], 12, 5), t([[V, 2]], ['flint_and_steel', 1], 12, 5)],
+      [t([[V, 4]], ['obsidian', 2], 12, 5), t([[V, 2]], ['flint_and_steel', 1], 12, 5), t([[V, 6], ['tesserite_shard', 1]], ['slicer_compass', 1], 6, 5)],
       [t([['echo_shard', 2]], [V, 3], 12, 10), t([[V, 6]], ['tesseract_bricks', 4], 12, 10), t([[V, 3]], ['fire_charge', 4], 12, 10)],
       [t([[V, 8]], ['vault_atlas', 1], 12, 15), t([[V, 3]], ['amethyst', 2], 12, 15), t([[V, 10]], ['ember_atlas', 1], 12, 15), t([[V, 6]], ['tesserite_shard', 1], 12, 15)],
-      [t([[V, 16]], ['hyperite', 1], 12, 30)],
+      [t([[V, 16]], ['hyperite', 1], 12, 30), t([[V, 14]], ['phase_lens', 1], 4, 30), t([[V, 18]], ['w_anchor', 1], 4, 30)],
     ],
   },
 ];

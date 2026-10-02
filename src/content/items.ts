@@ -9,6 +9,7 @@ import { BREWING_ITEMS, POTION_ITEMS } from './potions';
 import { CROPS, FARM_ITEMS } from './farming';
 import { SMITHING_ITEMS } from './smithing';
 import { ORE_ITEMS } from './ores';
+import { TOOLS4D_ITEMS } from './tools4d';
 
 const HANDLE: Hex = '#8a6a3c';
 
@@ -122,7 +123,7 @@ ITEMS.push(...ARMOR_ITEMS, ...FOOD_ITEMS);
 ITEMS.push({ name: 'enchanted_book', displayName: 'Enchanted Book', maxStack: 1, icon: { shape: 'book', colors: ['#6a3aa8', '#3a1a6a', '#ffd86a'] }, group: 'tools', tags: ['glint'] });
 ITEMS.push(...BREWING_ITEMS, ...POTION_ITEMS, ...FARM_ITEMS);
 // Smithing, shields, the Anchor Charm.
-ITEMS.push(...SMITHING_ITEMS, ...ORE_ITEMS);
+ITEMS.push(...SMITHING_ITEMS, ...ORE_ITEMS, ...TOOLS4D_ITEMS);
 ITEMS.push(
   { name: 'shield', displayName: 'Shield', maxStack: 1, durability: 336, enchantability: 1, icon: { shape: 'shield', colors: ['#8a6a3c', '#5f4828', '#c8c8c8'] }, use: 'shield', group: 'combat', tags: ['shield'] },
   { name: 'anchor_charm', displayName: 'Anchor Charm', maxStack: 1, icon: { shape: 'charm', colors: ['#6a8aa8', '#2a3a5a', '#f4d03f'] }, group: 'combat', tags: ['glint'] },

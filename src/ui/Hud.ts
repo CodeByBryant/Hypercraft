@@ -7,6 +7,7 @@ import type { Game } from '../game/Game';
 import { IREG } from '../content/itemRegistry';
 import { HOTBAR_SIZE, OFFHAND } from '../game/items/Inventory';
 import { TRIM_MATERIALS } from '../content/smithing';
+import { slicerReadout } from '../game/Tools4D';
 import { VOID_VOXEL } from '../world/constants';
 import { MAX_AIR, MAX_HEALTH } from '../game/Vitals';
 import { MAX_FOOD } from '../game/Survival';
@@ -497,6 +498,10 @@ export class Hud {
       this.readout.textContent = '🧭 The needle spins wildly';
       return;
     }
+    if (kind === 'slicer') {
+      this.readout.textContent = slicerReadout(g.player.cam.H, g.player.up);
+      return;
+    }
     if (kind === 'clock') {
       const tod = g.env.timeOfDay;
       const hours = Math.floor(((tod / TICKS_PER_DAY) * 24 + 6) % 24);
@@ -508,6 +513,19 @@ export class Hud {
     // Atlases point the same way at the nearest structure they mark.
     let label = g.bed ? 'Bed' : 'Spawn';
     let sp: ArrayLike<number> = g.bed ? [g.bed[0] + 0.5, 0, g.bed[2] + 0.5, g.bed[3] + 0.5] : g.spawn;
+    if (kind === 'anchor') {
+      const mk = st!.tag?.mark;
+      if (!mk) {
+        this.readout.textContent = '⚓ No mark: sneak and use to set one';
+        return;
+      }
+      if (mk[0] !== g.world.realm.name) {
+        this.readout.textContent = '⚓ The mark is in another realm';
+        return;
+      }
+      label = g.anchorCd > 0 ? `⚓ Mark (${Math.ceil(g.anchorCd)} s)` : '⚓ Mark';
+      sp = [mk[1], 0, mk[3], mk[4]];
+    }
     if (kind === 'atlas') {
       const a = g.atlas;
       if (!a || a.item !== st!.id) {

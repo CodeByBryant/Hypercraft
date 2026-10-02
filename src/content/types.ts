@@ -399,7 +399,9 @@ export interface ItemDef {
   /** Enchanting table affinity (Phase 7): higher rolls better enchantments. */
   enchantability?: number;
   /** Held-item HUD readout. */
-  readout?: 'compass' | 'clock' | 'atlas';
+  readout?: 'compass' | 'clock' | 'atlas' | 'slicer' | 'anchor';
+  /** Melee weapon numbers (spears, whips). */
+  weapon?: WeaponDef;
   /** Atlas items: structure names they point to (the nearest one of any). */
   atlas?: string[];
 }
@@ -424,7 +426,23 @@ export type ItemUse =
   | 'w_anchor'
   | 'hyper_rope'
   | 'throw'
-  | 'glass_bottle';
+  | 'glass_bottle'
+  // Phase 7.7 weapons.
+  | 'chakram'
+  | 'dagger'
+  | 'crossbow';
+
+/** Melee weapons beyond the tool kinds (Phase 7.7): spears, the 4D Whip. */
+export interface WeaponDef {
+  /** Full-strength damage and seconds between full swings. */
+  damage: number;
+  cooldown: number;
+  /** Attack reach in your slice (blocks), and how far kata/ana of it a hit can land. */
+  reach?: number;
+  hiddenReach?: number;
+  /** Area weapon: hits everything within this 4D radius of a point ahead. */
+  area?: number;
+}
 
 export type ArmorSlot = 'head' | 'chest' | 'legs' | 'feet';
 

@@ -25,7 +25,7 @@ import { MOB_REG } from '../content/mobRegistry';
 import { Inventory, HOTBAR_SIZE } from './items/Inventory';
 import { ItemEntities } from './items/ItemEntities';
 import { BlockEntities } from './items/BlockEntities';
-import { breakInfo, rollDrops, wearFor } from './items/Mining';
+import { breakInfo, canHarvest, rollDrops, wearFor } from './items/Mining';
 import { countIn, enchLevel, removeFrom, withCount, type ItemStack } from './items/ItemStack';
 import { LOVE_TIME, MobManager, type Mob, type MobHost } from './mobs/MobManager';
 import { Projectiles, type ProjectileHost } from './mobs/Projectiles';
@@ -57,6 +57,8 @@ import { applyOffer, countBookshelves, enchantOffers, type EnchantOffer } from '
 import { Farming } from './Farming';
 import { BUSHES, PLANTS } from '../content/farming';
 import { ARROWS } from '../content/ores';
+import { THROWN, ANCHOR_COOLDOWN, ROPE_SPEED } from '../content/tools4d';
+import { anaSheetCells } from './Tools4D';
 import type { Container } from './items/ItemStack';
 import { XpOrbs } from './XpOrbs';
 import { Vision4D } from './Vision4D';
@@ -295,6 +297,19 @@ export class Game {
   private sliceSenseT = 0;
   /** Holding up a shield (main hand or off hand). */
   blocking = false;
+  /** Hyper Rope: climbing along the hidden axis (+1 ana, -1 kata, 0 not) and distance climbed. */
+  private roping = 0;
+  private ropeTravel = 0;
+  private readonly ropeFrom = new Float64Array(4);
+  /** W-Anchor recall cooldown (seconds). */
+  anchorCd = 0;
+  /** Crossbow: loaded, waiting for the use button to be let go. */
+  private crossbowLatch = false;
+  /** A mob hit off the slice by a spear's reach (outlined). */
+  private reachTarget: Mob | null = null;
+  /** Phase Lens: walls of the neighbouring slices, [x, y, z, w, side] (refreshed 5x a second). */
+  private lensCells: number[] = [];
+  private lensTimer = 0;
   /** Lit TNT: seconds left on each fuse (keyed by cell). */
   private readonly tnt = new Map<string, { x: number; y: number; z: number; w: number; fuse: number }>();
   private readonly tntId = REG.id('tnt');
@@ -570,6 +585,12 @@ export class Game {
       eye: this.eyePos,
       hidden: this.player.cam.H,
       impact: (item, pos) => this.burstAt(item, pos),
+      returnStack: (st) => {
+        // The chakram back in hand (its slot if free), else anywhere, else at your feet.
+        if (!this.inv.get(this.hotbarIndex)) this.inv.set(this.hotbarIndex, st);
+        else if (this.inv.add(st) > 0) this.dropInSlice(this.player.pos[0]!, this.player.pos[1]! + 0.5, this.player.pos[2]!, this.player.pos[3]!, st);
+      },
+      dropStack: (pos, st) => this.dropInSlice(pos[0]!, pos[1]!, pos[2]!, pos[3]!, { id: st.id, count: 1, damage: st.damage }),
     };
 
     this.params = {
@@ -814,6 +835,9 @@ export class Game {
     if (!this.loaded) this.checkLoaded();
     this.movementModifiers();
     p.update(this.world, this.move, dt);
+    if (p.hanging) this.ropeWear();
+    if (this.anchorCd > 0) this.anchorCd -= dt;
+    this.updateLens(dt);
     if (!this.demo) this.updateVitals(dt);
     this.items.update(dt, this.world, p.up, this.world.realm.gravity, this.loaded && p.mode !== 'spectator' && !this.vitals.dead ? p.pos : null, p.height, this.collect);
     this.orbs.update(dt, this.world, p.up, this.loaded && p.mode !== 'spectator' && !this.vitals.dead ? p.pos : null, p.height, this.collectXp);
@@ -1088,7 +1112,12 @@ export class Game {
     const mode = p.mode;
     const heldNow = this.held;
     const heldId = heldNow ? heldNow.id : -1;
-    if (this.targetMob && mode !== 'spectator') {
+    const whip = heldNow ? IREG.def(heldNow.id).weapon?.area : undefined;
+    if (whip && mode !== 'spectator') {
+      // 4D Whip: a swing hits everything in a small hypersphere ahead (no mining with it).
+      this.resetMining();
+      if (input.buttonPressed(0) || (input.buttonHeld(0) && this.sinceSwing >= attackCooldown(heldId))) this.whipSwing(whip);
+    } else if (this.targetMob && mode !== 'spectator') {
       // Holding the button keeps swinging at full strength (touch controls, auto-attack).
       this.resetMining();
       if (input.buttonPressed(0) || (input.buttonHeld(0) && this.sinceSwing >= attackCooldown(heldId))) this.attack(this.targetMob);
@@ -1105,6 +1134,9 @@ export class Game {
       if (input.buttonPressed(0)) this.sinceSwing = 0; // a swing at the air still resets the cooldown
     }
     const bow = heldNow !== null && IREG.def(heldNow.id).use === 'bow';
+    const heldUse = heldNow ? IREG.def(heldNow.id).use : undefined;
+    this.roping = 0;
+    if (!input.buttonHeld(2)) this.crossbowLatch = false;
     // What hold-use acts on: the main hand, or the off hand when the main hand has nothing to do.
     const off = this.inv.get(OFFHAND);
     const mainIdle = this.mainIdle(heldNow);
@@ -1125,6 +1157,27 @@ export class Game {
       if (input.buttonPressed(2) && this.targetMob && this.useOnMob(this.targetMob)) this.shieldUp = -1e9;
       this.shieldUp = input.buttonHeld(2) ? this.shieldUp + dt : 0;
       this.blocking = this.shieldUp >= 0.25;
+    } else if (heldUse === 'crossbow' && mode !== 'spectator' && !this.stationTargeted()) {
+      // Crossbow: hold to load (one arrow), use again to shoot.
+      this.using = null;
+      this.blocking = false;
+      if (heldNow!.tag?.ammo) {
+        this.bowDraw = 0;
+        if (input.buttonPressed(2) && !this.crossbowLatch) this.fireCrossbow();
+      } else if (input.buttonHeld(2) && !this.crossbowLatch) {
+        this.bowDraw += dt;
+        if (this.bowDraw >= THROWN.bolt.load) {
+          this.bowDraw = 0;
+          this.crossbowLatch = true;
+          this.loadCrossbow();
+        }
+      } else this.bowDraw = 0;
+    } else if (heldUse === 'hyper_rope' && mode !== 'spectator') {
+      // Hyper Rope: hold to climb ana (sneak: kata) along the hidden axis.
+      this.using = null;
+      this.blocking = false;
+      this.bowDraw = 0;
+      if (input.buttonHeld(2)) this.roping = input.held('sneak') ? -1 : 1;
     } else if (bow && mode !== 'spectator' && !this.stationTargeted()) {
       this.using = null;
       this.blocking = false;
@@ -1198,11 +1251,18 @@ export class Game {
     }
     this.targetMob = null;
     this.phaseTarget = null;
+    this.reachTarget = null;
     if (!p.frozen && p.mode !== 'spectator' && this.mobs.list.length > 0) {
-      const reach = REACH_ATTACK[p.mode === 'creative' ? 1 : 0]!;
+      const wd = this.held ? IREG.def(this.held.id).weapon : undefined;
+      const reach = wd?.reach ? wd.reach + (p.mode === 'creative' ? 1.5 : 0) : REACH_ATTACK[p.mode === 'creative' ? 1 : 0]!;
       const limit = this.hasTarget ? Math.min(reach, this.target.t + 0.3) : reach;
       if (this.mobs.pick(this.eyePos, dir, limit, this.pickOut) < limit) this.targetMob = this.pickOut.mob;
       else if (this.mobs.pickAssist(this.eyePos, dir, limit, this.touchMode ? 0.45 : 0.12, p.cam.H, this.pickOut) < limit) this.targetMob = this.pickOut.mob;
+      // Spears reach kata and ana of the slice too (a body within `hiddenReach` of it).
+      if (!this.targetMob && wd?.hiddenReach && this.mobs.pickProjected(this.eyePos, dir, limit, p.cam.H, wd.hiddenReach + 1, this.pickOut) < limit) {
+        this.targetMob = this.pickOut.mob;
+        this.reachTarget = this.pickOut.mob;
+      }
       // Phase Strike: a mob kata or ana of your slice whose shadow is under the crosshair.
       if (!this.targetMob && this.phaseCd <= 0) {
         const ps = enchLevel(this.held, 'phase_strike');
@@ -1575,6 +1635,215 @@ export class Game {
     this.world.setBlock(x, y, z, w, this.tntLitId);
     this.tnt.set(`${x},${y},${z},${w}`, { x, y, z, w, fuse });
     return true;
+  }
+
+  /** The stack named `name` in either hand, or null. */
+  private handStack(name: string): ItemStack | null {
+    for (const s of [this.held, this.inv.get(OFFHAND)]) if (s && IREG.name(s.id) === name) return s;
+    return null;
+  }
+
+  private holding(name: string): boolean {
+    return this.handStack(name) !== null;
+  }
+
+  /**
+   * Phase Lens: walls in the slices next to yours (a step ana or kata along the hidden axis)
+   * where your own slice is open, nearest first: what you would walk into. Five times a second.
+   */
+  private updateLens(dt: number): void {
+    this.lensTimer -= dt;
+    if (this.lensTimer > 0) return;
+    this.lensTimer = 0.2;
+    const out = this.lensCells;
+    out.length = 0;
+    const lensOn = this.player.mode !== 'spectator' && (this.wearing('phase_lens') || this.holding('phase_lens') || this.effects.has('phase_sight'));
+    if (!lensOn) return;
+    const e = this.eyePos, cam = this.player.cam, H = cam.H, R = cam.R, F = cam.F, up = this.player.up;
+    const cand: number[] = [];
+    const seen = new Set<string>();
+    const solid = (v: number) => v !== VOID_VOXEL && REG.opaque[v & 0xfff] === 1;
+    for (let a = -5; a <= 5; a++)
+      for (let b = -3; b <= 4; b++)
+        for (let c = -5; c <= 5; c++) {
+          const p = [0, 0, 0, 0];
+          for (let k = 0; k < 4; k++) p[k] = e[k]! + R[k]! * a + F[k]! * c + (k === up ? b : 0);
+          if (solid(this.world.getBlock(Math.floor(p[0]!), Math.floor(p[1]!), Math.floor(p[2]!), Math.floor(p[3]!)))) continue;
+          for (const side of [1, -1]) {
+            const q = [0, 0, 0, 0].map((_, k) => Math.floor(p[k]! + H[k]! * side));
+            if (!solid(this.world.getBlock(q[0]!, q[1]!, q[2]!, q[3]!))) continue;
+            const key = q.join(',');
+            if (seen.has(key)) continue;
+            seen.add(key);
+            cand.push(a * a + b * b + c * c, q[0]!, q[1]!, q[2]!, q[3]!, side);
+          }
+        }
+    const idx = Array.from({ length: cand.length / 6 }, (_, i) => i).sort((x, y) => cand[x * 6]! - cand[y * 6]!);
+    for (const i of idx.slice(0, 140)) out.push(cand[i * 6 + 1]!, cand[i * 6 + 2]!, cand[i * 6 + 3]!, cand[i * 6 + 4]!, cand[i * 6 + 5]!);
+  }
+
+  /** 4D Whip: everything within the whip's 4D radius of a point ahead is hit, kata and ana too. */
+  private whipSwing(radius: number): void {
+    const p = this.player, held = this.held!;
+    const cd = attackCooldown(held.id);
+    let dmg = attackDamage(held.id) * swingStrength(this.sinceSwing, cd);
+    const sharp = enchLevel(held, 'sharpness');
+    if (sharp > 0) dmg += 0.5 * sharp + 0.5;
+    const str = this.effects.amp('strength');
+    if (str >= 0) dmg += 3 * (str + 1);
+    this.sinceSwing = 0;
+    this.hunger.exhaust(0.1);
+    const e = this.eyePos, F = p.cam.F;
+    const c = this.tmp4;
+    for (let k = 0; k < 4; k++) c[k] = e[k]! + F[k]! * radius * 0.9;
+    let n = 0;
+    for (const m of this.mobs.list) {
+      if (m.def.profession) continue;
+      const d = Math.hypot(m.pos[0]! - c[0]!, m.pos[1]! + m.height * 0.5 - c[1]!, m.pos[2]! - c[2]!, m.pos[3]! - c[3]!);
+      if (d > radius + m.width) continue;
+      const smite = enchLevel(held, 'smite');
+      this.mobs.damage(m, dmg + (smite > 0 && m.def.undead ? 2.5 * smite : 0), e, null, p.cam.H, true, 1 + enchLevel(held, 'knockback'));
+      const fa = enchLevel(held, 'fire_aspect');
+      if (fa > 0 && !m.def.fireproof) m.burning = Math.max(m.burning, 4 * fa);
+      m.looting = enchLevel(held, 'looting');
+      n++;
+    }
+    this.particles.burst(c[0]!, c[1]!, c[2]!, c[3]!, p.cam, 'spark', '#c86aff', 16, 3, radius * 0.6, true);
+    if (n > 0) {
+      this.mobs.noise(c);
+      if (p.mode === 'survival') this.wearHeld(1);
+    }
+  }
+
+  /** Throw a dagger (stackable, falls where it hits) or the Hyper-Chakram (comes back). */
+  private throwWeapon(held: ItemStack, use: 'dagger' | 'chakram'): void {
+    const p = this.player;
+    const survival = p.mode === 'survival' || p.mode === 'adventure';
+    if (use === 'chakram' && this.projectiles.list.some((a) => a.boomerang)) return; // one in the air
+    const e = this.eyePos, f = p.cam.fwd;
+    const from = this.tmp4, v = this.tmpMin;
+    for (let k = 0; k < 4; k++) from[k] = e[k]! + f[k]! * 0.5;
+    from[p.up] = from[p.up]! - 0.1;
+    if (use === 'dagger') {
+      for (let k = 0; k < 4; k++) v[k] = f[k]! * THROWN.dagger.speed;
+      this.projectiles.spawn(from, v, THROWN.dagger.damage, held.id, true, { gravity: THROWN.dagger.gravity, stack: { id: held.id, count: 1, damage: 0 } });
+      if (survival) {
+        held.count--;
+        this.inv.set(this.hotbarIndex, held.count > 0 ? held : null);
+      }
+    } else {
+      for (let k = 0; k < 4; k++) v[k] = f[k]! * THROWN.chakram.speed;
+      const sharp = enchLevel(held, 'sharpness');
+      const st = withCount(held, 1);
+      if (survival) st.damage++;
+      if (st.damage >= IREG.durability[st.id]!) {
+        this.inv.set(this.hotbarIndex, null);
+        this.message?.('The chakram shattered');
+        return;
+      }
+      this.projectiles.spawn(from, v, THROWN.chakram.damage + (sharp > 0 ? 0.5 * sharp + 0.5 : 0), held.id, true, { gravity: 0, boomerang: { out: THROWN.chakram.out, hidden: THROWN.chakram.hidden }, stack: st });
+      this.inv.set(this.hotbarIndex, null);
+    }
+    this.sinceSwing = 0;
+  }
+
+  /** Crossbow: take an arrow (off hand first, then hotbar, then the rest) and load it. */
+  private loadCrossbow(): void {
+    const p = this.player;
+    const held = this.held;
+    if (!held) return;
+    const survival = p.mode === 'survival' || p.mode === 'adventure';
+    let slot = -1;
+    for (const i of [OFFHAND, ...Array.from({ length: 36 }, (_, k) => k)]) {
+      const s = this.inv.get(i);
+      if (s && IREG.tags[s.id]!.has('arrow')) {
+        slot = i;
+        break;
+      }
+    }
+    if (slot < 0 && survival) {
+      this.message?.('No arrows');
+      return;
+    }
+    const ammo = slot >= 0 ? IREG.name(this.inv.get(slot)!.id) : 'arrow';
+    if (survival) {
+      const s = this.inv.get(slot)!;
+      s.count--;
+      this.inv.set(slot, s.count > 0 ? s : null);
+    }
+    held.tag = { ...(held.tag ?? {}), ammo };
+    this.inv.set(this.hotbarIndex, held);
+  }
+
+  /** Shoot the loaded bolt: flat, fast and hard. */
+  private fireCrossbow(): void {
+    const p = this.player;
+    const held = this.held!;
+    const ammo = held.tag?.ammo ?? 'arrow';
+    const kind = ARROWS[ammo] ?? ARROWS.arrow!;
+    const e = this.eyePos, f = p.cam.fwd;
+    const from = this.tmp4, v = this.tmpMin;
+    for (let k = 0; k < 4; k++) {
+      from[k] = e[k]! + f[k]! * 0.4;
+      v[k] = f[k]! * THROWN.bolt.speed;
+    }
+    from[p.up] = from[p.up]! - 0.1;
+    this.projectiles.spawn(from, v, THROWN.bolt.damage * kind.damage, IREG.id(ammo), true, { gravity: 10, undead: kind.undead, glow: kind.glow });
+    const tag = { ...held.tag };
+    delete tag.ammo;
+    held.tag = Object.keys(tag).length ? tag : undefined;
+    this.inv.set(this.hotbarIndex, held);
+    if (p.mode === 'survival') this.wearHeld(1);
+  }
+
+  /** Hyper Rope wear: one durability every two blocks climbed along the hidden axis. */
+  private ropeWear(): void {
+    const p = this.player;
+    if (p.mode !== 'survival') return;
+    let d = 0;
+    for (let k = 0; k < 4; k++) d += (p.pos[k]! - this.ropeFrom[k]!) ** 2;
+    this.ropeTravel += Math.sqrt(d);
+    while (this.ropeTravel >= 2) {
+      this.ropeTravel -= 2;
+      this.wearHeld(1);
+    }
+  }
+
+  /** W-Anchor: sneak-use (or the first use) marks where you stand; use brings you back. */
+  private useAnchor(held: ItemStack): void {
+    const p = this.player;
+    const realm = this.world.realm.name;
+    const mark = held.tag?.mark;
+    if (this.input.held('sneak') || !mark) {
+      const m: [string, number, number, number, number] = [realm, Math.floor(p.pos[0]!) + 0.5, Math.floor(p.pos[1]! + 1e-3), Math.floor(p.pos[2]!) + 0.5, Math.floor(p.pos[3]!) + 0.5];
+      held.tag = { ...(held.tag ?? {}), mark: m };
+      this.inv.set(this.hotbarIndex, held);
+      this.particles.burst(m[1], m[2] + 0.5, m[3], m[4], p.cam, 'spark', '#c86aff', 20, 2, 0.4, true);
+      this.message?.(`W-Anchor set at ${Math.floor(m[1])}, ${m[2]}, ${Math.floor(m[3])}, ${Math.floor(m[4])}`);
+      return;
+    }
+    if (mark[0] !== realm) {
+      this.message?.('The anchor is set in another realm');
+      return;
+    }
+    if (this.anchorCd > 0) {
+      this.message?.(`The anchor is recharging (${Math.ceil(this.anchorCd)} s)`);
+      return;
+    }
+    const e = this.eyePos;
+    this.particles.burst(e[0]!, e[1]! - 0.5, e[2]!, e[3]!, p.cam, 'spark', '#c86aff', 24, 3, 0.5, true);
+    p.setPosition(mark[1], mark[2], mark[3], mark[4]);
+    p.vel.fill(0);
+    p.fallStart = mark[2];
+    if (!this.world.column(Math.floor(mark[1] / 16), Math.floor(mark[3] / 16), Math.floor(mark[4] / 16))) {
+      // Far away: wait for the destination to stream in.
+      this.loaded = false;
+      p.frozen = true;
+    }
+    this.streamer.invalidate();
+    this.anchorCd = ANCHOR_COOLDOWN;
+    if (p.mode === 'survival') this.wearHeld(1);
+    this.message?.('Back to the anchor');
   }
 
   /** Burn down the fuses; a fuse that ends on its lit TNT block sets off a blast. */
@@ -2053,6 +2322,10 @@ export class Game {
     p.slowFall = e.has('slow_falling');
     p.lavaSwim = this.setBonus('slag');
     p.depthStrider = enchLevel(this.armorPiece(3), 'depth_strider');
+    p.hanging = this.roping !== 0;
+    p.hangSpeed = ROPE_SPEED;
+    if (p.hanging) this.move.ana = this.roping;
+    for (let k = 0; k < 4; k++) this.ropeFrom[k] = p.pos[k]!;
     if (p.mode === 'survival' || p.mode === 'adventure') {
       // Too hungry to sprint (and no sprinting while eating).
       if (!this.hunger.canSprint || this.using) this.move.sprint = false;
@@ -2107,7 +2380,8 @@ export class Game {
     const F = p.cam.F;
     for (let k = 0; k < 4; k++) from[k] = m.pos[k]! - F[k]!;
     const phase = this.phaseTarget === m;
-    if (!this.mobs.damage(m, dmg, from, phase ? null : this.eyePos, p.cam.H, true, 1 + enchLevel(held, 'knockback'))) return false;
+    const offSlice = phase || this.reachTarget === m;
+    if (!this.mobs.damage(m, dmg, from, offSlice ? null : this.eyePos, p.cam.H, true, 1 + enchLevel(held, 'knockback'))) return false;
     if (phase) {
       this.phaseCd = 1;
       this.particles.burst(m.pos[0]!, m.pos[1]! + m.height * 0.5, m.pos[2]!, m.pos[3]!, p.cam, 'spark', '#c86aff', 14, 2, m.width, true);
@@ -2846,7 +3120,33 @@ export class Game {
       if (n > 0) this.orbs.spawn(t.x + 0.5, t.y + 0.5, t.z + 0.5, t.w + 0.5, n);
     }
     this.wearHeld(wearFor(id, heldId));
+    if (held && IREG.tags[held.id]!.has('ana_pick')) this.anaSheet(t.x, t.y, t.z, t.w, id, true);
     return true;
+  }
+
+  /**
+   * Ana Pick: also break the 3x3 sheet around a broken block in the plane of up and the
+   * hidden axis (the slices next to yours), what the pick can harvest and no harder than it.
+   */
+  private anaSheet(x: number, y: number, z: number, w: number, centre: number, drops: boolean): void {
+    const held = this.held;
+    if (!held) return;
+    const hard = REG.hardness[centre]!;
+    for (const c of anaSheetCells(x, y, z, w, this.player.cam.H, this.player.up)) {
+      const v = this.world.getBlock(c[0], c[1], c[2], c[3]);
+      if (v === 0 || v === VOID_VOXEL) continue;
+      const id = voxelId(v);
+      const h = REG.hardness[id]!;
+      if (h < 0 || h > hard + 1.5 || REG.fluid[id] !== 0 || BED_IDS[id]) continue;
+      if (drops && !canHarvest(id, held.id)) continue;
+      const out = drops ? rollDrops(id, held.id, Math.random, enchLevel(held, 'silk_touch') > 0, enchLevel(held, 'fortune')) : [];
+      if (!this.world.setBlock(c[0], c[1], c[2], c[3], 0)) continue;
+      for (const d of out) this.dropAtCell(c[0], c[1], c[2], c[3], d);
+      if (drops) {
+        this.wearHeld(1);
+        if (!this.held) return; // broke
+      }
+    }
   }
 
   /**
@@ -3256,6 +3556,19 @@ export class Game {
       }
       return;
     }
+    if (use === 'dagger' || use === 'chakram') {
+      this.throwWeapon(held, use);
+      return;
+    }
+    if (use === 'w_anchor') {
+      this.useAnchor(held);
+      return;
+    }
+    if (use === 'slicer_compass') {
+      // Snap the slice axis-aligned (the Slicer Compass's job; C does the same).
+      this.snapping = true;
+      return;
+    }
     if (use === 'flint_and_steel') {
       if (!this.ignite() || !survival) return;
       if (IREG.name(held.id) === 'fire_charge') held.count--;
@@ -3326,6 +3639,8 @@ export class Game {
     if (REG.hardness[id]! < 0 && this.player.mode === 'survival') return false;
     if (!this.world.setBlock(t.x, t.y, t.z, t.w, 0)) return false;
     this.removeBedPartner(t.x, t.y, t.z, t.w, t.voxel);
+    const held = this.held;
+    if (held && IREG.tags[held.id]!.has('ana_pick')) this.anaSheet(t.x, t.y, t.z, t.w, id, false);
     return true;
   }
 
@@ -3444,11 +3759,31 @@ export class Game {
             }
     }
     // 4D Glasses: every mob near you, wherever your slice is. 4D Vision (any other helmet):
-    // mobs and key blocks. Phase Sight (the potion) shows mobs too.
+    // mobs and key blocks. The Phase Lens (worn or held) and Phase Sight (the potion): faint
+    // outlines of mobs and walls in the slices next to yours.
     const helm = this.armorPiece(0);
     const vision4d = helm !== null && IREG.name(helm.id) !== '4d_glasses' && enchLevel(helm, '4d_vision') > 0;
-    if (this.player.mode !== 'spectator' && (this.wearing('4d_glasses') || vision4d || this.effects.has('phase_sight'))) this.vision.mobs(lines, e, cam, this.mobs, 32);
+    const spect = this.player.mode === 'spectator';
+    const lens = !spect && (this.wearing('phase_lens') || this.holding('phase_lens') || this.effects.has('phase_sight'));
+    if (!spect && (this.wearing('4d_glasses') || vision4d)) this.vision.mobs(lines, e, cam, this.mobs, 32);
+    else if (lens) this.vision.mobs(lines, e, cam, this.mobs, 24, 24, 8, 0.55);
     else this.vision.drawnMobs = 0;
+    if (lens) {
+      for (let i = 0; i < this.lensCells.length && !lines.full; i += 5) {
+        const ana = this.lensCells[i + 4]! > 0;
+        this.vision.cell(lines, e, cam, this.lensCells[i]!, this.lensCells[i + 1]!, this.lensCells[i + 2]!, this.lensCells[i + 3]!, ana ? 1 : 0.4, ana ? 0.5 : 0.65, ana ? 0.9 : 1, 1.3, 0.08);
+      }
+    }
+    // W-Anchor in hand: its mark, outlined wherever it is in 4D, with a beam above it.
+    const anchor = this.handStack('w_anchor');
+    const mk = anchor?.tag?.mark;
+    if (mk && mk[0] === this.world.realm.name) {
+      const x = Math.floor(mk[1]), y = mk[2], z = Math.floor(mk[3]), w = Math.floor(mk[4]);
+      this.vision.cell(lines, e, cam, x, y, z, w, 0.8, 0.45, 1, 1.95, 0.02);
+      lines.addSegment4(mk[1] - e[0]!, y + 1 - e[1]!, mk[3] - e[2]!, mk[4] - e[3]!, mk[1] - e[0]!, y + 12 - e[1]!, mk[3] - e[2]!, mk[4] - e[3]!, cam, 0.8, 0.45, 1, 1.9);
+    }
+    // Spear reach off the slice: what you are about to hit.
+    if (this.reachTarget) this.vision.mobOne(lines, e, cam, this.mobs, this.reachTarget, 1, 1, 1, 1.9);
     if (vision4d && this.player.mode !== 'spectator') {
       const ex = Math.floor(e[0]!), ey = Math.floor(e[1]!), ez = Math.floor(e[2]!), ew = Math.floor(e[3]!);
       this.keyBlocks.near(ex, ey, ez, ew, 24, 24, 3, (x, y, z, w, id) => {

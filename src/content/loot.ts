@@ -155,6 +155,8 @@ export const LOOT_TABLES: Record<string, LootTable> = {
         { item: 'echo_shard', weight: 6, count: [1, 3] },
         { item: 'hyperite', weight: 4, count: [1, 3] },
         { item: 'tesserite_shard', weight: 4, count: [1, 3] },
+        { item: 'phase_lens', weight: 1 },
+        { item: 'hyper_rope', weight: 2 },
         { item: 'verdant', weight: 6, count: [1, 4] },
         { item: 'azurite', weight: 6, count: [1, 4] },
         { item: 'gold_ingot', weight: 6, count: [2, 5] },

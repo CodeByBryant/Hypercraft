@@ -43,7 +43,7 @@ export class Vision4D {
    * Mobs the slice already cuts are drawn faintly; the rest boldly (x-ray: visible through
    * walls).
    */
-  mobs(lines: LineOverlay, eye: Float64Array, cam: Frame4, mobs: MobManager, radius: number, max = 24): void {
+  mobs(lines: LineOverlay, eye: Float64Array, cam: Frame4, mobs: MobManager, radius: number, max = 24, maxDh = Infinity, faint = 1): void {
     const H = cam.hidden;
     const order = this.order;
     order.length = 0;
@@ -60,11 +60,12 @@ export class Vision4D {
       if (n >= max || lines.full) break;
       let dh = 0;
       for (let k = 0; k < 4; k++) dh += (m.pos[k]! - eye[k]!) * H[k]!;
+      if (Math.abs(dh) > maxDh) continue;
       const inSlice = Math.abs(dh) < m.cm.radius * m.scale;
       const base: [number, number, number] = m.def.boss ? [0.85, 0.35, 1] : m.def.profession ? [1, 0.85, 0.3] : m.def.hostile ? [1, 0.32, 0.25] : [0.4, 1, 0.5];
       this.tint(base, dh, col);
       const fade = Math.max(0.35, 1 - Math.sqrt(dist(m)) / (radius * 1.15));
-      const alpha = (inSlice ? 0.4 : 0.95) * fade + 1; // x-ray
+      const alpha = (inSlice ? 0.4 : 0.95) * fade * faint + 1; // x-ray
       this.mob(lines, eye, cam, mobs, m, col[0]!, col[1]!, col[2]!, alpha);
       n++;
     }
