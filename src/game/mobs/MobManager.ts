@@ -16,6 +16,8 @@ import { rayBall, rayBox, rayCapsule } from './intersect';
 import type { ItemStack } from '../items/ItemStack';
 import type { VillagerData } from '../Trading';
 import { BURN_FIRE, BURN_LAVA } from '../../content/fire';
+import type { DamageKind } from '../Survival';
+import { EffectList } from '../Effects';
 
 let FIRE_ID = -1, SOUL_FIRE_ID = -1;
 
@@ -53,7 +55,11 @@ export interface MobHost {
   /** 0 peaceful, 1 easy, 2 normal, 3 hard. */
   difficulty: number;
   dropItem(x: number, y: number, z: number, w: number, st: ItemStack): void;
-  hurtPlayer(amount: number, from: Float64Array, cause: string): void;
+  hurtPlayer(amount: number, from: Float64Array, cause: string, kind?: DamageKind, attacker?: Mob): void;
+  /** Experience orbs (a mob the player killed). */
+  dropXp?(x: number, y: number, z: number, w: number, points: number): void;
+  /** How far mobs notice the player (1 normal, 0.25 invisible). */
+  playerStealth?: number;
   explode(x: number, y: number, z: number, w: number, radius: number): void;
   shoot(from: Float64Array, vel: Float64Array, damage: number, item: number, byPlayer: boolean): void;
   /** A mob died (not by exploding): death effects. */
@@ -94,6 +100,12 @@ export class Mob {
   /** Seconds the mob keeps burning (fire, lava, the sun for undead); water puts it out. */
   burning = 0;
   fireTouch = 0;
+  /** Seconds since the player last hurt it (> 0: a kill counts as the player's: experience). */
+  playerHit = 0;
+  /** Status effects (splash potions, Fire Aspect...), created on first use. */
+  effects: EffectList | null = null;
+  /** Walking speed multiplier from effects (slowness, speed). */
+  speedMul = 1;
   noiseAt: Float64Array | null = null;
   /** Bosses: where the arena is (they return there and heal when you flee). */
   home: Float64Array | null = null;
@@ -365,6 +377,8 @@ export class MobManager {
       m.age += dt;
       m.hurt = Math.max(0, m.hurt - dt);
       m.attackCd -= dt;
+      if (m.playerHit > 0) m.playerHit -= dt;
+      if (m.effects) this.tickEffects(m, dt);
       const d4 = dist4(m.pos, p);
       m.near = d4 < 32;
       // Despawn far away (hostiles sooner), and hostiles on peaceful. Persistent mobs
@@ -560,7 +574,9 @@ export class MobManager {
     if (hd < m.width + 0.75 && dy > -m.height && dy < 1.6 && m.attackCd <= 0 && h.playerTargetable) {
       m.attackCd = 1;
       const mult = h.difficulty === 1 ? 0.5 : h.difficulty === 3 ? 1.5 : 1;
-      h.hurtPlayer((m.def.damage ?? 2) * mult * damageScale * Math.max(0.5, m.scale), m.pos, m.def.displayName);
+      const weak = m.effects?.amp('weakness') ?? -1, strong = m.effects?.amp('strength') ?? -1;
+      const dmg = Math.max(0, (m.def.damage ?? 2) * mult * damageScale * Math.max(0.5, m.scale) + (strong >= 0 ? 3 * (strong + 1) : 0) - (weak >= 0 ? 4 : 0));
+      h.hurtPlayer(dmg, m.pos, m.def.displayName, 'melee', m);
     }
   }
 
@@ -601,8 +617,8 @@ export class MobManager {
   private think(m: Mob, dt: number, h: MobHost, d4: number): void {
     const def = m.def;
     const p = h.playerPos;
-    const sp = def.speed;
-    const seePlayer = h.playerTargetable && d4 < 18;
+    const sp = def.speed * m.speedMul;
+    const seePlayer = h.playerTargetable && d4 < 18 * (h.playerStealth ?? 1);
     if (def.spins && seePlayer) this.spin(m, dt, h, d4);
     switch (def.ai) {
       case 'passive': {
@@ -1029,8 +1045,11 @@ export class MobManager {
    * Damage a mob. `from` (a 4D point, e.g. the attacker) sets the knockback direction; null
    * for environmental damage. Returns false if the hit was ignored.
    */
-  damage(m: Mob, amount: number, from: ArrayLike<number> | null, eye?: ArrayLike<number>, hidden?: ArrayLike<number>): boolean {
+  damage(m: Mob, amount: number, from: ArrayLike<number> | null, eye?: ArrayLike<number>, hidden?: ArrayLike<number>, byPlayer = false): boolean {
     if (m.hurt > 0 && from) return false;
+    if (byPlayer) m.playerHit = 5;
+    const res = m.effects?.amp('resistance') ?? -1;
+    if (res >= 0) amount *= Math.max(0, 1 - 0.2 * (res + 1));
     if (m.def.sliceBound && eye && hidden) {
       // Only while its cross-section is inside your slice.
       let d = 0;
@@ -1056,11 +1075,67 @@ export class MobManager {
     return true;
   }
 
+  /** Give a mob an effect (splash potions, Fire Aspect...). Instant ones act at once. */
+  applyEffect(m: Mob, name: string, seconds: number, amp = 0): void {
+    const undead = m.def.undead === true;
+    if (name === 'instant_health' || name === 'instant_damage') {
+      const hurt = (name === 'instant_damage') !== undead;
+      const n = (hurt ? 6 : 4) << Math.min(5, amp);
+      if (hurt) {
+        m.hurt = 0;
+        this.damage(m, n, null);
+      } else m.health = Math.min(m.def.health * Math.max(0.5, m.scale), m.health + n);
+      return;
+    }
+    if (name === 'saturation') return;
+    (m.effects ??= new EffectList()).add(name, seconds, amp);
+    this.effectSpeed(m);
+  }
+
+  private effectSpeed(m: Mob): void {
+    const e = m.effects;
+    let k = 1;
+    if (e) {
+      const sp = e.amp('speed'), sl = e.amp('slowness');
+      if (sp >= 0) k *= 1 + 0.2 * (sp + 1);
+      if (sl >= 0) k *= Math.max(0, 1 - 0.15 * (sl + 1));
+    }
+    m.speedMul = k;
+  }
+
+  private tickEffects(m: Mob, dt: number): void {
+    const e = m.effects!;
+    for (const a of e.map.values()) {
+      const before = Math.floor((a.total - a.time) / 0.05);
+      const after = Math.floor((a.total - a.time + dt) / 0.05);
+      for (let k = before + 1; k <= after; k++) {
+        if (a.name === 'regeneration' && k % Math.max(1, 50 >> a.amp) === 0) m.health = Math.min(m.def.health * Math.max(0.5, m.scale), m.health + 1);
+        else if (a.name === 'poison' && !m.def.undead && k % Math.max(1, 25 >> a.amp) === 0 && m.health > 1) {
+          m.health -= 1;
+          m.hurt = Math.max(m.hurt, 0.15);
+        } else if (a.name === 'wither' && k % Math.max(1, 40 >> a.amp) === 0) {
+          m.health -= 1;
+          m.hurt = Math.max(m.hurt, 0.15);
+        }
+      }
+    }
+    if (e.tick(dt).length) this.effectSpeed(m);
+    if (e.size === 0) {
+      m.effects = null;
+      m.speedMul = 1;
+    }
+  }
+
   private kill(m: Mob, h: MobHost): void {
     this.remove(m);
     if (m.health < -1e8) return; // exploded
     this.kills++;
     h.mobDied?.(m);
+    if (m.playerHit > 0 && h.dropXp) {
+      const def = m.def;
+      const xp = def.xp ?? (def.boss ? 200 : def.hostile ? 5 : 1 + Math.floor(Math.random() * 3));
+      if (xp > 0 && !(m.scale < 0.6 && def.scale === undefined)) h.dropXp(m.pos[0]!, m.pos[1]! + 0.5, m.pos[2]!, m.pos[3]!, xp);
+    }
     for (const d of m.cm.drops) {
       if (Math.random() >= d.chance) continue;
       const n = d.min + Math.floor(Math.random() * (d.max - d.min + 1));
@@ -1158,7 +1233,7 @@ export class MobManager {
   }
 
   /** Animated part position (A and, for capsules, B) in local coordinates. */
-  private animate(m: Mob, i: number, a: Float64Array, b: Float64Array): void {
+  animate(m: Mob, i: number, a: Float64Array, b: Float64Array): void {
     const pt = m.def.parts[i]!;
     for (let k = 0; k < 4; k++) {
       a[k] = pt.at[k]!;

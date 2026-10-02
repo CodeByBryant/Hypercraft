@@ -93,6 +93,17 @@ export interface Hc {
   boss(): { id: number; name: string; health: number; max: number; phase: number; mode: string; pillars: { x: number; y: number; z: number; w: number; erupt: number }[]; warning: string } | null;
   spawnBoss(name: string, x: number, y: number, z: number, w: number): number;
   hurtMob(id: number, amount: number): boolean;
+  // Phase 7
+  survival(): { food: number; saturation: number; xp: number; level: number; armor: number; absorption: number; effects: [string, number, number][]; using: { item: string; t: number } | null };
+  setFood(food: number, saturation?: number): void;
+  applyEffect(name: string, seconds: number, amp?: number): boolean;
+  addXp(n: number): void;
+  wear(slot: number, name: string | null): void;
+  giveTagged(name: string, tag: Record<string, unknown>, count?: number): number;
+  holdUse(ms: number): Promise<void>;
+  lineSegments(): number;
+  visionMobs(): number;
+  orbs(): number;
 }
 
 declare global {

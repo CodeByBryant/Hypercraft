@@ -30,6 +30,8 @@ export interface FurnaceData {
   cookMax: number;
   /** Cooking speed of the current fuel (hypercinder: 2x). */
   boost?: number;
+  /** Experience stored by smelting, paid out when the output is taken. */
+  xp?: number;
 }
 
 /** Mob spawner (dungeons, outposts...): spawns its mob near itself while a player is close. */
@@ -75,6 +77,8 @@ export class BlockEntities {
   countNear: ((name: string, x: number, y: number, z: number, w: number, r: number) => number) | null = null;
   /** Positions whose lit state swap is in progress (so the swap keeps the entity). */
   private swapping = false;
+  /** Smelting experience paid out (the player took a furnace's output). Set by the game. */
+  onXp: ((points: number) => void) | null = null;
 
   constructor(private readonly world: World) {
     this.chestId = REG.id('chest');
@@ -250,6 +254,13 @@ export class BlockEntities {
         touch();
       },
       accepts: (i, s) => (i === 0 ? true : i === 1 ? CRAFTING.fuel(s.id) > 0 || IREG.name(s.id) === 'bucket' : false),
+      taken: (i) => {
+        if (i !== 2 || !d.xp) return;
+        const pts = Math.floor(d.xp) + (Math.random() < d.xp - Math.floor(d.xp) ? 1 : 0);
+        d.xp = 0;
+        touch();
+        if (pts > 0) this.onXp?.(pts);
+      },
     };
   }
 
@@ -312,6 +323,7 @@ export class BlockEntities {
         if (out) out.count += recipe.count;
         else out = { id: recipe.result, count: recipe.count, damage: 0 };
         d.slots[2] = saveStack(out);
+        d.xp = Math.min(500, (d.xp ?? 0) + recipe.xp);
       }
     } else if (d.cook > 0) d.cook = Math.max(0, d.cook - 2 * dt);
     if (d.burn < 0) d.burn = 0;

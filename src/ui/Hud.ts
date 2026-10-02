@@ -8,6 +8,8 @@ import { IREG } from '../content/itemRegistry';
 import { HOTBAR_SIZE } from '../game/items/Inventory';
 import { VOID_VOXEL } from '../world/constants';
 import { MAX_AIR, MAX_HEALTH } from '../game/Vitals';
+import { MAX_FOOD } from '../game/Survival';
+import { EFFECT_BY_NAME, roman } from '../content/effects';
 import { bowPower } from '../game/combat';
 import { ATLAS_RANGE } from '../game/Game';
 import { STRUCTURES } from '../content/structures';
@@ -17,6 +19,9 @@ const STRUCT_NAMES = new Map(STRUCTURES.map((s) => [s.name, s.displayName]));
 // 9x8 pixel heart and bubble masks (1 = outline, 2 = fill, 3 = highlight).
 const HEART = ['011000110', '122101221', '123212221', '122222221', '012222210', '001222100', '000121000', '000010000'];
 const BUBBLE = ['001111100', '013322210', '132222221', '132222221', '122222221', '122222221', '012222210', '001111100'];
+// Phase 7: armour (a chestplate) and hunger (a drumstick).
+const ARMOR = ['011101110', '133212331', '122222221', '012222210', '012222210', '012222210', '012222210', '011111110'];
+const FOOD = ['000001110', '000013321', '000122231', '001222221', '012222210', '122221100', '121110000', '010000000'];
 const ICON_W = 9;
 const ICON_GAP = 1;
 
@@ -70,6 +75,18 @@ export class Hud {
   private readonly vitalsBox: HTMLDivElement;
   private readonly hearts: HTMLCanvasElement;
   private readonly bubbles: HTMLCanvasElement;
+  private readonly armorRow: HTMLCanvasElement;
+  private readonly goldRow: HTMLCanvasElement;
+  private readonly foodRow: HTMLCanvasElement;
+  private readonly xpBar: HTMLDivElement;
+  private readonly xpFill: HTMLDivElement;
+  private readonly xpLevel: HTMLDivElement;
+  private readonly effectsBox: HTMLDivElement;
+  private lastArmor = -1;
+  private lastGold = -1;
+  private lastFood = '';
+  private lastXp = '';
+  private lastEffects = '';
   private readonly threat: HTMLDivElement;
   private readonly hitL: HTMLDivElement;
   private readonly hitR: HTMLDivElement;
@@ -94,12 +111,24 @@ export class Hud {
     this.debug.style.display = 'none';
     this.threat = el('div', 'threat', this.root);
     this.vitalsBox = el('div', 'vitals', this.root);
-    this.bubbles = el('canvas', 'bubbles', this.vitalsBox);
-    this.hearts = el('canvas', 'hearts', this.vitalsBox);
-    for (const c of [this.hearts, this.bubbles]) {
+    // Left column: golden hearts, armour, hearts; right column: air, hunger (Minecraft's layout).
+    const left = el('div', 'vcol', this.vitalsBox);
+    const right = el('div', 'vcol right', this.vitalsBox);
+    this.goldRow = el('canvas', 'gold', left);
+    this.armorRow = el('canvas', 'armor', left);
+    this.hearts = el('canvas', 'hearts', left);
+    this.bubbles = el('canvas', 'bubbles', right);
+    this.foodRow = el('canvas', 'food', right);
+    for (const c of [this.hearts, this.bubbles, this.armorRow, this.goldRow, this.foodRow]) {
       c.width = 10 * (ICON_W + ICON_GAP) - ICON_GAP;
       c.height = 8;
     }
+    // Experience bar and level, above the hotbar.
+    this.xpBar = el('div', 'xpbar', this.root);
+    this.xpFill = el('div', 'fill', this.xpBar);
+    this.xpLevel = el('div', 'xplevel', this.root);
+    // Active effects (top right).
+    this.effectsBox = el('div', 'effects', this.root);
     this.hotbar = el('div', 'hotbar', this.root);
     this.readout = el('div', 'readout', this.root);
     this.toast = el('div', 'toast', this.root);
@@ -260,6 +289,11 @@ export class Hud {
       const pw = bowPower(g.bowDraw);
       this.bowFill.style.width = `${Math.round(pw * 100)}%`;
       this.bowFill.style.background = pw >= 1 ? '#fff27a' : '#e8e8e8';
+    } else if (g.using) {
+      // Eating / drinking progress.
+      this.bowBar.style.display = 'block';
+      this.bowFill.style.width = `${Math.round(Math.min(1, g.using.t / g.using.need) * 100)}%`;
+      this.bowFill.style.background = '#ffc86a';
     } else if (this.bowBar.style.display !== 'none') this.bowBar.style.display = 'none';
     const v = g.vitals;
     this.hitL.style.opacity = v.lastHitSide < 0 ? String(v.flash) : '0';
@@ -284,25 +318,78 @@ export class Hud {
     if (g.showDebug) this.debug.textContent = this.debugText();
   }
 
-  /** Hearts and air bubbles (survival / adventure). */
+  /** Hearts, armour, hunger, air, experience and effects (survival / adventure). */
   private updateVitals(): void {
     const g = this.game;
     const m = g.player.mode;
     const show = m === 'survival' || m === 'adventure';
     this.vitalsBox.style.display = show ? 'flex' : 'none';
+    this.xpBar.style.display = show ? 'block' : 'none';
+    this.xpLevel.style.display = show && g.xp.level > 0 ? 'block' : 'none';
+    this.updateEffects();
     if (!show) return;
     const v = g.vitals;
     const hp = Math.ceil(v.health);
-    if (hp !== this.lastHealth) {
-      this.lastHealth = hp;
-      this.paintRow(this.hearts, HEART, hp, MAX_HEALTH / 10, ['#1a0606', '#e0202a', '#ff9a9a'], ['#1a0606', '#3a1a1a', '#4a2a2a']);
+    const tone = g.effects.has('wither') ? 2 : g.effects.has('poison') ? 1 : 0;
+    if (hp * 4 + tone !== this.lastHealth) {
+      this.lastHealth = hp * 4 + tone;
+      const pal: [string, string, string] = tone === 2 ? ['#060606', '#2a2420', '#5a504a'] : tone === 1 ? ['#061a06', '#6aa83a', '#b8e88a'] : ['#1a0606', '#e0202a', '#ff9a9a'];
+      this.paintRow(this.hearts, HEART, hp, MAX_HEALTH / 10, pal, ['#1a0606', '#3a1a1a', '#4a2a2a']);
       this.hearts.classList.toggle('low', hp <= 4);
+    }
+    const gold = Math.ceil(v.absorption);
+    if (gold !== this.lastGold) {
+      this.lastGold = gold;
+      this.goldRow.style.display = gold > 0 ? 'block' : 'none';
+      if (gold > 0) this.paintRow(this.goldRow, HEART, Math.min(20, gold), 2, ['#2a1a00', '#f0c020', '#fff2a0'], null);
+    }
+    const [armor] = g.armorTotals();
+    if (armor !== this.lastArmor) {
+      this.lastArmor = armor;
+      this.armorRow.style.visibility = armor > 0 ? 'visible' : 'hidden';
+      if (armor > 0) this.paintRow(this.armorRow, ARMOR, Math.min(20, armor), 2, ['#1a1a1a', '#c8ccd4', '#ffffff'], ['#1a1a1a', '#2e2e32', '#3a3a3e']);
+    }
+    const hungry = g.effects.has('hunger');
+    const fk = `${g.hunger.food}|${hungry}`;
+    if (fk !== this.lastFood) {
+      this.lastFood = fk;
+      const pal: [string, string, string] = hungry ? ['#0a1a06', '#7a9a3a', '#b8d86a'] : ['#2a1206', '#c8783a', '#f4c890'];
+      this.paintRow(this.foodRow, FOOD, g.hunger.food, MAX_FOOD / 10, pal, ['#1a0a06', '#3a2418', '#4a3020']);
+      this.foodRow.classList.toggle('low', g.hunger.food <= 6);
+    }
+    const lvl = g.xp.level;
+    const xk = `${lvl}|${Math.round(g.xp.progress * 200)}`;
+    if (xk !== this.lastXp) {
+      this.lastXp = xk;
+      this.xpFill.style.width = `${(g.xp.progress * 100).toFixed(1)}%`;
+      this.xpLevel.textContent = String(lvl);
     }
     const air = v.air >= MAX_AIR ? -1 : Math.ceil((v.air / MAX_AIR) * 10);
     if (air !== this.lastAir) {
       this.lastAir = air;
       this.bubbles.style.visibility = air < 0 ? 'hidden' : 'visible';
       if (air >= 0) this.paintRow(this.bubbles, BUBBLE, air * 2, 2, ['#10305a', '#5aa8ff', '#e8f4ff'], null);
+    }
+  }
+
+  /** Active status effects with their level and time left. */
+  private updateEffects(): void {
+    const g = this.game;
+    const list = [...g.effects.map.values()];
+    const key = list.map((e) => `${e.name}${e.amp}:${Math.ceil(e.time)}`).join(',');
+    if (key === this.lastEffects) return;
+    this.lastEffects = key;
+    this.effectsBox.innerHTML = '';
+    for (const e of list) {
+      const def = EFFECT_BY_NAME.get(e.name);
+      if (!def) continue;
+      const row = el('div', `effect${def.good ? '' : ' bad'}${e.time < 10 ? ' ending' : ''}`, this.effectsBox);
+      const badge = el('span', 'badge', row, def.glyph);
+      badge.style.background = def.color;
+      const t = Math.ceil(e.time);
+      el('span', 'name', row, `${def.displayName}${e.amp > 0 ? ' ' + roman(e.amp + 1) : ''}`);
+      el('span', 'time', row, t >= 3600 ? '**:**' : `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`);
+      row.title = def.description;
     }
   }
 

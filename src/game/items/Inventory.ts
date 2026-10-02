@@ -1,6 +1,7 @@
 // The player's inventory: 9 hotbar slots, 27 main slots, 4 armour slots, 1 off-hand slot.
 
 import { SlotContainer, insertInto, type ItemStack } from './ItemStack';
+import { IREG } from '../../content/itemRegistry';
 
 export const HOTBAR_SIZE = 9;
 export const MAIN_START = 9;
@@ -14,9 +15,10 @@ export class Inventory extends SlotContainer {
     super(INVENTORY_SIZE);
   }
 
-  accepts(i: number, _s: ItemStack): boolean {
-    // Armour slots take armour items (Phase 7); none exist yet.
-    return i < ARMOR_START || i === OFFHAND;
+  accepts(i: number, s: ItemStack): boolean {
+    // Armour slots take only armour for that slot (Phase 7).
+    if (i >= ARMOR_START && i < OFFHAND) return IREG.armorSlot[s.id] === i - ARMOR_START;
+    return true;
   }
 
   /** Add to hotbar + main (merging first); mutates `s.count`, returns the leftover count. */

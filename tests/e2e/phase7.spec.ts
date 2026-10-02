@@ -1,0 +1,76 @@
+import { expect, test } from '@playwright/test';
+import { mkdirSync } from 'node:fs';
+import { boot } from './util';
+
+// Phase 7: 4D Glasses, armour, hunger, effects and experience.
+
+const dir = () => process.env.SHOT_DIR ?? 'test-results/phase7';
+
+test('4D Glasses draw mobs off-slice; armour, hunger and effects work in survival', async ({ page }) => {
+  test.setTimeout(300_000);
+  const errors: string[] = [];
+  await boot(page, 'res=270&rd=2&seed=glasses', errors);
+  mkdirSync(dir(), { recursive: true });
+
+  // A mob 6 blocks ahead but 4 blocks kata of the slice: invisible without the glasses.
+  const seen = await page.evaluate(async () => {
+    const hc = window.__hc;
+    hc.setMobSpawning(false);
+    hc.clearMobs();
+    hc.setTime(6000);
+    hc.setView({ pitch: -10 });
+    hc.spawnMobAhead('ana_cow', 6, 0, 4);
+    hc.freezeMobs(true);
+    await hc.frames(3);
+    const before = { packed: hc.packedMobs(), drawn: hc.visionMobs() };
+    hc.wear(0, '4d_glasses');
+    await hc.frames(3);
+    return { before, after: { drawn: hc.visionMobs(), lines: hc.lineSegments() } };
+  });
+  expect(seen.before.packed).toBe(0); // not in the slice
+  expect(seen.before.drawn).toBe(0);
+  expect(seen.after.drawn).toBe(1);
+  expect(seen.after.lines).toBeGreaterThan(40);
+  await page.evaluate(() => window.__hc.renderNow());
+  await page.screenshot({ path: `${dir()}/glasses.png` });
+
+  // Survival: armour soaks damage, food refills hunger, effects tick.
+  const r = await page.evaluate(async () => {
+    const hc = window.__hc;
+    hc.setMode('survival');
+    hc.wear(0, null);
+    await hc.frames(2);
+    hc.setHealth(20);
+    hc.hurt(10);
+    const bare = 20 - hc.vitals().health;
+    await hc.frames(40); // past the hit cooldown
+    for (let k = 0; k < 4; k++) hc.wear(k, ['hyperite_helmet', 'hyperite_chestplate', 'hyperite_leggings', 'hyperite_boots'][k]!);
+    hc.setHealth(20);
+    hc.hurt(10);
+    const armored = 20 - hc.vitals().health;
+    const armor = hc.survival().armor;
+    // Eat: hold use with steak in hand.
+    hc.clearInventory();
+    hc.give('cooked_beef', 4);
+    hc.select(0);
+    hc.setFood(6, 0);
+    await hc.holdUse(2200);
+    const food = hc.survival().food;
+    hc.applyEffect('speed', 30, 1);
+    hc.applyEffect('absorption', 60, 0);
+    await hc.frames(2);
+    const s = hc.survival();
+    const hud = { food: !!document.querySelector('.vitals .food'), effects: document.querySelectorAll('.effects .effect').length, xp: (document.querySelector('.xpbar') as HTMLElement).style.display };
+    return { bare, armored, armor, food, effects: s.effects, absorption: s.absorption, hud };
+  });
+  expect(r.bare).toBeCloseTo(10, 0);
+  expect(r.armor).toBe(20);
+  expect(r.armored).toBeLessThan(4);
+  expect(r.food).toBe(14);
+  expect(r.effects.map((e) => e[0])).toEqual(expect.arrayContaining(['speed', 'absorption']));
+  expect(r.absorption).toBe(4);
+  expect(r.hud.effects).toBe(2);
+  expect(r.hud.xp).toBe('block');
+  await page.screenshot({ path: `${dir()}/survival-hud.png` });
+  expect(errors).toEqual([]);
+});

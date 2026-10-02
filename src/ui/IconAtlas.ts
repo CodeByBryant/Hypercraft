@@ -1,4 +1,4 @@
-// Item icon sheet: 32x32 cells on a 1024x1024 canvas. Block items are drawn as isometric
+// Item icon sheet: 32x32 cells on a 2048x1024 canvas (2048 items). Block items are drawn as isometric
 // cubes (or flat sprites for plants and ladders) from the world texture atlas; other items,
 // and block items with an explicit icon (torches, lanterns, fences...), are painted from
 // their IconDef. Used by the DOM UI (CSS sprites) and uploaded as a
@@ -10,8 +10,9 @@ import { paintIcon, ICON } from '../content/itemIcons';
 import { ATLAS_COLS, TEX_REGION, TEX_SIZE } from '../content/textureGen';
 
 export const CELL = 32;
-export const SHEET = 1024;
-const PER_ROW = SHEET / CELL;
+export const SHEET_W = 2048;
+export const SHEET_H = 1024;
+const PER_ROW = SHEET_W / CELL;
 const GRASS: [number, number, number] = [0.5, 0.75, 0.3];
 const FOLIAGE: [number, number, number] = [0.36, 0.66, 0.22];
 
@@ -21,13 +22,14 @@ export class IconAtlas {
   readonly pixels: Uint8ClampedArray<ArrayBuffer>;
 
   constructor(atlas: Uint8Array, atlasWidth: number) {
-    this.pixels = new Uint8ClampedArray(new ArrayBuffer(SHEET * SHEET * 4));
+    if (IREG.count > PER_ROW * (SHEET_H / CELL)) throw new Error(`icon sheet full: ${IREG.count} items`);
+    this.pixels = new Uint8ClampedArray(new ArrayBuffer(SHEET_W * SHEET_H * 4));
     for (let id = 0; id < IREG.count; id++) this.drawItem(id, atlas, atlasWidth);
     this.canvas = document.createElement('canvas');
-    this.canvas.width = SHEET;
-    this.canvas.height = SHEET;
+    this.canvas.width = SHEET_W;
+    this.canvas.height = SHEET_H;
     const ctx = this.canvas.getContext('2d')!;
-    ctx.putImageData(new ImageData(this.pixels, SHEET, SHEET), 0, 0);
+    ctx.putImageData(new ImageData(this.pixels, SHEET_W, SHEET_H), 0, 0);
     this.url = this.canvas.toDataURL('image/png');
   }
 
@@ -41,13 +43,13 @@ export class IconAtlas {
     const [x, y] = this.cell(id);
     const k = size / CELL;
     el.style.backgroundImage = `url(${this.url})`;
-    el.style.backgroundSize = `${SHEET * k}px ${SHEET * k}px`;
+    el.style.backgroundSize = `${SHEET_W * k}px ${SHEET_H * k}px`;
     el.style.backgroundPosition = `-${x * k}px -${y * k}px`;
   }
 
   private put(cx: number, cy: number, x: number, y: number, r: number, g: number, b: number, a: number): void {
     if (x < 0 || y < 0 || x >= CELL || y >= CELL) return;
-    const o = ((cy + y) * SHEET + cx + x) * 4;
+    const o = ((cy + y) * SHEET_W + cx + x) * 4;
     this.pixels[o] = r;
     this.pixels[o + 1] = g;
     this.pixels[o + 2] = b;

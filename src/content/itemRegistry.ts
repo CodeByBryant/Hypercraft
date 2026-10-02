@@ -6,7 +6,9 @@ import { REG, type Registry, MAX_BLOCK_IDS } from './registry';
 import { ITEMS, NO_ITEM_BLOCKS, BLOCK_ITEM_EXTRAS, TAG_FUEL } from './items';
 import { TIERS } from './tiers';
 import { MINING } from './mining';
-import type { ItemDef, MiningDef, ToolKind, ToolTierDef } from './types';
+import { FOOD } from './food';
+import { ARMOR_SLOTS } from './armor';
+import type { ArmorStats, FoodDef, ItemDef, MiningDef, ToolKind, ToolTierDef } from './types';
 
 export const TOOL_NONE = 0;
 export const TOOL_KINDS: ToolKind[] = ['pickaxe', 'axe', 'shovel', 'hoe', 'sword', 'shears'];
@@ -37,6 +39,14 @@ export class ItemRegistry {
   readonly durability: Uint16Array;
   readonly fuel: Float32Array;
   readonly tags: Set<string>[];
+  /** Armour slot index (0 head .. 3 feet; -1 not armour). */
+  readonly armorSlot: Int8Array;
+  readonly armor: (ArmorStats | null)[] = [];
+  readonly food: (FoodDef | null)[] = [];
+  /** Enchanting affinity (0 = cannot be enchanted at a table). */
+  readonly enchantability: Uint8Array;
+  /** XP dropped when the block is mined, [min, max] (per block id). */
+  readonly mineXp: ([number, number] | null)[] = [];
   // Per block id.
   readonly mineTool = new Uint8Array(MAX_BLOCK_IDS);
   /** Minimum harvest level (-1 = none needed). */
@@ -69,6 +79,8 @@ export class ItemRegistry {
     this.durability = new Uint16Array(n);
     this.fuel = new Float32Array(n);
     this.tags = [];
+    this.armorSlot = new Int8Array(n).fill(-1);
+    this.enchantability = new Uint8Array(n);
 
     this.items.forEach((it, i) => {
       if (this.byName.has(it.name)) errors.push(`duplicate item "${it.name}"`);
@@ -97,7 +109,18 @@ export class ItemRegistry {
         }
       } else if (it.durability) this.durability[i] = it.durability;
       this.maxStack[i] = Math.max(1, Math.min(64, it.maxStack ?? (it.tool || it.durability ? 1 : 64)));
+      this.armor.push(it.armor ?? null);
+      if (it.armor) {
+        this.armorSlot[i] = ARMOR_SLOTS.indexOf(it.armor.slot);
+        this.maxStack[i] = 1;
+      }
+      const food = it.food ?? FOOD[it.name] ?? null;
+      this.food.push(food);
+      if (food && !it.food) it.food = food;
+      this.enchantability[i] = it.enchantability ?? 0;
     });
+    for (const [name] of Object.entries(FOOD)) if (!this.byName.has(name)) errors.push(`food: unknown item "${name}"`);
+    for (const it of this.items) if (it.food?.remainder && !this.byName.has(it.food.remainder)) errors.push(`item "${it.name}": unknown food remainder "${it.food.remainder}"`);
     for (const it of this.items) if (it.fuelRemainder && !this.byName.has(it.fuelRemainder)) errors.push(`item "${it.name}": unknown fuel remainder "${it.fuelRemainder}"`);
 
     // Mining rules.
@@ -110,6 +133,7 @@ export class ItemRegistry {
       if (def.tool) this.mineTool[bid] = toolCode(def.tool);
       if (def.tier !== undefined) this.mineTier[bid] = def.tier;
       if (def.shears) this.shearsDrop[bid] = 1;
+      if (def.xp) this.mineXp[bid] = def.xp;
       if (def.drops === 'none') this.drops[bid] = [];
       else if (def.drops) {
         const list: Drop[] = [];
@@ -121,7 +145,10 @@ export class ItemRegistry {
         this.drops[bid] = list;
       }
     }
-    for (let b = 0; b < blocks.count; b++) if (this.drops[b] === undefined) this.drops[b] = null;
+    for (let b = 0; b < blocks.count; b++) {
+      if (this.drops[b] === undefined) this.drops[b] = null;
+      if (this.mineXp[b] === undefined) this.mineXp[b] = null;
+    }
 
     if (errors.length) throw new Error('Item registry errors:\n  ' + errors.join('\n  '));
   }

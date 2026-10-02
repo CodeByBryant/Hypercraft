@@ -28,6 +28,8 @@ export interface SmeltRecipe {
   count: number;
   time: number;
   furnaces: FurnaceKind[];
+  /** Experience per item smelted. */
+  xp: number;
 }
 
 export class Crafting {
@@ -51,7 +53,9 @@ export class Crafting {
       const count = d.count ?? 1;
       if (d.type === 'smelting') {
         checkIng(where, d.input);
-        this.smelting.push({ input: d.input, result, count, time: d.time ?? 10, furnaces: d.furnaces ?? ['furnace'] });
+        // Ores give the most experience (Minecraft: 0.7 for iron, 1 for gold).
+        const ore = /ore|raw_/.test(d.input);
+        this.smelting.push({ input: d.input, result, count, time: d.time ?? 10, furnaces: d.furnaces ?? ['furnace'], xp: d.xp ?? (ore ? 0.7 : 0.1) });
       } else if (d.type === 'shaped') {
         const h = d.pattern.length;
         const w = Math.max(...d.pattern.map((r) => r.length));

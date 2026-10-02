@@ -44,6 +44,14 @@ export class Player {
   onClimbable = false;
   /** Slowest movement multiplier of the blocks the body is in (cobwebs); 1 = free. */
   slow = 1;
+  /** Phase 7 movement modifiers (set by the game each frame). */
+  speedMul = 1;
+  /** Jump Boost level (0 none). */
+  jumpBoost = 0;
+  /** Slow Falling: drift down gently, no fall damage. */
+  slowFall = false;
+  /** Swim through lava like water (a full Ancient Slag set). */
+  lavaSwim = false;
   sneaking = false;
   sprinting = false;
   frozen = true;
@@ -276,9 +284,10 @@ export class Player {
     if (this.flying) speed = this.sprinting ? 21.6 : 10.9;
     else if (this.sneaking) speed = 1.31;
     else if (this.sprinting) speed = 5.61;
-    if (!this.flying && (this.inWater || this.inLava)) speed = this.inLava ? 1.2 : 2.2;
+    if (!this.flying && (this.inWater || this.inLava)) speed = this.inLava && !this.lavaSwim ? 1.2 : 2.2;
     const webbed = this.slow < 1 && this.mode !== 'spectator';
     if (webbed) speed *= this.slow;
+    if (!this.flying) speed *= this.speedMul;
 
     // Horizontal velocity: accelerate toward the wish velocity.
     const accel = this.flying ? 12 : this.onGround ? 22 : this.inWater || this.inLava ? 8 : 5;
@@ -303,15 +312,17 @@ export class Player {
       const vt = (input.jump ? 1 : 0) - (input.sneak ? 1 : 0);
       vy += (vt * (this.sprinting ? 16 : 9) - vy) * Math.min(1, 10 * dt);
     } else if (this.inWater || this.inLava) {
-      const drag = this.inLava ? 3.5 : 2.2;
+      const thick = this.inLava && !this.lavaSwim;
+      const drag = thick ? 3.5 : 2.2;
       vy -= this.gravity * 0.18 * dt;
-      if (input.jump) vy += (this.inLava ? 14 : 22) * dt;
+      if (input.jump) vy += (thick ? 14 : 22) * dt;
       vy *= Math.exp(-drag * dt);
       if (input.jump && this.hitWall) vy = Math.max(vy, 3.5); // climb out of pools
     } else {
       vy -= this.gravity * dt;
       if (vy < -78) vy = -78;
-      if (input.jump && this.onGround) vy = 9.0;
+      if (this.slowFall && vy < -2.2) vy = -2.2;
+      if (input.jump && this.onGround) vy = 9.0 + 2.1 * this.jumpBoost;
     }
     if (this.onClimbable && !this.flying) {
       if (vy < -3) vy = -3;

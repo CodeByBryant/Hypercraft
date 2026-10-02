@@ -434,6 +434,42 @@ export function installTestApi(game: Game, screen?: InventoryScreen): void {
     setWire: (on: boolean) => {
       game.params.wire = on;
     },
+    // ---- Phase 7: survival, armour, effects, 4D vision
+    survival: () => ({
+      food: game.hunger.food,
+      saturation: game.hunger.saturation,
+      xp: game.xp.points,
+      level: game.xp.level,
+      armor: game.armorTotals()[0],
+      absorption: game.vitals.absorption,
+      effects: [...game.effects.map.values()].map((e) => [e.name, e.amp, Math.round(e.time)]),
+      using: game.using ? { item: IREG.name(game.using.item), t: game.using.t } : null,
+    }),
+    setFood: (food: number, saturation = 0) => {
+      game.hunger.food = food;
+      game.hunger.saturation = saturation;
+    },
+    applyEffect: (name: string, seconds: number, amp = 0) => game.applyEffect(name, seconds, amp),
+    addXp: (n: number) => game.xp.add(n),
+    /** Put an item straight into an armour slot (0 helmet .. 3 boots); null clears it. */
+    wear(slot: number, name: string | null): void {
+      game.inv.set(36 + slot, name ? { id: IREG.id(name), count: 1, damage: 0 } : null);
+    },
+    /** Give a stack with item data (enchantments, names...). */
+    giveTagged(name: string, tag: Record<string, unknown>, count = 1): number {
+      return game.inv.add({ id: IREG.id(name), count, damage: 0, tag });
+    },
+    /** Hold the use button for `ms` milliseconds (eating, drinking, bows). */
+    async holdUse(ms: number): Promise<void> {
+      game.input.setButton(2, true);
+      const t0 = performance.now();
+      while (performance.now() - t0 < ms) await nextFrame();
+      game.input.setButton(2, false);
+      await nextFrame();
+    },
+    lineSegments: () => game.renderer.lines.segments,
+    visionMobs: () => game.vision.drawnMobs,
+    orbs: () => game.orbs.list.length,
     setDebug: (on: boolean) => {
       game.showDebug = on;
     },

@@ -580,3 +580,29 @@ export const LOOT_TABLES: Record<string, LootTable> = {
     },
   ]),
 };
+
+// ---------------------------------------------------------------- Phase 7 additions
+// Armour, golden apples and food in the chests where Minecraft keeps them.
+const W = (lo: number, hi: number): [number, number] => [lo, hi];
+const extra: Record<string, LootTable['pools'][number]> = {
+  village_smith: { rolls: W(0, 2), entries: [{ item: 'iron_helmet', weight: 3, wear: W(0.1, 0.6) }, { item: 'iron_chestplate', weight: 2, wear: W(0.1, 0.6) }, { item: 'iron_leggings', weight: 2, wear: W(0.1, 0.6) }, { item: 'iron_boots', weight: 3, wear: W(0.1, 0.6) }, { item: 'leather_chestplate', weight: 4 }] },
+  village_house: { rolls: W(0, 2), entries: [{ item: 'cooked_beef', weight: 4, count: W(1, 3) }, { item: 'baked_potato', weight: 4, count: W(1, 4) }, { item: 'carrot', weight: 4, count: W(1, 4) }, { item: 'potato', weight: 4, count: W(1, 4) }, { item: 'bowl', weight: 2, count: W(1, 3) }] },
+  village_farm: { rolls: W(1, 3), entries: [{ item: 'carrot', weight: 5, count: W(2, 6) }, { item: 'potato', weight: 5, count: W(2, 6) }, { item: 'beetroot', weight: 4, count: W(2, 6) }, { item: 'melon_slice', weight: 3, count: W(2, 8) }, { item: 'milk_bucket', weight: 1 }] },
+  dungeon: { rolls: W(1, 2), entries: [{ item: 'golden_apple', weight: 4 }, { item: 'enchanted_golden_apple', weight: 1 }, { item: 'iron_chestplate', weight: 3, wear: W(0.2, 0.7) }, { item: 'gold_helmet', weight: 3, wear: W(0.2, 0.7) }, { item: 'copper_boots', weight: 3, wear: W(0.2, 0.7) }, { item: 'rotten_flesh', weight: 6, count: W(1, 6) }] },
+  hypermine: { rolls: W(0, 2), entries: [{ item: 'iron_helmet', weight: 3, wear: W(0.3, 0.8) }, { item: 'copper_chestplate', weight: 3, wear: W(0.3, 0.8) }, { item: 'cooked_mutton', weight: 4, count: W(1, 4) }, { item: 'golden_apple', weight: 1 }] },
+  ana_vault: { rolls: W(1, 2), entries: [{ item: 'verdant_helmet', weight: 2, wear: W(0, 0.4) }, { item: 'verdant_boots', weight: 2, wear: W(0, 0.4) }, { item: 'golden_apple', weight: 3 }, { item: '4d_glasses', weight: 2 }] },
+  deep_silent_vault: { rolls: W(1, 3), entries: [{ item: 'hyperite_chestplate', weight: 2, wear: W(0, 0.4) }, { item: 'hyperite_helmet', weight: 2, wear: W(0, 0.4) }, { item: 'enchanted_golden_apple', weight: 1 }, { item: 'golden_apple', weight: 3, count: W(1, 2) }, { item: '4d_glasses', weight: 2 }] },
+  desert_temple: { rolls: W(0, 2), entries: [{ item: 'golden_apple', weight: 4 }, { item: 'enchanted_golden_apple', weight: 1 }, { item: 'gold_chestplate', weight: 3 }, { item: 'rotten_flesh', weight: 6, count: W(1, 7) }] },
+  jungle_shrine: { rolls: W(0, 2), entries: [{ item: 'golden_apple', weight: 2 }, { item: 'leather_leggings', weight: 4 }, { item: 'azurite_helmet', weight: 1 }] },
+  tesseract_temple: { rolls: W(1, 2), entries: [{ item: '4d_glasses', weight: 3 }, { item: 'azurite_chestplate', weight: 2 }, { item: 'golden_apple', weight: 2 }] },
+  shipwreck_supply: { rolls: W(1, 2), entries: [{ item: 'leather_helmet', weight: 3 }, { item: 'leather_boots', weight: 3 }, { item: 'dried_kelp', weight: 6, count: W(2, 8) }, { item: 'carrot', weight: 4, count: W(2, 5) }, { item: 'potato', weight: 4, count: W(2, 5) }] },
+  sunken_monument: { rolls: W(1, 2), entries: [{ item: 'reefshell_helmet', weight: 3 }, { item: 'golden_apple', weight: 2 }] },
+  ruined_portal: { rolls: W(0, 2), entries: [{ item: 'gold_helmet', weight: 3, wear: W(0.2, 0.8) }, { item: 'gold_boots', weight: 3, wear: W(0.2, 0.8) }, { item: 'golden_carrot', weight: 3, count: W(1, 4) }, { item: 'golden_apple', weight: 2 }] },
+  citadel_treasure: { rolls: W(1, 2), entries: [{ item: 'gold_chestplate', weight: 3 }, { item: 'golden_apple', weight: 3 }, { item: 'hyperite_boots', weight: 1 }] },
+  citadel_barracks: { rolls: W(1, 2), entries: [{ item: 'iron_chestplate', weight: 3, wear: W(0.3, 0.9) }, { item: 'gold_leggings', weight: 3, wear: W(0.3, 0.9) }, { item: 'cooked_beef', weight: 4, count: W(1, 4) }] },
+  forge: { rolls: W(0, 2), entries: [{ item: 'iron_boots', weight: 3 }, { item: 'gold_helmet', weight: 3 }] },
+  regent_caldera: { rolls: W(1, 1), entries: [{ item: 'enchanted_golden_apple', weight: 2 }, { item: 'hyperite_leggings', weight: 2 }] },
+  igloo: { rolls: W(0, 2), entries: [{ item: 'golden_apple', weight: 2 }, { item: 'cooked_rabbit', weight: 4, count: W(1, 3) }, { item: 'leather_boots', weight: 3 }] },
+  cabin: { rolls: W(0, 2), entries: [{ item: 'mushroom_stew', weight: 4 }, { item: 'leather_chestplate', weight: 3 }, { item: 'bowl', weight: 3, count: W(1, 2) }] },
+};
+for (const [name, pool] of Object.entries(extra)) LOOT_TABLES[name]?.pools.push(pool);

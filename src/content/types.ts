@@ -322,7 +322,44 @@ export type IconShape =
   | 'fence'
   | 'campfire'
   | 'web'
-  | 'bed';
+  | 'bed'
+  // Phase 7.
+  | 'helmet'
+  | 'chestplate'
+  | 'leggings'
+  | 'boots'
+  | 'glasses'
+  | 'turtle'
+  | 'meat'
+  | 'steak'
+  | 'drumstick'
+  | 'carrot'
+  | 'potato'
+  | 'seeds'
+  | 'slice'
+  | 'berries'
+  | 'bowl'
+  | 'stew'
+  | 'pie'
+  | 'cookie'
+  | 'bottle'
+  | 'potion'
+  | 'splash'
+  | 'shield'
+  | 'lead'
+  | 'tag'
+  | 'charm'
+  | 'template'
+  | 'lens'
+  | 'anchor'
+  | 'rope'
+  | 'spear'
+  | 'whip'
+  | 'chakram'
+  | 'dagger'
+  | 'xp_bottle'
+  | 'beetroot'
+  | 'fish';
 
 /** Procedural 16x16 pixel icon: a shape painted with a small palette (main, shade, accent). */
 export interface IconDef {
@@ -350,11 +387,71 @@ export interface ItemDef {
   tags?: string[];
   group?: ItemGroup;
   /** Right-click behaviour implemented in the engine. */
-  use?: 'bucket' | 'water_bucket' | 'lava_bucket' | 'flint_and_steel' | 'bow';
+  use?: ItemUse;
+  /** Wearable armour (Phase 7). */
+  armor?: ArmorStats;
+  /** Edible (Phase 7): hold use to eat. */
+  food?: FoodDef;
+  /** Enchanting table affinity (Phase 7): higher rolls better enchantments. */
+  enchantability?: number;
   /** Held-item HUD readout. */
   readout?: 'compass' | 'clock' | 'atlas';
   /** Atlas items: structure names they point to (the nearest one of any). */
   atlas?: string[];
+}
+
+export type ItemUse =
+  | 'bucket'
+  | 'water_bucket'
+  | 'lava_bucket'
+  | 'flint_and_steel'
+  | 'bow'
+  // Phase 7.
+  | 'milk'
+  | 'potion'
+  | 'splash_potion'
+  | 'xp_bottle'
+  | 'shield'
+  | 'bone_meal'
+  | 'seeds'
+  | 'lead'
+  | 'name_tag'
+  | 'slicer_compass'
+  | 'w_anchor'
+  | 'hyper_rope'
+  | 'throw'
+  | 'glass_bottle';
+
+export type ArmorSlot = 'head' | 'chest' | 'legs' | 'feet';
+
+export interface ArmorStats {
+  slot: ArmorSlot;
+  /** Armour points (half-shirts on the HUD). */
+  points: number;
+  /** Armour toughness: big hits are reduced more. */
+  toughness: number;
+  /** Knockback resistance 0..1 (per piece). */
+  knockback?: number;
+  /** Set name: wearing all four pieces of a set grants its bonus (slag, reefshell...). */
+  set?: string;
+  /** The material it is repaired with at an anvil. */
+  repair?: string;
+}
+
+/** Food: hunger points restored, saturation modifier, effects (chance), eat time. */
+export interface FoodDef {
+  nutrition: number;
+  saturation: number;
+  /** Seconds to eat (default 1.6). */
+  seconds?: number;
+  /** Can be eaten with a full hunger bar (golden apples). */
+  always?: boolean;
+  /** [effect, seconds, amplifier, chance] */
+  effects?: [string, number, number, number][];
+  /** Item left in hand after eating (bowls). */
+  remainder?: string;
+  /** Clears all effects (milk). */
+  clears?: boolean;
 }
 
 export interface DropDef {
@@ -373,6 +470,8 @@ export interface MiningDef {
   drops?: DropDef[] | 'none';
   /** Mined with shears, the block drops itself (leaves, grass). */
   shears?: boolean;
+  /** Experience dropped when mined (ores), [min, max] points. */
+  xp?: [number, number];
 }
 
 /** Item name or '#tag'. */
@@ -405,6 +504,8 @@ export interface SmeltingRecipe {
   time?: number;
   /** Which furnaces accept it (default: furnace only; ores add blast_furnace, food adds smoker). */
   furnaces?: FurnaceKind[];
+  /** Experience per item smelted (default 0.1). */
+  xp?: number;
 }
 
 export type RecipeDef = ShapedRecipe | ShapelessRecipe | SmeltingRecipe;
@@ -498,6 +599,12 @@ export interface MobDef {
   floats?: boolean;
   /** Keeps this distance from the player while it shoots (flyers with projectiles). */
   keepAway?: number;
+  /** Experience dropped when the player kills it (default: hostile 5, passive 1-3). */
+  xp?: number;
+  /** Undead (Smite, instant health hurts it, sunlight burns some). */
+  undead?: boolean;
+  /** Arthropod (Bane of Arthropods). */
+  arthropod?: boolean;
 }
 
 // ------------------------------------------------------------------ loot (Phase 5)

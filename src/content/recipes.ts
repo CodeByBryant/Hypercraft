@@ -4,6 +4,8 @@
 
 import type { RecipeDef } from './types';
 import { TIERS } from './tiers';
+import { ARMOR_RECIPES } from './armor';
+import { FOOD_RECIPES } from './food';
 
 export const RECIPES: RecipeDef[] = [
   // Wood.
@@ -134,3 +136,6 @@ for (const t of TIERS) {
   RECIPES.push({ type: 'shaped', pattern: ['MM', ' s', ' s'], key: { M: m, s: 'stick' }, result: `${t.name}_hoe` });
   RECIPES.push({ type: 'shaped', pattern: ['M', 'M', 's'], key: { M: m, s: 'stick' }, result: `${t.name}_sword` });
 }
+
+// Phase 7: armour and food.
+RECIPES.push(...ARMOR_RECIPES, ...FOOD_RECIPES);

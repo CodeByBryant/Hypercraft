@@ -80,7 +80,7 @@ export class Projectiles {
         if (a.byPlayer) {
           const m = this.hitMob(mobs, a.pos);
           if (m) {
-            mobs.damage(m, a.damage, this.prev, h.eye, h.hidden);
+            mobs.damage(m, a.damage, this.prev, h.eye, h.hidden, true);
             this.list.splice(i, 1);
             removed = true;
           }

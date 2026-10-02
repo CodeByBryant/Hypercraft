@@ -27,7 +27,7 @@ void main() {
   } else if (vShape < 2.5) {
     a *= exp(-r * r * 4.0);
   } else if (vShape > 3.5) {
-    vec2 uv = vIcon + vec2(vUv.x * 0.5 + 0.5, 0.5 - vUv.y * 0.5) * (32.0 / 1024.0);
+    vec2 uv = vIcon + vec2(vUv.x * 0.5 + 0.5, 0.5 - vUv.y * 0.5) * vec2(32.0 / 2048.0, 32.0 / 1024.0);
     vec4 ic = texture(uIcons, uv);
     if (ic.a < 0.5) discard;
     oColor = vec4(ic.rgb * vColor.rgb, 1.0);

@@ -65,18 +65,40 @@ export class LineOverlay {
    * which is the eye) for the slice through the eye with the camera's hidden axis.
    * Coordinates are passed eye-relative to keep float precision.
    */
-  addBox(relMin: ArrayLike<number>, relMax: ArrayLike<number>, cam: Frame4, r: number, g: number, b: number, a: number): number {
+  addBox(relMin: ArrayLike<number>, relMax: ArrayLike<number>, cam: Frame4, r: number, g: number, b: number, a: number, origin: ArrayLike<number> = ZERO): number {
     for (let i = 0; i < 4; i++) {
       this.bmin[i] = relMin[i]!;
       this.bmax[i] = relMax[i]!;
     }
-    const zero = ZERO;
-    const n = sliceBoxEdges(this.bmin, this.bmax, zero, cam.hidden, this.seg4, 0, 64);
+    const n = sliceBoxEdges(this.bmin, this.bmax, origin, cam.hidden, this.seg4, 0, 64);
     let added = 0;
     for (let s = 0; s < n && this.count < MAX_SEGMENTS; s++) {
       if (this.pushSegment(s, cam, r, g, b, a)) added++;
     }
     return added;
+  }
+
+  /**
+   * Add one 4D segment (eye-relative endpoints), drawn as its projection along the hidden axis:
+   * how 4D vision shows things that are not in your slice. Alpha above 1 (a + 1) marks x-ray
+   * lines that stay bright behind walls.
+   */
+  addSegment4(ax: number, ay: number, az: number, aw: number, bx: number, by: number, bz: number, bw: number, cam: Frame4, r: number, g: number, b: number, a: number): boolean {
+    if (this.count >= MAX_SEGMENTS) return false;
+    const p = this.seg4;
+    p[0] = ax;
+    p[1] = ay;
+    p[2] = az;
+    p[3] = aw;
+    p[4] = bx;
+    p[5] = by;
+    p[6] = bz;
+    p[7] = bw;
+    return this.pushSegment(0, cam, r, g, b, a);
+  }
+
+  get full(): boolean {
+    return this.count >= MAX_SEGMENTS;
   }
 
   private pushSegment(s: number, cam: Frame4, r: number, g: number, b: number, a: number): boolean {

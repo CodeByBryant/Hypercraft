@@ -95,8 +95,94 @@ button {
   image-rendering: pixelated;
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
 }
-.vitals .hearts {
-  order: -1;
+.vitals .vcol {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+}
+.vitals .vcol.right {
+  align-items: flex-end;
+}
+.vitals .food {
+  /* Hunger fills from the right, like Minecraft's. */
+  transform: scaleX(-1);
+}
+.vitals .food.low {
+  animation: hc-shake 0.5s infinite;
+}
+.xpbar {
+  position: absolute;
+  left: 50%;
+  bottom: 56px;
+  transform: translateX(-50%);
+  width: 396px;
+  max-width: 70vw;
+  height: 5px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(0, 0, 0, 0.8);
+  display: none;
+}
+.xpbar .fill {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(#b8ff5a, #5ac81a);
+}
+.xplevel {
+  position: absolute;
+  left: 50%;
+  bottom: 58px;
+  transform: translateX(-50%);
+  color: #80ff20;
+  font-weight: bold;
+  font-size: 13px;
+  text-shadow: 1px 0 #000, -1px 0 #000, 0 1px #000, 0 -1px #000;
+  display: none;
+}
+.effects {
+  position: absolute;
+  right: 10px;
+  top: 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: flex-end;
+  pointer-events: none;
+}
+.effects .effect {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  background: rgba(10, 14, 26, 0.6);
+  border: 1px solid rgba(120, 160, 255, 0.45);
+  border-radius: 4px;
+  padding: 2px 6px 2px 2px;
+  color: #e8ecf6;
+  font-size: 11px;
+}
+.effects .effect.bad {
+  border-color: rgba(255, 110, 110, 0.5);
+}
+.effects .effect.ending {
+  animation: hc-blink 0.8s infinite;
+}
+@keyframes hc-blink {
+  50% { opacity: 0.45; }
+}
+.effects .badge {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #fff;
+  text-shadow: 0 1px 1px #000;
+}
+.effects .time {
+  color: #aab4cc;
+  font-variant-numeric: tabular-nums;
 }
 .vitals .hearts.low {
   animation: hc-shake 0.35s infinite;
@@ -735,6 +821,15 @@ body.touch-active .slot {
 }
 body.touch-active .vitals {
   bottom: 58px;
+}
+body.touch-active .xpbar {
+  bottom: 52px;
+}
+body.touch-active .xplevel {
+  bottom: 54px;
+}
+body.touch-active .effects {
+  top: 70px;
 }
 body.touch-active .toast {
   bottom: 80px;

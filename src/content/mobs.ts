@@ -280,6 +280,7 @@ export const MOBS: MobDef[] = [
   // ---------------------------------------------------------------- hostile (surface)
   {
     name: 'shambler',
+    undead: true,
     displayName: 'Shambler',
     hostile: true,
     ai: 'melee',
@@ -300,6 +301,7 @@ export const MOBS: MobDef[] = [
   },
   {
     name: 'bone_archer',
+    undead: true,
     displayName: 'Bone Archer',
     hostile: true,
     ai: 'ranged',
@@ -364,6 +366,7 @@ export const MOBS: MobDef[] = [
   },
   {
     name: 'web_weaver',
+    arthropod: true,
     displayName: 'Web Weaver',
     hostile: true,
     ai: 'climber',
@@ -378,6 +381,7 @@ export const MOBS: MobDef[] = [
   },
   {
     name: 'hollow_husk',
+    undead: true,
     displayName: 'Hollow Husk',
     hostile: true,
     ai: 'melee',
@@ -397,6 +401,7 @@ export const MOBS: MobDef[] = [
   },
   {
     name: 'frostbite_wraith',
+    undead: true,
     displayName: 'Frostbite Wraith',
     hostile: true,
     ai: 'flyer',
@@ -417,6 +422,7 @@ export const MOBS: MobDef[] = [
   },
   {
     name: 'marsh_leech',
+    arthropod: true,
     displayName: 'Marsh Leech',
     hostile: true,
     ai: 'melee',
@@ -433,6 +439,7 @@ export const MOBS: MobDef[] = [
   },
   {
     name: 'drowned_sentinel',
+    undead: true,
     displayName: 'Drowned Sentinel',
     hostile: true,
     ai: 'swimmer',
@@ -509,6 +516,7 @@ export const MOBS: MobDef[] = [
   },
   {
     name: 'crystal_crawler',
+    arthropod: true,
     displayName: 'Crystal Crawler',
     hostile: true,
     ai: 'climber',
@@ -718,6 +726,7 @@ MOBS.push(
   },
   {
     name: 'citadel_guard',
+    undead: true,
     displayName: 'Citadel Guard',
     hostile: true,
     ai: 'melee',

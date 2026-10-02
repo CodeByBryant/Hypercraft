@@ -26,7 +26,7 @@ import { Inventory, HOTBAR_SIZE } from './items/Inventory';
 import { ItemEntities } from './items/ItemEntities';
 import { BlockEntities } from './items/BlockEntities';
 import { breakInfo, rollDrops, wearFor } from './items/Mining';
-import { countIn, removeFrom, type ItemStack } from './items/ItemStack';
+import { countIn, removeFrom, withCount, type ItemStack } from './items/ItemStack';
 import { MobManager, type Mob, type MobHost } from './mobs/MobManager';
 import { Projectiles, type ProjectileHost } from './mobs/Projectiles';
 import { MAX_AIR, MAX_HEALTH, Vitals } from './Vitals';
@@ -37,7 +37,7 @@ import type { Column } from '../world/World';
 import { ARROW_SPEED, CRIT_MULTIPLIER, arrowDamage, attackCooldown, attackDamage, bowPower, hitWear, swingStrength } from './combat';
 import type { BiomeDef } from '../content/types';
 import type { FurnaceKind } from '../content/types';
-import { IconAtlas, SHEET } from '../ui/IconAtlas';
+import { IconAtlas, SHEET_H, SHEET_W } from '../ui/IconAtlas';
 import { particleDensity, type Settings } from './Settings';
 import type { WeatherKind } from '../content/types';
 import type { Persistence } from '../save/Persistence';
@@ -48,6 +48,12 @@ import { BossDirector } from './Boss';
 import { FireSystem } from './Fire';
 import { BURN_FIRE, BURN_LAVA } from '../content/fire';
 import { findPortal, framedAxes, portalCenter, portalDestination, scalePosition, frameCells, interiorCells, type PortalBox, type PortalRecord, type PortalShape } from './Portals';
+import { EffectList } from './Effects';
+import { EFFECT_BY_NAME } from '../content/effects';
+import { Experience, Hunger, MAX_FOOD, armorApplies, armorReduce, armorWear, isFireDamage, type DamageKind } from './Survival';
+import { XpOrbs } from './XpOrbs';
+import { Vision4D } from './Vision4D';
+import { ARMOR_START } from './items/Inventory';
 
 /** How the player arrives in a realm: through a portal (find or build its twin) or a respawn. */
 export interface Arrival {
@@ -239,6 +245,20 @@ export class Game {
   readonly fire: FireSystem;
   /** Night vision toggle (creative and spectator only; N, or the touch button). */
   nightVision = false;
+
+  // ---- Phase 7: effects, hunger, experience, armour, 4D vision
+  readonly effects = new EffectList();
+  readonly hunger = new Hunger();
+  readonly xp = new Experience();
+  readonly orbs = new XpOrbs();
+  readonly vision = new Vision4D();
+  /** Hold-to-use in progress (eating, drinking): the item, its hotbar slot, seconds so far / needed. */
+  using: { item: number; slot: number; t: number; need: number } | null = null;
+  private effectTick = 0;
+  private lastPos = new Float64Array(4);
+  private wasOnGround = true;
+  /** Seconds left breathing underwater after a dive with a Reefshell Helmet. */
+  private reefAir = 0;
   /** Seconds the player keeps burning (touching fire 8 s, lava 15 s; water puts it out). */
   burning = 0;
   private burnTick = 0;
@@ -291,14 +311,19 @@ export class Game {
       const u = new Float32Array(IREG.count), v = new Float32Array(IREG.count);
       for (let i = 0; i < IREG.count; i++) {
         const [x, y] = a.cell(i);
-        u[i] = x / SHEET;
-        v[i] = y / SHEET;
+        u[i] = x / SHEET_W;
+        v[i] = y / SHEET_H;
       }
       this.items.iconU = u;
       this.items.iconV = v;
     }
     return this.iconAtlas;
   }
+  /** An experience orb reached the player. */
+  private readonly collectXp = (points: number): void => {
+    this.xp.add(points);
+  };
+
   private readonly collect = (s: ItemStack): number => {
     const before = s.count;
     const left = this.inv.add(s);
@@ -387,6 +412,11 @@ export class Game {
       for (const m of this.mobs.list) if (m.def.name === name && Math.hypot(m.pos[0]! - x, m.pos[1]! - y, m.pos[2]! - z, m.pos[3]! - w) < r) n++;
       return n;
     };
+    // Taking smelted items out of a furnace pays out its stored experience.
+    this.blockEntities.onXp = (points) => {
+      const p = this.player.pos;
+      this.orbs.spawn(p[0]!, p[1]! + 0.9, p[2]!, p[3]!, points);
+    };
     this.caveFn = gen.caveBiomeAt ? (x, y, z, w) => gen.caveBiomeAt!(x, y, z, w) : null;
     const game = this;
     this.mobHost = {
@@ -407,8 +437,12 @@ export class Game {
         return DIFFICULTY[game.info.difficulty] ?? 2;
       },
       dropItem: (x, y, z, w, st) => this.dropInSlice(x, y, z, w, st),
-      hurtPlayer: (amount, from, cause) => void this.hurtPlayer(amount, from, cause),
+      hurtPlayer: (amount, from, cause, kind, attacker) => void this.hurtPlayer(amount, from, cause, kind ?? 'melee', attacker ?? null),
       explode: (x, y, z, w, r) => this.explode(x, y, z, w, r),
+      dropXp: (x, y, z, w, n) => this.orbs.spawn(x, y, z, w, n),
+      get playerStealth() {
+        return game.effects.has('invisibility') ? 0.25 : 1;
+      },
       shoot: (from, vel, damage, item, byPlayer) => this.projectiles.spawn(from, vel, damage, item, byPlayer),
       mobDied: (m) => {
         const h = m.height * 0.5;
@@ -436,7 +470,7 @@ export class Game {
       get playerHeight() {
         return game.player.height;
       },
-      hurtPlayer: (amount, from, cause) => void this.hurtPlayer(amount, from, cause),
+      hurtPlayer: (amount, from, cause) => void this.hurtPlayer(amount, from, cause, 'projectile'),
       collect: (item) => {
         if (this.player.mode === 'spectator') return false;
         if (this.player.mode === 'creative') return true;
@@ -522,6 +556,11 @@ export class Game {
     const inv = sp.data?.inventory;
     this.vitals.load(sp.data?.vitals);
     this.nightVision = sp.data?.nightVision === true;
+    this.hunger.load(sp.data?.hunger);
+    this.xp.load(sp.data?.xp);
+    this.effects.load(sp.data?.effects);
+    const ab = sp.data?.absorption;
+    if (typeof ab === 'number' && this.effects.has('absorption')) this.vitals.absorption = Math.max(0, Math.min(20, ab));
     const bed = sp.data?.bed;
     if (Array.isArray(bed) && bed.length === 4 && bed.every((v) => Number.isInteger(v))) this.bed = bed as [number, number, number, number];
     const wd = st.data ?? {};
@@ -564,7 +603,16 @@ export class Game {
         pitch: p.cam.pitch,
         mode: dead && this.info.hardcore ? 'spectator' : p.mode,
         flying: p.flying,
-        data: { inventory: this.inv.save(), vitals: dead ? { health: MAX_HEALTH, air: MAX_AIR } : this.vitals.save(), bed: this.bed, nightVision: this.nightVision },
+        data: {
+          inventory: this.inv.save(),
+          vitals: dead ? { health: MAX_HEALTH, air: MAX_AIR } : this.vitals.save(),
+          bed: this.bed,
+          nightVision: this.nightVision,
+          hunger: dead ? { food: MAX_FOOD, sat: 5, exh: 0 } : this.hunger.save(),
+          xp: dead ? 0 : this.xp.save(),
+          effects: dead ? [] : this.effects.save(),
+          absorption: dead ? 0 : this.vitals.absorption,
+        },
       },
       ticks: this.env.ticks,
       weather: this.env.weather,
@@ -672,9 +720,11 @@ export class Game {
 
     // Physics.
     if (!this.loaded) this.checkLoaded();
+    this.movementModifiers();
     p.update(this.world, this.move, dt);
     if (!this.demo) this.updateVitals(dt);
     this.items.update(dt, this.world, p.up, this.world.realm.gravity, this.loaded && p.mode !== 'spectator' && !this.vitals.dead ? p.pos : null, p.height, this.collect);
+    this.orbs.update(dt, this.world, p.up, this.loaded && p.mode !== 'spectator' && !this.vitals.dead ? p.pos : null, p.height, this.collectXp);
     if (this.loaded && !this.demo) {
       p.eye(this.eyePos);
       this.mobs.update(dt, this.mobHost, this.biomeFn, this.caveFn);
@@ -749,6 +799,7 @@ export class Game {
     this.renderer.sprites.clear();
     this.particles.update(dt, this.world, this.eyePos, p.cam, pb, this.env.sky.daylight, p.eyeInWater, this.renderer.sprites);
     this.items.draw(this.renderer.sprites, this.eyePos, p.cam, this.world);
+    this.orbs.draw(this.renderer.sprites, this.eyePos, p.cam);
     this.projectiles.draw(this.renderer.sprites, this.eyePos, p.cam, this.items.iconU, this.items.iconV);
     this.hazardTimer -= dt;
     if (this.hazardTimer <= 0) {
@@ -759,8 +810,11 @@ export class Game {
     const pr = this.params;
     pr.underwater += ((p.eyeInWater ? 1 : 0) - pr.underwater) * Math.min(1, dt * 8);
     pr.xray = p.mode === 'spectator';
-    pr.nightVision += ((this.nightVisionOn ? 1 : 0) - pr.nightVision) * Math.min(1, dt * 6);
-    if (Math.abs(pr.nightVision - (this.nightVisionOn ? 1 : 0)) < 0.002) pr.nightVision = this.nightVisionOn ? 1 : 0;
+    // Night vision: the creative toggle, or the effect (fading out over its last 10 s).
+    const nvEff = this.effects.map.get('night_vision');
+    const nvGoal = this.nightVisionOn ? 1 : nvEff ? Math.min(1, nvEff.time / 10) : 0;
+    pr.nightVision += (nvGoal - pr.nightVision) * Math.min(1, dt * 6);
+    if (Math.abs(pr.nightVision - nvGoal) < 0.002) pr.nightVision = nvGoal;
     pr.damage = Math.max(pr.damage - dt * 2, this.vitals.flash * 0.8, this.vitals.dead ? 0.6 : 0);
     if (p.inLava) pr.damage = 1;
     pr.yaw = Math.atan2(p.cam.F[0]!, p.cam.F[2]!);
@@ -946,7 +1000,14 @@ export class Game {
       if (input.buttonPressed(0)) this.sinceSwing = 0; // a swing at the air still resets the cooldown
     }
     const bow = heldNow !== null && IREG.def(heldNow.id).use === 'bow';
-    if (bow && mode !== 'spectator' && !this.stationTargeted()) {
+    const consumable = heldNow !== null && mode !== 'spectator' && this.consumable(heldNow) && !this.stationTargeted() && !(this.targetMob && this.targetMob.def.profession);
+    if (consumable) {
+      // Eating and drinking: hold the use button.
+      this.bowDraw = 0;
+      if (input.buttonHeld(2)) this.useStep(dt, heldNow!);
+      else this.using = null;
+    } else if (bow && mode !== 'spectator' && !this.stationTargeted()) {
+      this.using = null;
       // Bow: hold to draw, release to shoot.
       if (input.buttonHeld(2)) this.bowDraw += dt;
       else if (this.bowDraw > 0) {
@@ -955,6 +1016,7 @@ export class Game {
       }
     } else {
       this.bowDraw = 0;
+      this.using = null;
       if (mode !== 'spectator' && input.buttonPressed(2) && this.targetMob && this.talkTo(this.targetMob)) {
         // Right click on a villager: trade.
       } else if (mode !== 'spectator' && (input.buttonPressed(2) || (input.buttonHeld(2) && this.placeCooldown <= 0))) {
@@ -1131,6 +1193,8 @@ export class Game {
     const up = recordTrade(v.data, o);
     const m = v.mob;
     this.particles.burst(m.pos[0]!, m.pos[1]! + m.height + 0.2, m.pos[2]!, m.pos[3]!, this.player.cam, 'spark', '#6aff8a', 8, 1.2, 0.3, true);
+    // Trading teaches you something too (Minecraft: 3-6 experience per trade).
+    this.orbs.spawn(m.pos[0]!, m.pos[1]! + 1, m.pos[2]!, m.pos[3]!, 3 + Math.floor(Math.random() * 4));
     if (up) this.message?.(`${m.def.displayName} is now ${LEVEL_NAMES[v.data.level]}`);
     return true;
   }
@@ -1593,6 +1657,25 @@ export class Game {
   }
 
   /** No movement input (paused, dead, a screen is open). */
+  /** Effects, hunger, armour and items in use change how the player moves. */
+  private movementModifiers(): void {
+    const p = this.player;
+    const e = this.effects;
+    let k = 1;
+    const sp = e.amp('speed'), sl = e.amp('slowness');
+    if (sp >= 0) k *= 1 + 0.2 * (sp + 1);
+    if (sl >= 0) k *= Math.max(0, 1 - 0.15 * (sl + 1));
+    if (this.using) k *= 0.25;
+    p.speedMul = k;
+    p.jumpBoost = e.level('jump_boost');
+    p.slowFall = e.has('slow_falling');
+    p.lavaSwim = this.setBonus('slag');
+    if (p.mode === 'survival' || p.mode === 'adventure') {
+      // Too hungry to sprint (and no sprinting while eating).
+      if (!this.hunger.canSprint || this.using) this.move.sprint = false;
+    }
+  }
+
   private stopMoving(): void {
     const m = this.move;
     m.forward = 0;
@@ -1620,7 +1703,12 @@ export class Game {
     const heldId = held ? held.id : -1;
     const cd = attackCooldown(heldId);
     const full = this.sinceSwing >= cd * 0.9;
-    let dmg = attackDamage(heldId) * swingStrength(this.sinceSwing, cd);
+    let dmg = attackDamage(heldId);
+    const str = this.effects.amp('strength'), weak = this.effects.amp('weakness');
+    if (str >= 0) dmg += 3 * (str + 1);
+    if (weak >= 0) dmg = Math.max(0, dmg - 4);
+    dmg *= swingStrength(this.sinceSwing, cd);
+    this.hunger.exhaust(0.1);
     // Critical hit: a full-strength swing while falling.
     const crit = full && !p.onGround && !p.flying && p.vel[p.up]! < 0 && !p.inWater && !p.onClimbable;
     if (crit) dmg *= CRIT_MULTIPLIER;
@@ -1629,7 +1717,7 @@ export class Game {
     const from = this.tmp4;
     const F = p.cam.F;
     for (let k = 0; k < 4; k++) from[k] = m.pos[k]! - F[k]!;
-    if (!this.mobs.damage(m, dmg, from, this.eyePos, p.cam.H)) return false;
+    if (!this.mobs.damage(m, dmg, from, this.eyePos, p.cam.H, true)) return false;
     if (m.data && m.def.profession) {
       // Hitting a villager: it and its neighbours think less of you (prices go up).
       offend(m.data, 5);
@@ -1693,11 +1781,21 @@ export class Game {
    * `from` (a 4D point) sets the knockback direction, which is kept inside the slice so a hit
    * never shifts your view kata/ana.
    */
-  hurtPlayer(amount: number, from: ArrayLike<number> | null, cause: string): boolean {
+  hurtPlayer(amount: number, from: ArrayLike<number> | null, cause: string, kind: DamageKind = from ? 'melee' : 'generic', attacker: Mob | null = null): boolean {
     if (this.sleeping && amount > 0) this.wake();
     const p = this.player;
     const vulnerable = this.loaded && (p.mode === 'survival' || p.mode === 'adventure');
-    if (this.vitals.damage(amount, cause, !vulnerable) <= 0) return false;
+    if (!vulnerable || amount <= 0 || this.vitals.dead || this.vitals.hurtCooldown > 0) return false;
+    // Fire immunity: Fire Resistance, or a full set of Ancient Slag armour.
+    if (isFireDamage(kind) && (this.effects.has('fire_resistance') || this.setBonus('slag'))) return false;
+    const dmg = this.reduceDamage(amount, kind);
+    void attacker;
+    if (this.vitals.damage(dmg, cause, false) <= 0) {
+      // Fully soaked by armour: still a hit (invulnerability frames, knockback).
+      if (dmg > 0) return false;
+      this.vitals.hurtCooldown = 0.5;
+    }
+    this.hunger.exhaust(0.1);
     if (from) {
       const H = p.cam.H;
       const up = p.up;
@@ -1721,6 +1819,123 @@ export class Game {
     return true;
   }
 
+  // ------------------------------------------------------------------ armour & effects (Phase 7)
+
+  /** The armour stack in slot k (0 helmet .. 3 boots). */
+  armorPiece(k: number): ItemStack | null {
+    return this.inv.get(ARMOR_START + k);
+  }
+
+  /** Is an item with this name worn (any armour slot)? */
+  wearing(name: string): boolean {
+    for (let k = 0; k < 4; k++) {
+      const s = this.armorPiece(k);
+      if (s && IREG.name(s.id) === name) return true;
+    }
+    return false;
+  }
+
+  /** All four pieces of an armour set are worn (Reefshell is a one-piece set). */
+  setBonus(set: string): boolean {
+    let n = 0;
+    for (let k = 0; k < 4; k++) {
+      const s = this.armorPiece(k);
+      if (s && IREG.armor[s.id]?.set === set) n++;
+    }
+    return set === 'reefshell' ? n >= 1 : n >= 4;
+  }
+
+  /** Total armour points and toughness of what is worn. */
+  armorTotals(): [number, number] {
+    let a = 0, t = 0;
+    for (let k = 0; k < 4; k++) {
+      const s = this.armorPiece(k);
+      const st = s ? IREG.armor[s.id] : null;
+      if (!st) continue;
+      a += st.points;
+      t += st.toughness;
+    }
+    return [a, t];
+  }
+
+  /** Armour, enchantments, Resistance: what is left of a hit of `amount`. */
+  private reduceDamage(amount: number, kind: DamageKind): number {
+    let dmg = amount;
+    if (armorApplies(kind)) {
+      const [armor, tough] = this.armorTotals();
+      dmg = armorReduce(dmg, armor, tough);
+      this.wearArmor(amount);
+    }
+    const res = this.effects.amp('resistance');
+    if (res >= 0) dmg *= Math.max(0, 1 - 0.2 * (res + 1));
+    return dmg;
+  }
+
+  /** Armour wears out as it takes hits (a quarter of the damage per piece). */
+  private wearArmor(amount: number): void {
+    const wear = armorWear(amount);
+    for (let k = 0; k < 4; k++) {
+      const i = ARMOR_START + k;
+      const s = this.inv.get(i);
+      if (!s || !IREG.armor[s.id] || IREG.durability[s.id] === 0) continue;
+      s.damage += wear;
+      if (s.damage >= IREG.durability[s.id]!) {
+        this.inv.set(i, null);
+        this.message?.(`${IREG.displayName(s.id)} broke`);
+      } else this.inv.set(i, s);
+    }
+  }
+
+  /**
+   * Give the player an effect (potions, food, mobs). Instant effects act at once; returns
+   * whether anything happened.
+   */
+  applyEffect(name: string, seconds: number, amp = 0): boolean {
+    const def = EFFECT_BY_NAME.get(name);
+    if (!def) return false;
+    const v = this.vitals;
+    if (def.instant) {
+      if (name === 'instant_health') v.heal(4 << Math.min(5, amp));
+      else if (name === 'instant_damage') this.hurtDirect(6 << Math.min(5, amp), 'Killed by magic', 'magic');
+      else if (name === 'saturation') this.hunger.eat(amp + 1, 2 * (amp + 1));
+      return true;
+    }
+    if (!this.effects.add(name, seconds, amp)) return false;
+    if (name === 'absorption') v.absorption = Math.max(v.absorption, 4 * (amp + 1));
+    return true;
+  }
+
+  /** Damage that ignores the hit cooldown and knockback (poison, magic, starving). */
+  private hurtDirect(amount: number, cause: string, kind: DamageKind): void {
+    const p = this.player;
+    if (!this.loaded || (p.mode !== 'survival' && p.mode !== 'adventure') || this.vitals.dead) return;
+    const dmg = this.reduceDamage(amount, kind);
+    const cd = this.vitals.hurtCooldown;
+    this.vitals.hurtCooldown = 0;
+    this.vitals.damage(dmg, cause, false);
+    this.vitals.hurtCooldown = Math.max(cd, 0);
+  }
+
+  /** Per-frame effect upkeep: regeneration, poison, wither, hunger; expiry. */
+  private tickEffects(dt: number): void {
+    const e = this.effects;
+    if (e.size === 0) return;
+    const v = this.vitals;
+    this.effectTick += dt;
+    const ticks = Math.floor(this.effectTick / 0.05);
+    this.effectTick -= ticks * 0.05;
+    for (let t = 0; t < ticks; t++) {
+      for (const a of e.map.values()) {
+        const k = Math.round((a.total - a.time) / 0.05);
+        if (a.name === 'regeneration' && k % Math.max(1, 50 >> a.amp) === 0) v.heal(1);
+        else if (a.name === 'poison' && k % Math.max(1, 25 >> a.amp) === 0 && v.health > 1) this.hurtDirect(1, 'Poisoned', 'magic');
+        else if (a.name === 'wither' && k % Math.max(1, 40 >> a.amp) === 0) this.hurtDirect(1, 'Withered away', 'wither');
+        else if (a.name === 'hunger') this.hunger.exhaust(0.005 * (a.amp + 1));
+      }
+    }
+    for (const n of e.tick(dt)) if (n === 'absorption') v.absorption = 0;
+  }
+
   /** Falls, lava, damaging blocks, the void, drowning; death and the death screen. */
   private updateVitals(dt: number): void {
     const p = this.player;
@@ -1729,30 +1944,54 @@ export class Game {
     if (p.lastFall > 0) {
       const fall = p.lastFall;
       p.lastFall = 0;
-      if (vulnerable && !p.inWater && !p.onClimbable && p.slow >= 1) {
-        const dmg = Vitals.fallDamage(fall);
-        if (dmg > 0) this.hurtPlayer(dmg, null, 'Fell from a high place');
+      if (vulnerable && !p.inWater && !p.onClimbable && p.slow >= 1 && !this.effects.has('slow_falling')) {
+        // Jump Boost softens landings by a block per level.
+        const dmg = Vitals.fallDamage(fall - this.effects.level('jump_boost'));
+        if (dmg > 0) this.hurtPlayer(dmg, null, 'Fell from a high place', 'fall');
       }
     }
-    const drown = v.update(dt, p.eyeInWater, !vulnerable);
-    if (drown > 0) this.hurtPlayer(drown, null, 'Drowned');
+    // Water Breathing, or a Reefshell Helmet's 10 s of air after a dive.
+    if (this.setBonus('reefshell') && !p.eyeInWater) this.reefAir = 10;
+    else if (p.eyeInWater) this.reefAir = Math.max(0, this.reefAir - dt);
+    const breathing = this.effects.has('water_breathing') || this.reefAir > 0;
+    const drown = v.update(dt, p.eyeInWater, !vulnerable, breathing ? 0 : 1);
+    if (drown > 0) this.hurtPlayer(drown, null, 'Drowned', 'drown');
+    const fireproof = this.effects.has('fire_resistance') || this.setBonus('slag');
     this.envDamageTimer -= dt;
     if (this.envDamageTimer <= 0 && vulnerable && !p.frozen) {
       this.envDamageTimer = 0.5;
       if (p.inLava) {
-        this.hurtPlayer(4, null, 'Tried to swim in lava');
-        this.burning = Math.max(this.burning, BURN_LAVA);
+        this.hurtPlayer(4, null, 'Tried to swim in lava', 'lava');
+        if (!fireproof) this.burning = Math.max(this.burning, BURN_LAVA);
       } else {
         const c = this.contactDamage();
         if (c > 0) {
           const fire = FIRE_IDS[c] === 1;
-          this.hurtPlayer(REG.damage[c]!, null, fire ? 'Went up in flames' : (REG.blocks[c]!.displayName ?? REG.blocks[c]!.name));
-          if (fire) this.burning = Math.max(this.burning, BURN_FIRE);
+          this.hurtPlayer(REG.damage[c]!, null, fire ? 'Went up in flames' : (REG.blocks[c]!.displayName ?? REG.blocks[c]!.name), fire ? 'fire' : 'contact');
+          if (fire && !fireproof) this.burning = Math.max(this.burning, BURN_FIRE);
         }
       }
-      if (p.pos[p.up]! < -32) this.hurtPlayer(4, null, 'Fell out of the world');
+      if (p.pos[p.up]! < -32) this.hurtPlayer(4, null, 'Fell out of the world', 'void');
     }
+    if (fireproof) this.burning = 0;
     this.updateBurning(dt, vulnerable);
+    // Hunger: movement and actions tire you; a full bar heals, an empty one starves.
+    v.naturalRegen = false;
+    if (vulnerable && !v.dead) {
+      let moved = 0;
+      for (let k = 0; k < 4; k++) if (k !== p.up) moved += (p.pos[k]! - this.lastPos[k]!) ** 2;
+      moved = Math.min(2, Math.sqrt(moved));
+      if (p.inWater) this.hunger.exhaust(0.01 * moved);
+      else if (p.sprinting) this.hunger.exhaust(0.1 * moved);
+      if (this.wasOnGround && !p.onGround && p.vel[p.up]! > 4) this.hunger.exhaust(p.sprinting ? 0.2 : 0.05);
+      const diff = DIFFICULTY[this.info.difficulty] ?? 2;
+      const h = this.hunger.tick(dt, v.health, MAX_HEALTH, diff);
+      if (h > 0) v.heal(h);
+      else if (h < 0) this.hurtDirect(1, 'Starved to death', 'starve');
+      this.tickEffects(dt);
+    } else if (!vulnerable) this.effects.tick(dt);
+    for (let k = 0; k < 4; k++) this.lastPos[k] = p.pos[k]!;
+    this.wasOnGround = p.onGround;
     if (v.dead && !this.deathHandled) {
       this.deathHandled = true;
       this.bowDraw = 0;
@@ -1765,6 +2004,12 @@ export class Game {
         this.inv.set(i, null);
         this.dropAtCell(x, y, z, w, s);
       }
+      // Some of your experience spills too (7 per level, at most 100); the rest is lost.
+      const keep = this.xp.deathDrop();
+      if (keep > 0) this.orbs.spawn(x + 0.5, y + 0.5, z + 0.5, w + 0.5, keep);
+      this.xp.clear();
+      this.effects.clear();
+      this.using = null;
       this.onDeath?.(v.deathCause);
     }
   }
@@ -1808,7 +2053,7 @@ export class Game {
     this.burnTick += dt;
     if (this.burnTick >= 1) {
       this.burnTick -= 1;
-      if (!p.inLava) this.hurtPlayer(1, null, 'Burned to death');
+      if (!p.inLava) this.hurtPlayer(1, null, 'Burned to death', 'burn');
     }
   }
 
@@ -1850,6 +2095,9 @@ export class Game {
   /** Back to the spawn point with full health (hardcore worlds turn into spectator mode). */
   respawn(): void {
     const p = this.player;
+    this.hunger.reset();
+    this.effects.clear();
+    this.reefAir = 0;
     if (this.world.realm.name !== 'surface' && !this.info.hardcore) {
       // Like Minecraft: dying in another realm sends you back to your bed / spawn on the Surface.
       this.vitals.respawn();
@@ -1904,7 +2152,7 @@ export class Game {
         this.dropAtCell(cx, cy, cz, cw, { id, count: c, damage: 0 });
       }
     }
-    // Damage falls off over twice the radius (a gentler curve than Minecraft's: no armour yet).
+    // Damage falls off over twice the radius (a gentler curve than Minecraft's); armour helps.
     const diff = DIFFICULTY[this.info.difficulty] ?? 2;
     const mult = diff === 1 ? 0.5 : diff === 3 ? 1.5 : 1;
     const p = this.player;
@@ -1916,7 +2164,7 @@ export class Game {
     if (dp < reach) {
       const impact = 1 - dp / reach;
       const center = [x, y, z, w];
-      this.hurtPlayer(Math.round(((impact * impact + impact) / 2) * 3.5 * reach * mult + 1), center, 'Blown up');
+      this.hurtPlayer(Math.round(((impact * impact + impact) / 2) * 3.5 * reach * mult + 1), center, 'Blown up', 'explosion');
     }
     for (const m of this.mobs.list) {
       const dm = Math.hypot(m.pos[0]! - x, m.pos[1]! + m.height * 0.5 - y, m.pos[2]! - z, m.pos[3]! - w);
@@ -1998,6 +2246,9 @@ export class Game {
     }
     // Break time depends on the held tool, whether we stand on the ground and are underwater.
     this.mineSeconds = breakInfo(voxelId(t.voxel), heldId, this.player.onGround || this.player.flying, this.player.eyeInWater).seconds;
+    const haste = this.effects.amp('haste'), fatigue = this.effects.amp('mining_fatigue');
+    if (haste >= 0) this.mineSeconds /= 1 + 0.2 * (haste + 1);
+    if (fatigue >= 0) this.mineSeconds /= Math.pow(0.3, Math.min(4, fatigue + 1));
     if (this.mineDelay > 0) {
       this.mineDelay -= dt;
       return;
@@ -2027,6 +2278,13 @@ export class Game {
     this.removeBedPartner(t.x, t.y, t.z, t.w, t.voxel);
     for (const d of drops) this.dropAtCell(t.x, t.y, t.z, t.w, d);
     this.mobs.noise([t.x + 0.5, t.y + 0.5, t.z + 0.5, t.w + 0.5]); // Lurkers hear mining
+    this.hunger.exhaust(0.005);
+    // Ores give experience (not when the block itself drops: Silk Touch).
+    const xr = IREG.mineXp[id];
+    if (xr && drops.length && !drops.some((d) => IREG.itemBlock[d.id] === id)) {
+      const n = xr[0] + Math.floor(Math.random() * (xr[1] - xr[0] + 1));
+      if (n > 0) this.orbs.spawn(t.x + 0.5, t.y + 0.5, t.z + 0.5, t.w + 0.5, n);
+    }
     const wear = wearFor(id, heldId);
     if (held && wear > 0) {
       held.damage += wear;
@@ -2067,7 +2325,7 @@ export class Game {
     const held = this.held;
     if (!held || this.player.mode === 'spectator') return;
     const n = all ? held.count : 1;
-    const out: ItemStack = { id: held.id, count: n, damage: held.damage };
+    const out: ItemStack = withCount(held, n);
     held.count -= n;
     this.inv.set(this.hotbarIndex, held.count > 0 ? held : null);
     this.throwStack(out);
@@ -2078,6 +2336,58 @@ export class Game {
     const e = this.eyePos, f = this.player.cam.fwd;
     const v = [f[0]! * 5, f[1]! * 5 + 2, f[2]! * 5, f[3]! * 5];
     this.items.spawn(e[0]! + f[0]! * 0.4, e[1]! - 0.35, e[2]! + f[2]! * 0.4, e[3]! + f[3]! * 0.4, st, v, 1.5);
+  }
+
+  // ------------------------------------------------------------------ eating and drinking
+
+  /** Can this be eaten or drunk right now (hold use)? */
+  private consumable(st: ItemStack): boolean {
+    const f = IREG.food[st.id];
+    if (!f) return false;
+    if (f.always) return true;
+    return this.player.mode === 'creative' || this.hunger.hungry;
+  }
+
+  /** One frame of holding use on food: crumbs, then the meal. */
+  private useStep(dt: number, st: ItemStack): void {
+    const slot = this.hotbarIndex;
+    const f = IREG.food[st.id]!;
+    if (!this.using || this.using.slot !== slot || this.using.item !== st.id) this.using = { item: st.id, slot, t: 0, need: f.seconds ?? 1.6 };
+    const u = this.using;
+    const before = Math.floor(u.t / 0.25);
+    u.t += dt;
+    if (Math.floor(u.t / 0.25) !== before) {
+      const e = this.eyePos, fw = this.player.cam.fwd;
+      const col = IREG.def(st.id).icon?.colors[0] ?? '#c8a060';
+      this.particles.burst(e[0]! + fw[0]! * 0.5, e[1]! - 0.3, e[2]! + fw[2]! * 0.5, e[3]! + fw[3]! * 0.5, this.player.cam, 'poof', col, 3, 0.8, 0.1);
+    }
+    if (u.t >= u.need) {
+      this.using = null;
+      this.consume(slot);
+    }
+  }
+
+  /** Finish eating / drinking the stack in a hotbar slot. */
+  private consume(slot: number): void {
+    const st = this.inv.get(slot);
+    if (!st) return;
+    const f = IREG.food[st.id];
+    if (!f) return;
+    this.hunger.eat(f.nutrition, f.saturation);
+    if (f.clears) {
+      this.effects.clear();
+      this.vitals.absorption = 0;
+      this.burning = 0;
+    }
+    for (const [name, secs, amp, chance] of f.effects ?? []) if (Math.random() < chance) this.applyEffect(name, secs, amp);
+    if (this.player.mode === 'creative') return;
+    st.count--;
+    const rem = f.remainder ? { id: IREG.id(f.remainder), count: 1, damage: 0 } : null;
+    if (st.count <= 0) this.inv.set(slot, rem);
+    else {
+      this.inv.set(slot, st);
+      if (rem && this.inv.add(rem) > 0) this.throwStack(rem);
+    }
   }
 
   /** Right click: open a station/container, use an item, or place the held block. */
@@ -2104,6 +2414,16 @@ export class Game {
     }
     if (!held) return;
     const def = IREG.def(held.id);
+    const armorSlot = IREG.armorSlot[held.id]!;
+    if (armorSlot >= 0) {
+      // Put it on (swapping with what was worn there).
+      const i = ARMOR_START + armorSlot;
+      const worn = this.inv.get(i);
+      this.inv.set(i, held);
+      this.inv.set(this.hotbarIndex, worn);
+      this.message?.(`Equipped ${IREG.displayName(held.id)}`);
+      return;
+    }
     if (def.use) {
       this.useItem(held, def.use);
       return;
@@ -2335,6 +2655,9 @@ export class Game {
               lines.addBox(mn, mx, cam, 0.35, 0.95, 1.0, 0.55);
             }
     }
+    // 4D Glasses: every mob near you, wherever your slice is.
+    if (this.wearing('4d_glasses') && this.player.mode !== 'spectator') this.vision.mobs(lines, e, cam, this.mobs, 32);
+    else this.vision.drawnMobs = 0;
     if (this.hasTarget) {
       const t = this.target;
       mn[0] = t.x + t.bmin[0]! - e[0]!;

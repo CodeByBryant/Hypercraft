@@ -35,14 +35,14 @@ set(['amethyst'], { tool: 'pickaxe', tier: 0, drops: one('amethyst_shard', [2, 4
 set(['amethyst_cluster'], { tool: 'pickaxe', tier: 0, drops: one('amethyst_shard', [1, 2]) });
 
 // Ores.
-set(['coal_ore'], { tool: 'pickaxe', tier: 0, drops: one('coal') });
+set(['coal_ore'], { tool: 'pickaxe', tier: 0, drops: one('coal'), xp: [0, 2] });
 set(['copper_ore'], { tool: 'pickaxe', tier: 1, drops: one('raw_copper', [2, 4]) });
 set(['iron_ore', 'deep_iron_ore'], { tool: 'pickaxe', tier: 1, drops: one('raw_iron') });
 set(['gold_ore', 'deep_gold_ore'], { tool: 'pickaxe', tier: 2, drops: one('raw_gold') });
-set(['azurite_ore', 'deep_azurite_ore'], { tool: 'pickaxe', tier: 1, drops: one('azurite', [3, 6]) });
-set(['fluxite_ore', 'deep_fluxite_ore'], { tool: 'pickaxe', tier: 2, drops: one('fluxite_dust', [3, 5]) });
-set(['verdant_ore'], { tool: 'pickaxe', tier: 2, drops: one('verdant') });
-set(['hyperite_ore', 'deep_hyperite_ore'], { tool: 'pickaxe', tier: 2, drops: one('hyperite') });
+set(['azurite_ore', 'deep_azurite_ore'], { tool: 'pickaxe', tier: 1, drops: one('azurite', [3, 6]), xp: [2, 5] });
+set(['fluxite_ore', 'deep_fluxite_ore'], { tool: 'pickaxe', tier: 2, drops: one('fluxite_dust', [3, 5]), xp: [1, 5] });
+set(['verdant_ore'], { tool: 'pickaxe', tier: 2, drops: one('verdant'), xp: [3, 7] });
+set(['hyperite_ore', 'deep_hyperite_ore'], { tool: 'pickaxe', tier: 2, drops: one('hyperite'), xp: [3, 7] });
 
 // Soils: shovel.
 set(
@@ -125,9 +125,9 @@ set(
 );
 set(['ember_moss', 'glowing_cinder'], { tool: 'pickaxe', tier: 0, drops: one('cinder') });
 set(['sulfur_moss'], { tool: 'pickaxe', tier: 0, drops: one('cinder') });
-set(['ember_quartz_ore'], { tool: 'pickaxe', tier: 0, drops: one('ember_quartz') });
+set(['ember_quartz_ore'], { tool: 'pickaxe', tier: 0, drops: one('ember_quartz'), xp: [2, 5] });
 set(['gilded_cinder'], { tool: 'pickaxe', tier: 0, drops: one('gold_nugget', [2, 6]) });
-set(['hypercinder_ore'], { tool: 'pickaxe', tier: 1, drops: one('hypercinder', [1, 2]) });
+set(['hypercinder_ore'], { tool: 'pickaxe', tier: 1, drops: one('hypercinder', [1, 2]), xp: [1, 3] });
 set(['sulfur_vent'], { tool: 'pickaxe', tier: 0, drops: one('sulfur', [1, 3]) });
 set(['fractured_voidstone'], { tool: 'pickaxe', tier: 2 });
 set(['voidstone', 'voidstone_bricks', 'ancient_slag'], { tool: 'pickaxe', tier: 3 });

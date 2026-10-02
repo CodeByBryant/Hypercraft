@@ -8,7 +8,7 @@ import { REG } from '../content/registry';
 import type { Game, ScreenRequest } from '../game/Game';
 import { CRAFTING, type CompiledRecipe } from '../game/items/Crafting';
 import { HOTBAR_SIZE, MAIN_END, ARMOR_START, OFFHAND } from '../game/items/Inventory';
-import { SlotContainer, canMerge, insertInto, type Container, type ItemStack } from '../game/items/ItemStack';
+import { SlotContainer, canMerge, insertInto, withCount, type Container, type ItemStack } from '../game/items/ItemStack';
 import type { FurnaceData } from '../game/items/BlockEntities';
 import { countIn } from '../game/items/ItemStack';
 import { levelProgress, price, repFactor, soldOut } from '../game/Trading';
@@ -79,7 +79,7 @@ export class InventoryScreen {
     this.root.addEventListener('pointerdown', (e) => {
       if (e.target !== this.root || !this.cursor) return;
       const n = e.button === 2 ? 1 : this.cursor.count;
-      const out = { ...this.cursor, count: n };
+      const out = withCount(this.cursor, n);
       this.cursor.count -= n;
       if (this.cursor.count <= 0) this.cursor = null;
       this.game.throwStack(out);
@@ -603,6 +603,7 @@ export class InventoryScreen {
         if (this.cursor) this.cursor.count += cur.count;
         else this.cursor = cur;
         c.set(ref.i, null);
+        c.taken?.(ref.i);
       }
       this.render();
       return;
@@ -612,7 +613,7 @@ export class InventoryScreen {
       if (cur) {
         if (right) {
           const take = Math.ceil(cur.count / 2);
-          this.cursor = { id: cur.id, count: take, damage: cur.damage };
+          this.cursor = withCount(cur, take);
           cur.count -= take;
           c.set(ref.i, cur.count > 0 ? cur : null);
         } else {
@@ -624,7 +625,7 @@ export class InventoryScreen {
       // not allowed here
     } else if (!cur) {
       if (right) {
-        c.set(ref.i, { id: hand.id, count: 1, damage: hand.damage });
+        c.set(ref.i, withCount(hand, 1));
         hand.count--;
       } else {
         c.set(ref.i, hand);
@@ -651,7 +652,7 @@ export class InventoryScreen {
     if (shift) {
       // Craft as many as possible straight into the inventory.
       for (let n = 0; n < 64 && res; n++) {
-        const copy = { ...res };
+        const copy = withCount(res, res.count);
         if (g.inv.add(copy) > 0) {
           if (copy.count > 0) g.throwStack(copy);
           this.consumeGrid();
@@ -673,7 +674,7 @@ export class InventoryScreen {
     const g = this.game;
     const c = ref.c!;
     const fromPlayer = c === g.inv;
-    const moving = { ...st };
+    const moving = withCount(st, st.count);
     if (fromPlayer) {
       if (this.container && this.req?.kind === 'furnace') {
         const fuel = CRAFTING.fuel(st.id) > 0;
@@ -681,11 +682,16 @@ export class InventoryScreen {
         if (smeltable) insertInto(this.container, moving, 0, 1);
         else if (fuel) insertInto(this.container, moving, 1, 2);
       } else if (this.container) insertInto(this.container, moving);
-      else if (ref.i < HOTBAR_SIZE) insertInto(g.inv, moving, HOTBAR_SIZE, MAIN_END);
+      else if (ref.i < MAIN_END && IREG.armorSlot[st.id]! >= 0 && insertIntoArmor(g.inv, moving, IREG.armorSlot[st.id]!)) {
+        // Shift-click armour onto your body.
+      } else if (ref.i < HOTBAR_SIZE) insertInto(g.inv, moving, HOTBAR_SIZE, MAIN_END);
       else insertInto(g.inv, moving, 0, HOTBAR_SIZE);
     } else {
-      insertInto(g.inv, moving, 0, MAIN_END);
+      // Armour goes on when its slot is free.
+      const as = IREG.armorSlot[st.id]!;
+      if (fromPlayer || as < 0 || !insertIntoArmor(g.inv, moving, as)) insertInto(g.inv, moving, 0, MAIN_END);
     }
+    if (ref.kind === 'output' && moving.count < st.count) c.taken?.(ref.i);
     c.set(ref.i, moving.count > 0 ? moving : null);
   }
 
@@ -740,7 +746,7 @@ export class InventoryScreen {
         if (cur && cur.id !== s.id) continue;
         s.count--;
         g.inv.set(i, s.count > 0 ? s : null);
-        grid.set(cell, cur ? { ...cur, count: cur.count + 1 } : { id: s.id, count: 1, damage: s.damage });
+        grid.set(cell, cur ? withCount(cur, cur.count + 1) : withCount(s, 1));
         return;
       }
     };
@@ -752,4 +758,13 @@ export class InventoryScreen {
     } else r.ingredients.forEach((ing, k) => place(k, ing));
     this.render();
   }
+}
+
+/** Move `s` into its (empty) armour slot; true if it went on. */
+function insertIntoArmor(inv: Container, s: ItemStack, slot: number): boolean {
+  const i = ARMOR_START + slot;
+  if (inv.get(i)) return false;
+  inv.set(i, withCount(s, s.count));
+  s.count = 0;
+  return true;
 }

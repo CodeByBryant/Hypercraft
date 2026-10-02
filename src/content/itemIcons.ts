@@ -359,6 +359,239 @@ export function paintIcon(def: IconDef): Uint8ClampedArray {
       p.line(9, 10, 11, 12, accent);
       break;
     }
+    // ---------------------------------------------------------------- Phase 7
+    case 'helmet':
+      p.poly([[3, 6], [5, 3], [11, 3], [13, 6], [13, 11], [10, 11], [10, 8], [6, 8], [6, 11], [3, 11]], main);
+      p.line(5, 4, 11, 4, light);
+      p.line(3, 11, 6, 11, shade);
+      p.line(10, 11, 13, 11, shade);
+      break;
+    case 'chestplate':
+      p.poly([[2, 3], [6, 3], [8, 5], [10, 3], [14, 3], [14, 7], [12, 7], [12, 14], [4, 14], [4, 7], [2, 7]], main);
+      p.line(8, 6, 8, 13, shade);
+      p.line(3, 4, 5, 4, light);
+      p.line(11, 4, 13, 4, light);
+      p.line(4, 14, 12, 14, shade);
+      break;
+    case 'leggings':
+      p.poly([[3, 2], [13, 2], [13, 14], [9, 14], [9, 7], [7, 7], [7, 14], [3, 14]], main);
+      p.line(3, 3, 13, 3, light);
+      p.line(8, 7, 8, 8, shade);
+      p.line(3, 14, 7, 14, shade);
+      p.line(9, 14, 13, 14, shade);
+      break;
+    case 'boots':
+      p.poly([[2, 6], [6, 6], [6, 13], [1, 13], [1, 11], [2, 11]], main);
+      p.poly([[10, 6], [14, 6], [14, 11], [15, 11], [15, 13], [10, 13]], main);
+      p.line(2, 7, 5, 7, light);
+      p.line(11, 7, 13, 7, light);
+      p.line(1, 13, 6, 13, shade);
+      p.line(10, 13, 15, 13, shade);
+      break;
+    case 'glasses': {
+      // A frame (main) with two lenses: one tinted kata (shade), one ana (accent).
+      p.line(1, 7, 15, 7, main);
+      p.disc(4.5, 9, 3.4, main);
+      p.disc(11.5, 9, 3.4, main);
+      p.disc(4.5, 9, 2.3, shade);
+      p.disc(11.5, 9, 2.3, accent);
+      p.set(3.5, 8, rgba('#ffffff'));
+      p.set(10.5, 8, rgba('#ffffff'));
+      p.line(0, 7, 0, 10, main);
+      p.line(15, 7, 15, 10, main);
+      break;
+    }
+    case 'turtle':
+      p.poly([[2, 10], [4, 5], [8, 3], [12, 5], [14, 10], [12, 12], [4, 12]], main);
+      p.poly([[6, 6], [10, 6], [11, 9], [8, 11], [5, 9]], shade);
+      p.set(8, 8, accent);
+      p.line(4, 12, 12, 12, shade);
+      break;
+    case 'meat':
+      p.poly([[3, 8], [6, 4], [11, 3], [14, 6], [13, 11], [8, 13], [4, 12]], main);
+      p.poly([[8, 9], [13, 11], [8, 13], [4, 12]], shade);
+      p.disc(6, 7, 1.5, accent);
+      break;
+    case 'steak':
+      p.poly([[2, 9], [5, 4], [11, 3], [14, 7], [12, 12], [6, 13]], main);
+      p.line(5, 6, 11, 5, accent);
+      p.line(4, 9, 12, 8, shade);
+      p.line(6, 11, 11, 10, accent);
+      break;
+    case 'drumstick':
+      p.disc(10, 6, 4.5, main);
+      p.disc(11, 7, 2.6, shade, (x, y) => x + y > 16);
+      p.line(7, 9, 3, 13, accent, 2);
+      p.disc(2.5, 13.5, 1.4, accent);
+      break;
+    case 'carrot':
+      p.poly([[3, 14], [9, 5], [12, 8]], main);
+      p.line(5, 12, 10, 6, shade);
+      p.line(10, 5, 13, 1, accent);
+      p.line(11, 6, 15, 3, accent);
+      p.line(10, 4, 11, 1, accent);
+      break;
+    case 'potato':
+      p.disc(8, 9, 5, main);
+      p.disc(9.5, 10.5, 3, shade, (x, y) => x + y > 18);
+      p.set(6, 7, accent);
+      p.set(10, 8, accent);
+      p.set(7, 11, accent);
+      break;
+    case 'seeds':
+      for (const [x, y] of [[4, 6], [8, 4], [11, 7], [6, 10], [10, 11], [13, 12], [3, 12]] as const) {
+        p.disc(x, y, 1.3, main);
+        p.set(x, y, shade);
+      }
+      break;
+    case 'slice':
+      p.poly([[2, 4], [14, 4], [8, 14]], main);
+      p.line(2, 4, 14, 4, shade, 2);
+      for (const [x, y] of [[6, 7], [10, 7], [8, 10]] as const) p.set(x, y, accent);
+      break;
+    case 'berries':
+      p.line(8, 2, 8, 6, accent);
+      p.line(8, 4, 12, 3, accent);
+      p.disc(6, 9, 2.6, main);
+      p.disc(10, 9, 2.6, main);
+      p.disc(8, 12.5, 2.6, shade);
+      p.set(5, 8, rgba('#ffffff'));
+      p.set(9, 8, rgba('#ffffff'));
+      break;
+    case 'bowl':
+      p.poly([[2, 7], [14, 7], [12, 12], [4, 12]], main);
+      p.line(2, 7, 14, 7, light);
+      p.line(4, 12, 12, 12, shade);
+      break;
+    case 'stew':
+      p.poly([[2, 7], [14, 7], [12, 12], [4, 12]], main);
+      p.line(4, 12, 12, 12, shade);
+      p.poly([[3, 6], [13, 6], [13, 8], [3, 8]], accent);
+      p.set(6, 6, rgba(def.colors[2], 1.3));
+      p.set(10, 7, rgba(def.colors[2], 0.7));
+      break;
+    case 'pie':
+      p.poly([[1, 9], [4, 5], [12, 5], [15, 9], [13, 12], [3, 12]], shade);
+      p.poly([[3, 8], [5, 6], [11, 6], [13, 8], [11, 10], [5, 10]], main);
+      p.line(3, 12, 13, 12, accent);
+      break;
+    case 'cookie':
+      p.disc(8, 8, 5.5, main);
+      for (const [x, y] of [[6, 6], [10, 7], [7, 10], [10, 10]] as const) p.set(x, y, shade);
+      break;
+    case 'bottle':
+    case 'potion':
+    case 'splash':
+    case 'xp_bottle': {
+      // Neck and stopper on top; round (potion) or flask-shaped (splash) body filled with main.
+      const glass = rgba('#d8e8f4');
+      p.poly([[6.5, 1.5], [9.5, 1.5], [9.5, 3.5], [6.5, 3.5]], rgba('#a8885a'));
+      p.poly([[7, 3.5], [9, 3.5], [9, 6], [7, 6]], glass);
+      if (def.shape === 'splash') p.poly([[7, 6], [9, 6], [13, 13], [12, 14.5], [4, 14.5], [3, 13]], glass);
+      else p.disc(8, 10.5, 4.6, glass);
+      if (def.shape !== 'bottle') {
+        if (def.shape === 'splash') p.poly([[6, 8.5], [10, 8.5], [12.5, 13], [11.5, 14], [4.5, 14], [3.5, 13]], main);
+        else p.disc(8, 10.8, 3.8, main, (_x, y) => y >= 8);
+        p.set(6, 10, accent);
+        p.set(7, 9, accent);
+      }
+      p.set(6, 8, rgba('#ffffff'));
+      break;
+    }
+    case 'shield':
+      p.poly([[3, 2], [13, 2], [13, 9], [8, 15], [3, 9]], main);
+      p.poly([[5, 4], [11, 4], [11, 9], [8, 12], [5, 9]], shade);
+      p.line(8, 4, 8, 12, accent);
+      p.line(5, 7, 11, 7, accent);
+      break;
+    case 'lead':
+      for (let a = 0; a < Math.PI * 2; a += 0.08) p.set(10 + 3.5 * Math.cos(a), 5 + 3 * Math.sin(a), main);
+      p.line(7, 7, 2, 14, shade, 2);
+      p.disc(10, 5, 1, accent);
+      break;
+    case 'tag':
+      p.poly([[3, 4], [10, 4], [14, 8], [10, 12], [3, 12]], main);
+      p.disc(11, 8, 1.2, [0, 0, 0, 0]);
+      p.line(4, 6, 8, 6, shade);
+      p.line(4, 9, 8, 9, shade);
+      p.line(13, 8, 15, 4, accent);
+      break;
+    case 'charm':
+      // A W-shaped anchor charm on a chain.
+      p.line(8, 1, 8, 4, accent);
+      p.disc(8, 8.5, 5, main);
+      p.disc(8, 8.5, 3.4, shade);
+      p.line(5, 7, 6.5, 11, accent);
+      p.line(6.5, 11, 8, 8, accent);
+      p.line(8, 8, 9.5, 11, accent);
+      p.line(9.5, 11, 11, 7, accent);
+      break;
+    case 'template':
+      p.poly([[2, 2], [14, 2], [14, 14], [2, 14]], main);
+      p.poly([[3, 3], [13, 3], [13, 13], [3, 13]], shade);
+      p.poly([[5, 5], [11, 5], [11, 11], [8, 13], [5, 11]], accent);
+      break;
+    case 'lens':
+      p.line(10, 10, 14, 14, rgba('#8a6a3c'), 2);
+      p.disc(7, 7, 5.5, main);
+      p.disc(7, 7, 4, shade);
+      p.disc(6, 6, 1.5, accent);
+      break;
+    case 'anchor':
+      p.disc(8, 3, 1.8, main);
+      p.line(8, 4, 8, 13, main, 2);
+      p.line(4, 6, 12, 6, main);
+      for (let a = 0.2; a <= Math.PI - 0.2; a += 0.05) p.set(8 + 5 * Math.cos(a), 10 + 4 * Math.sin(a), shade);
+      p.set(3, 9, accent);
+      p.set(13, 9, accent);
+      break;
+    case 'rope':
+      for (let k = 0; k < 7; k++) {
+        p.disc(4 + k * 1.4, 13 - k * 1.6, 1.6, k % 2 ? shade : main);
+      }
+      p.line(12, 3, 14, 1, accent);
+      break;
+    case 'spear':
+      p.line(2, 14, 11, 5, handle, 2);
+      p.poly([[10, 6], [15, 1], [11, 7]], main);
+      p.poly([[9, 4], [12, 2], [14, 5], [11, 8]], main);
+      p.line(11, 5, 14, 2, light);
+      break;
+    case 'whip':
+      p.line(2, 14, 5, 11, handle, 2);
+      for (let k = 0; k < 20; k++) {
+        const t = k / 19;
+        p.set(5 + t * 9, 11 - t * 9 + Math.sin(t * 9) * 2, k % 3 ? main : shade);
+      }
+      p.set(14, 2, accent);
+      break;
+    case 'chakram':
+      p.disc(8, 8, 6.5, main);
+      p.disc(8, 8, 3, [0, 0, 0, 0]);
+      for (let k = 0; k < 4; k++) {
+        const a = (k * Math.PI) / 2 + 0.6;
+        p.set(8 + 6.8 * Math.cos(a), 8 + 6.8 * Math.sin(a), accent);
+      }
+      p.disc(8, 8, 4.8, shade, (x, y) => (x + y) % 3 === 0);
+      break;
+    case 'dagger':
+      p.line(6, 10, 13, 3, main, 2);
+      p.line(6, 9, 12, 3, light);
+      p.line(4, 8, 8, 12, rgba(def.colors[1] ?? '#5a5a5a', 0.8), 2);
+      p.line(2, 14, 5, 11, handle, 2);
+      break;
+    case 'beetroot':
+      p.disc(8, 10, 4.5, main);
+      p.disc(9.5, 11.5, 2.5, shade, (x, y) => x + y > 19);
+      p.line(8, 5, 6, 1, accent);
+      p.line(8, 5, 10, 1, accent);
+      p.line(8, 14, 8, 15, shade);
+      break;
+    case 'fish':
+      p.poly([[2, 8], [6, 5], [11, 6], [14, 8], [11, 10], [6, 11]], main);
+      p.poly([[11, 8], [15, 5], [15, 11]], shade);
+      p.set(4, 7, accent);
+      break;
   }
   p.outline();
   return p.px;

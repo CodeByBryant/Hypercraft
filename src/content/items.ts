@@ -3,6 +3,8 @@
 
 import type { Hex, ItemDef, ToolKind } from './types';
 import { TIERS } from './tiers';
+import { ARMOR_ITEMS } from './armor';
+import { FOOD_ITEMS } from './food';
 
 const HANDLE: Hex = '#8a6a3c';
 
@@ -105,10 +107,14 @@ for (const t of TIERS) {
       tool: { kind, tier: t.name },
       icon: { shape: kind, colors: [t.color, t.shade, HANDLE] },
       fuel: t.name === 'wood' ? 10 : undefined,
+      enchantability: t.enchantability,
       group: kind === 'sword' ? 'combat' : 'tools',
     });
   }
 }
+
+// Phase 7.
+ITEMS.push(...ARMOR_ITEMS, ...FOOD_ITEMS);
 
 /** Blocks without an item (fluids, portals, technical and "lit" state blocks). */
 export const NO_ITEM_BLOCKS = new Set(['air', 'water', 'lava', 'portal', 'lit_furnace', 'lit_blast_furnace', 'lit_smoker', 'mob_spawner', 'red_bed_head', 'blue_bed_head', 'white_bed_head']);
