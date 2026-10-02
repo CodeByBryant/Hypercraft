@@ -3,6 +3,7 @@
 // 0 = wood/gold, 1 = stone/copper, 2 = iron/azurite, 3 = verdant/hyperite.
 
 import type { DropDef, MiningDef } from './types';
+import { FARM_MINING, LEAF_SAPLING } from './farming';
 
 export const MINING: Record<string, MiningDef> = {};
 
@@ -149,3 +150,11 @@ set(['frosted_ice'], { drops: 'none' });
 // carry ember wart.
 set(['emberglass'], { drops: [{ item: 'emberglass_dust', count: [2, 4] }] });
 set(['ember_fern'], { shears: true, drops: [{ item: 'ember_wart', chance: 0.4 }] });
+
+// Phase 7 farming: crops, fruit, bushes, seeds from grass; leaves drop saplings.
+for (const [name, def] of Object.entries(FARM_MINING)) set([name], def);
+for (const [leaves, sapling] of Object.entries(LEAF_SAPLING)) {
+  const cur = MINING[leaves];
+  const drops = Array.isArray(cur?.drops) ? [...cur.drops] : [];
+  set([leaves], { shears: true, drops: [...drops, { item: sapling, chance: 0.05 }] });
+}

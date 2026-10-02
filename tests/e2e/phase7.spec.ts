@@ -174,3 +174,79 @@ test('brewing stand brews, potions are drunk and splashed', async ({ page }) => 
   expect(r.self.some((e) => e[0] === 'poison') || r.cowHealth < 10).toBe(true);
   expect(errors).toEqual([]);
 });
+
+test('farming: till, plant, hydrate in 4D, grow, bone meal, harvest; saplings grow trees', async ({ page }) => {
+  test.setTimeout(300_000);
+  const errors: string[] = [];
+  await boot(page, 'res=270&rd=2&seed=farm', errors);
+  mkdirSync(dir(), { recursive: true });
+  const r = await page.evaluate(async () => {
+    const hc = window.__hc;
+    hc.setMobSpawning(false);
+    hc.clearMobs();
+    hc.setTime(6000);
+    const p = hc.state().pos.map(Math.floor);
+    const [x, y, z, w] = [p[0]!, p[1]! - 1, p[2]! + 3, p[3]!];
+    // A grass plot with water 3 blocks away along W only (4D hydration).
+    for (let a = -1; a <= 1; a++) for (let c = -1; c <= 4; c++) {
+      hc.setBlock(x + a, y, z, w + c, 'grass');
+      hc.setBlock(x + a, y + 1, z, w + c, 'air');
+      hc.setBlock(x + a, y + 2, z, w + c, 'air');
+    }
+    hc.setBlock(x, y, z, w + 3, 'water');
+    // Till it with a hoe (look down at it).
+    hc.setMode('survival');
+    hc.clearInventory();
+    hc.give('iron_hoe');
+    hc.give('wheat_seeds', 4);
+    hc.give('bone_meal', 8);
+    hc.teleport(x + 0.5, y + 1, z - 1.5, w + 0.5);
+    hc.freezeMobs(true);
+    await hc.frames(3);
+    const tgt = { name: 'plot' };
+    hc.select(0);
+    hc.useOn(x, y, z, w);
+    const tilled = hc.blockAt(x, y, z, w);
+    hc.select(1);
+    hc.useOn(x, y, z, w);
+    const planted = hc.blockAt(x, y + 1, z, w);
+    const hydrated = hc.hydrated(x, y, z, w);
+    // Growth ticks: farmland turns moist, the crop grows (once light reaches the new plot).
+    await hc.frames(20);
+    hc.farmTicks(x, y, z, w, 1);
+    const moist = hc.blockAt(x, y, z, w);
+    let grown = '';
+    for (let k = 0; k < 40 && grown !== 'wheat_7'; k++) {
+      grown = hc.farmTicks(x, y + 1, z, w, 2);
+      await hc.frames(1);
+    }
+    // A fresh plant and bone meal.
+    hc.setBlock(x, y + 1, z, w, 'carrots_0');
+    hc.select(2);
+    for (let k = 0; k < 4; k++) hc.useOn(x, y + 1, z, w);
+    const meal = hc.blockAt(x, y + 1, z, w);
+    // Harvest the wheat-grown carrots: drops.
+    hc.harvestAt(x, y + 1, z, w);
+    await hc.frames(2);
+    const drops = hc.dropped().map((d) => d[0]);
+    // A sapling grows into an oak.
+    hc.setBlock(x + 1, y, z, w - 1, 'grass');
+    for (let k = 1; k < 9; k++) hc.setBlock(x + 1, y + k, z, w - 1, 'air');
+    hc.setBlock(x + 1, y + 1, z, w - 1, 'oak_sapling');
+    const tree = hc.growSapling(x + 1, y + 1, z, w - 1);
+    return { tgt: tgt?.name, tilled, planted, hydrated, moist, grown, meal, drops, tree, trunk: hc.blockAt(x + 1, y + 2, z, w - 1), tracked: hc.farmCount() };
+  });
+  expect(r.tilled).toBe('farmland');
+  expect(r.planted).toBe('wheat_0');
+  expect(r.hydrated).toBe(true);
+  expect(r.moist).toBe('farmland_moist');
+  expect(r.grown).toBe('wheat_7');
+  expect(r.meal).toBe('carrots_3');
+  expect(r.drops).toContain('carrot');
+  expect(r.tree).toBe(true);
+  expect(r.trunk).toBe('log');
+  expect(r.tracked).toBeGreaterThan(0);
+  await page.evaluate(() => window.__hc.renderNow());
+  await page.screenshot({ path: `${dir()}/farm.png` });
+  expect(errors).toEqual([]);
+});

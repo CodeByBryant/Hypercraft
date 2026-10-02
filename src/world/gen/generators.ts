@@ -17,6 +17,8 @@ export interface WorldGenerator {
   spawnPoint(): [number, number, number, number];
   /** Underground biome index at a position, or -1 (optional). Enclosed realms: the 3D biome. */
   caveBiomeAt?(x: number, y: number, z: number, w: number): number;
+  /** Grow a named tree into a column-shaped buffer (saplings, Phase 7). */
+  growTreeAt?(blocks: Uint16Array, x: number, y: number, z: number, w: number, name: string, X: number, Z: number, W: number): void;
   /** Every surface you can stand on in a column, with its biome (realms with 3D biomes). */
   surfaces?(x: number, z: number, w: number): { y: number; biome: number; room: number }[];
   /** Terrain height and biome at a horizontal point (optional). */

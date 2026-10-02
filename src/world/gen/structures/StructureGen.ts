@@ -12,9 +12,14 @@ import { ORIENTS, Builder } from './Builder';
 import { BUILDERS } from './builders';
 import { IF_AIR, IF_SOFT, StructurePlan } from './Plan';
 import { StructurePlacer, type Start, type StructureTerrain } from './Placement';
+import { isGrowable } from '../../../content/farming';
+
+const GROWABLE = Uint8Array.from(REG.blocks, (b) => (isGrowable(b) ? 1 : 0));
 
 /** Per-column data produced by generation (merged into Column.extra). */
 export interface GenExtra {
+  /** Dense indices of crops and other growables (Phase 7 farming). */
+  grow?: number[];
   be?: Record<string, unknown>;
   npcs?: { mob: string; x: number; y: number; z: number; w: number; data?: Record<string, unknown> }[];
 }
@@ -82,6 +87,8 @@ export class StructureGen {
         if (mode === IF_AIR && blocks[idx] !== 0) continue;
         if (mode === IF_SOFT && !soft[blocks[idx]! & 0xfff]) continue;
         blocks[idx] = v;
+        // Village crops keep growing: tell the farming simulation where they are.
+        if (GROWABLE[v & 0xfff]) (extra.grow ??= []).push(idx);
       }
     }
     for (const m of plan.markersIn(cx, cz, cw)) {

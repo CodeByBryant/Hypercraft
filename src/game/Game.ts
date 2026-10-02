@@ -54,6 +54,8 @@ import { potionEffect } from '../content/potions';
 import { Experience, Hunger, MAX_FOOD, armorApplies, armorReduce, armorWear, epfReduce, isFireDamage, type DamageKind } from './Survival';
 import { KeyBlocks } from './KeyBlocks';
 import { applyOffer, countBookshelves, enchantOffers, type EnchantOffer } from './Stations';
+import { Farming } from './Farming';
+import { BUSHES, PLANTS } from '../content/farming';
 import type { Container } from './items/ItemStack';
 import { XpOrbs } from './XpOrbs';
 import { Vision4D } from './Vision4D';
@@ -84,6 +86,7 @@ REG.blocks.forEach((b, i) => {
 });
 const isBed = (v: number): boolean => v !== VOID_VOXEL && BED_IDS[voxelId(v)]! > 0;
 const SWORD_KIND = toolCode('sword');
+const HOE_KIND = toolCode('hoe');
 const PICKAXE_KIND = toolCode('pickaxe');
 /** 4D Vision colours: stations, containers, beds, spawners. */
 const KEY_COLORS: [number, number, number][] = [
@@ -281,6 +284,8 @@ export class Game {
   private surgeT = 30;
   /** Key blocks for 4D Vision. */
   readonly keyBlocks: KeyBlocks;
+  /** Crops, saplings, bushes and farmland growing (Phase 7). */
+  readonly farming: Farming;
   /** Frost Walker ice: world key -> seconds until it melts. */
   private readonly frosted = new Map<string, [number, number, number, number, number]>();
   private frostT = 0;
@@ -418,9 +423,21 @@ export class Game {
       ignited: (x, y, z, w) => void this.lightPortal(x, y, z, w),
     });
     this.keyBlocks = new KeyBlocks(this.world);
+    this.farming = new Farming({
+      world: this.world,
+      drop: (x, y, z, w, st) => this.dropAtCell(x, y, z, w, st),
+      raining: (x, y, z, w) => this.rainingAt(x, y, z, w),
+      growTree: (b, x, y, z, w, n, X, Z, W) => {
+        if (!this.generator.growTreeAt) return false;
+        this.generator.growTreeAt(b, x, y, z, w, n, X, Z, W);
+        return true;
+      },
+      height: this.world.height,
+    });
     this.world.onBlockChange((x, y, z, w, o, n) => {
       this.light.onBlockChanged(x, y, z, w, o, n);
       this.keyBlocks.blockChanged(x, z, w, o, n);
+      this.farming.blockChanged(x, y, z, w, o, n);
       this.portalBlockChanged(x, y, z, w, o, n);
       this.fire.blockChanged(x, y, z, w, o, n);
       this.fluids.onBlockChanged(x, y, z, w, o, n);
@@ -431,11 +448,13 @@ export class Game {
     this.world.columnAdded = (c) => {
       this.renderer.gpu.onColumnAdded(c);
       this.blockEntities.onColumnAdded(c);
+      this.farming.columnAdded(c);
       this.columnMobsIn(c);
     };
     this.world.columnRemoved = (c) => {
       this.renderer.gpu.onColumnRemoved(c);
       this.keyBlocks.columnRemoved(c);
+      this.farming.columnRemoved(c);
       this.blockEntities.onColumnRemoved(c);
       this.columnMobsOut(c);
       if (this.persistence && c.dirty) void this.persistence.saveColumn(c);
@@ -807,6 +826,7 @@ export class Game {
       this.fluids.tick();
       this.fire.tick();
       this.blockEntities.tick(0.05);
+      this.farming.tick();
       ticks++;
     }
     if (ticks >= 5) this.tickAcc = 0;
@@ -2246,6 +2266,11 @@ export class Game {
     if (p.lastFall > 0) {
       const fall = p.lastFall;
       p.lastFall = 0;
+      // Landing hard on farmland tramples it back to dirt.
+      if (fall > 1.2 && p.mode !== 'spectator') {
+        const fx = Math.floor(p.pos[0]!), fy = Math.floor(p.pos[1]! - 0.2), fz = Math.floor(p.pos[2]!), fw = Math.floor(p.pos[3]!);
+        if (REG.blocks[this.world.getBlock(fx, fy, fz, fw) & 0xfff]?.tags?.includes('farmland') && enchLevel(this.armorPiece(3), 'feather_falling') === 0) this.world.setBlock(fx, fy, fz, fw, REG.id('dirt'));
+      }
       if (vulnerable && !p.inWater && !p.onClimbable && p.slow >= 1 && !this.effects.has('slow_falling')) {
         // Jump Boost softens landings by a block per level.
         const dmg = Vitals.fallDamage(fall - this.effects.level('jump_boost'));
@@ -2686,6 +2711,75 @@ export class Game {
     if (points > 0) this.orbs.spawn(p[0]!, p[1]! + 0.9, p[2]!, p[3]!, points);
   }
 
+  // ------------------------------------------------------------------ farming (Phase 7)
+
+  /** Where the held seed would be planted (on top of the targeted block), or null. */
+  private plantTarget(st: ItemStack): [number, number, number, number, number] | null {
+    if (!this.hasTarget || this.targetMob) return null;
+    const t = this.target;
+    if (t.axis !== 1 || t.sign < 0) return null; // the top face
+    const below = voxelId(t.voxel);
+    const plant = this.farming.plantFor(st.id, below);
+    if (plant < 0 || this.world.getBlock(t.x, t.y + 1, t.z, t.w) !== 0) return null;
+    return [t.x, t.y + 1, t.z, t.w, plant];
+  }
+
+  private pickBerries(): boolean {
+    const t = this.target;
+    const name = REG.blocks[voxelId(t.voxel)]!.name;
+    const bush = BUSHES.find((b) => b.mature === name);
+    if (!bush || this.player.mode === 'spectator') return false;
+    this.world.setBlock(t.x, t.y, t.z, t.w, REG.id(bush.young));
+    this.dropAtCell(t.x, t.y, t.z, t.w, { id: IREG.id(bush.berry), count: 2 + Math.floor(Math.random() * 2), damage: 0 });
+    return true;
+  }
+
+  /** Hoes till, seeds plant, bone meal grows. Returns true if the click was used. */
+  private farmUse(held: ItemStack): boolean {
+    const t = this.target;
+    const survival = this.player.mode === 'survival';
+    const tid = voxelId(t.voxel);
+    // Hoe: grassy and dirt blocks with air above become farmland.
+    if (IREG.toolKind[held.id] === HOE_KIND) {
+      if (!this.farming.isSoil(tid) || REG.blocks[tid]!.tags?.includes('farmland') || t.sign < 0 && t.axis === 1) return false;
+      if (this.world.getBlock(t.x, t.y + 1, t.z, t.w) !== 0) return false;
+      this.world.setBlock(t.x, t.y, t.z, t.w, REG.id('farmland'));
+      this.particles.burst(t.x + 0.5, t.y + 1, t.z + 0.5, t.w + 0.5, this.player.cam, 'poof', '#6b4a2e', 6, 1, 0.4);
+      this.wearHeld(1);
+      return true;
+    }
+    if (PLANTS[IREG.name(held.id)]) {
+      const at = this.plantTarget(held);
+      if (!at) return IREG.def(held.id).use === 'seeds';
+      this.world.setBlock(at[0], at[1], at[2], at[3], at[4]);
+      if (survival) {
+        held.count--;
+        this.inv.set(this.hotbarIndex, held.count > 0 ? held : null);
+      }
+      return true;
+    }
+    if (IREG.def(held.id).use === 'bone_meal') {
+      const plants = this.bonemealPlants();
+      if (!this.farming.boneMeal(t.x, t.y, t.z, t.w, plants)) return true;
+      this.particles.burst(t.x + 0.5, t.y + 0.8, t.z + 0.5, t.w + 0.5, this.player.cam, 'spark', '#8aff6a', 10, 1.2, 0.5, true);
+      if (survival) {
+        held.count--;
+        this.inv.set(this.hotbarIndex, held.count > 0 ? held : null);
+      }
+      return true;
+    }
+    return false;
+  }
+
+  /** What bone meal sprouts on grass: the biome's own plants, else tall grass and poppies. */
+  private bonemealPlants(): number[] {
+    const e = this.eyePos;
+    const bi = this.world.biomeAt(Math.floor(e[0]!), Math.floor(e[2]!), Math.floor(e[3]!));
+    const b = bi >= 0 ? REG.biomes[bi] : null;
+    const list = (b?.plants ?? []).filter((p) => (p.placement ?? 'surface') === 'surface').map((p) => REG.id(p.block));
+    return list.length ? list : [REG.id('tall_grass'), REG.id('poppy')];
+  }
+
   /** A thrown potion or bottle o' enchanting burst at `pos`. */
   burstAt(item: number, pos: ArrayLike<number>): void {
     const name = IREG.name(item);
@@ -2728,6 +2822,8 @@ export class Game {
   private consumable(st: ItemStack): boolean {
     const f = IREG.food[st.id];
     if (!f) return false;
+    // Carrots, potatoes and berries plant when aimed at somewhere they grow.
+    if (PLANTS[IREG.name(st.id)] && this.plantTarget(st) !== null) return false;
     if (f.always) return true;
     return this.player.mode === 'creative' || this.hunger.hungry;
   }
@@ -2801,8 +2897,11 @@ export class Game {
         return;
       }
     }
+    // Ripe berry bushes: pick the berries (the bush stays).
+    if (this.hasTarget && this.pickBerries()) return;
     if (!held) return;
     const def = IREG.def(held.id);
+    if (this.hasTarget && this.farmUse(held)) return;
     const armorSlot = IREG.armorSlot[held.id]!;
     if (armorSlot >= 0) {
       // Put it on (swapping with what was worn there).
@@ -3014,6 +3113,8 @@ export class Game {
       }
     }
     const v = makeVoxel(id, meta);
+    // Saplings only go on soil.
+    if (REG.blocks[id]!.tags?.includes('sapling') && !this.farming.isSoil(this.world.getBlock(x, y - 1, z, w) & 0xfff)) return false;
     // Do not place solid blocks inside the player.
     if (REG.collision[id] !== COLLISION_NONE && this.player.mode !== 'spectator' && this.intersectsPlayer(x, y, z, w)) return false;
     if (BED_IDS[id] === 1) {

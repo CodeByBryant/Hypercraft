@@ -6,6 +6,7 @@ import { TIERS } from './tiers';
 import { ARMOR_ITEMS } from './armor';
 import { FOOD_ITEMS } from './food';
 import { BREWING_ITEMS, POTION_ITEMS } from './potions';
+import { CROPS, FARM_ITEMS } from './farming';
 
 const HANDLE: Hex = '#8a6a3c';
 
@@ -117,10 +118,14 @@ for (const t of TIERS) {
 // Phase 7.
 ITEMS.push(...ARMOR_ITEMS, ...FOOD_ITEMS);
 ITEMS.push({ name: 'enchanted_book', displayName: 'Enchanted Book', maxStack: 1, icon: { shape: 'book', colors: ['#6a3aa8', '#3a1a6a', '#ffd86a'] }, group: 'tools', tags: ['glint'] });
-ITEMS.push(...BREWING_ITEMS, ...POTION_ITEMS);
+ITEMS.push(...BREWING_ITEMS, ...POTION_ITEMS, ...FARM_ITEMS);
 
 /** Blocks without an item (fluids, portals, technical and "lit" state blocks). */
-export const NO_ITEM_BLOCKS = new Set(['air', 'water', 'lava', 'portal', 'lit_furnace', 'lit_blast_furnace', 'lit_smoker', 'mob_spawner', 'red_bed_head', 'blue_bed_head', 'white_bed_head', 'frosted_ice']);
+export const NO_ITEM_BLOCKS = new Set([
+  ...CROPS.flatMap((c) => Array.from({ length: c.stages }, (_, k) => `${c.name}_${k}`)),
+  'sweet_berry_bush_young',
+  'strawberry_bush_young',
+  'farmland_moist','air', 'water', 'lava', 'portal', 'lit_furnace', 'lit_blast_furnace', 'lit_smoker', 'mob_spawner', 'red_bed_head', 'blue_bed_head', 'white_bed_head', 'frosted_ice']);
 
 /** Extra item properties for block items (fuel values, stack sizes, groups). */
 export const BLOCK_ITEM_EXTRAS: Record<string, Partial<ItemDef>> = {

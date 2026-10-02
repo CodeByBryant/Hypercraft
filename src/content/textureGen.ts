@@ -177,6 +177,31 @@ export function generateTexture(def: TextureDef, index: number): Uint8Array {
             col = scale(mix(c0, c1, v / 16), 1 + (j - 0.5) * 0.2);
             break;
           }
+          case 'crop': {
+            // Growing crops: blades whose height follows `amount` (growth 0..1); mature crops
+            // show their grain (c2) at the tips and roots (c3) poking out at the base.
+            const blade = hash4f(u, 0, s, 11, seed) < density;
+            const top = (2 + amount * 13) * (0.75 + 0.25 * hash4f(u, 1, s, 12, seed));
+            a = blade && v < top ? 1 : 0;
+            col = scale(mix(c0, c1, v / 16), 1 + (j - 0.5) * 0.2);
+            if (cols[2] && amount >= 0.99 && v > top - 4 && hash4f(u, v, s, 14, seed) < 0.8) col = scale(cols[2], 0.9 + j * 0.2);
+            if (cols[3] && amount >= 0.99 && v < 2 && ((u + s) & 1) === 0) {
+              col = scale(cols[3], 0.9 + j * 0.2);
+              a = 1;
+            }
+            break;
+          }
+          case 'stripes': {
+            // Melons, pumpkins: ribs along the height.
+            const rib = ((u + s) & 3) < 2;
+            col = scale(rib ? c0 : c1, 1 + (j - 0.5) * amount * 2);
+            break;
+          }
+          case 'furrows': {
+            // Farmland: ploughed rows.
+            col = scale((u & 3) < 2 ? c0 : c1, 1 + (j - 0.5) * 0.2);
+            break;
+          }
           case 'bands': {
             // Layered rock: horizontal bands through the palette, wobbling with u/s.
             const k = Math.floor((v + 2 * noise.n3(u * 0.15, 0.5, s * 0.15)) / 3);

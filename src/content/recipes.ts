@@ -7,6 +7,7 @@ import { TIERS } from './tiers';
 import { ARMOR_RECIPES } from './armor';
 import { FOOD_RECIPES } from './food';
 import { BREWING_RECIPES } from './potions';
+import { FARM_RECIPES } from './farming';
 
 export const RECIPES: RecipeDef[] = [
   // Wood.
@@ -150,3 +151,6 @@ RECIPES.push(
 
 // Phase 7: brewing.
 RECIPES.push(...BREWING_RECIPES);
+
+// Phase 7: farming.
+RECIPES.push(...FARM_RECIPES);

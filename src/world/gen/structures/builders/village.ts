@@ -304,9 +304,18 @@ function building(b: Builder, s: Style, kind: Kind, vid: string): void {
   b.npc(0, 1, -2, 0, prof === 'nitwit' ? 'villager' : `villager_${prof}`, { village: vid, profession: prof });
 }
 
-/** A 4D field: wheat plots around a water channel, with a fence post at each corner. */
+/**
+ * A 4D field: plots of wheat, carrots, potatoes and beetroots (one crop per W layer) on
+ * farmland around a water channel. The crops are real: they keep growing (Phase 7).
+ */
 function farm(b: Builder, s: Style, vid: string): void {
-  const water = id('water'), soil = id('dirt'), wheat = id('wild_wheat');
+  const water = id('water'), soil = id('dirt'), farmland = id('farmland_moist');
+  const crops: [string, number][] = [
+    ['wheat', 8],
+    ['carrots', 4],
+    ['potatoes', 4],
+    ['beetroots', 4],
+  ];
   for (let c = -3; c <= 3; c++)
     for (let bb = -6; bb <= 0; bb++)
       for (let a = -3; a <= 3; a++) {
@@ -319,8 +328,9 @@ function farm(b: Builder, s: Style, vid: string): void {
           b.set(a, g, bb, c, water);
           b.set(a, g - 1, bb, c, soil, IF_SOFT);
         } else {
-          b.set(a, g, bb, c, soil);
-          b.set(a, g + 1, bb, c, wheat);
+          b.set(a, g, bb, c, farmland);
+          const [crop, stages] = crops[(c + 3) % crops.length]!;
+          b.set(a, g + 1, bb, c, id(`${crop}_${b.int(Math.max(0, stages - 4), stages - 1)}`));
         }
         b.set(a, g + 2, bb, c, 0, IF_AIR);
       }

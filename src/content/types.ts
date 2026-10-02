@@ -127,7 +127,11 @@ export type TexturePattern =
   | 'bed_side'
   | 'cracks'
   | 'columns'
-  | 'flame';
+  | 'flame'
+  // Phase 7 farming.
+  | 'crop'
+  | 'stripes'
+  | 'furrows';
 
 /** Procedural 16x16x16 solid texture (sampled on the 3D facets of tesseracts). */
 export interface TextureDef {

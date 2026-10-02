@@ -1035,6 +1035,15 @@ export class SurfaceGenerator {
         }
   }
 
+  /**
+   * Grow the named tree with its base at local (x, y, z, w) of a column-shaped buffer (a
+   * sapling growing in the world, Phase 7). `X, Z, W` seed its size and shape.
+   */
+  growTreeAt(blocks: Uint16Array, x: number, y: number, z: number, w: number, name: string, X: number, Z: number, W: number): void {
+    const def = REG.tree(name);
+    this.growTree(blocks, x, y, z, w, { def, log: REG.id(def.log), leaves: def.leaves ? REG.id(def.leaves) : 0, density: 0 }, X, Z, W);
+  }
+
   private growTree(blocks: Uint16Array, x: number, y: number, z: number, w: number, t: ResolvedTree, X: number, Z: number, W: number): void {
     const h = hash4(X, 1, Z, W, this.seed ^ SALT_TREE);
     const def = t.def;

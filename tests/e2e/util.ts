@@ -107,6 +107,11 @@ export interface Hc {
   shelves(pos: number[]): number;
   openScreen(kind: 'enchanting' | 'anvil' | 'grindstone', pos: [number, number, number, number]): void;
   keyBlocksFound(): number;
+  farmTicks(x: number, y: number, z: number, w: number, n: number): string;
+  growSapling(x: number, y: number, z: number, w: number): boolean;
+  useOn(x: number, y: number, z: number, w: number): void;
+  farmCount(): number;
+  hydrated(x: number, y: number, z: number, w: number): boolean;
   visionMobs(): number;
   orbs(): number;
 }

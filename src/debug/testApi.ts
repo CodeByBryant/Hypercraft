@@ -482,6 +482,31 @@ export function installTestApi(game: Game, screen?: InventoryScreen): void {
     shelves: (pos: number[]) => game.shelvesAt(pos),
     openScreen: (kind: 'enchanting' | 'anvil' | 'grindstone', pos: [number, number, number, number]) => game.onOpenScreen?.({ kind, pos }),
     keyBlocksFound: () => game.keyBlocks.found,
+    farmTicks(x: number, y: number, z: number, w: number, n: number): string {
+      for (let i = 0; i < n; i++) game.farming.randomTick(x, y, z, w);
+      return REG.name(game.world.getBlock(x, y, z, w));
+    },
+    growSapling: (x: number, y: number, z: number, w: number) => game.farming.growSapling(x, y, z, w),
+    /** Right-click the top face of a cell with the held item (as if aimed there). */
+    useOn(x: number, y: number, z: number, w: number): void {
+      const t = game.target;
+      t.x = x;
+      t.y = y;
+      t.z = z;
+      t.w = w;
+      t.axis = 1;
+      t.sign = 1;
+      t.voxel = game.world.getBlock(x, y, z, w);
+      t.p[0] = x + 0.5;
+      t.p[1] = y + 1;
+      t.p[2] = z + 0.5;
+      t.p[3] = w + 0.5;
+      game.hasTarget = true;
+      game.targetMob = null;
+      (game as unknown as { useHeld(s: boolean): void }).useHeld(false);
+    },
+    farmCount: () => game.farming.count,
+    hydrated: (x: number, y: number, z: number, w: number) => game.farming.hydrated(x, y, z, w),
     lineSegments: () => game.renderer.lines.segments,
     visionMobs: () => game.vision.drawnMobs,
     orbs: () => game.orbs.list.length,
