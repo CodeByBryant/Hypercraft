@@ -139,3 +139,10 @@ for (const t of TIERS) {
 
 // Phase 7: armour and food.
 RECIPES.push(...ARMOR_RECIPES, ...FOOD_RECIPES);
+
+// Phase 7: stations.
+RECIPES.push(
+  { type: 'shaped', pattern: [' b ', 'hoh', 'ooo'], key: { b: 'book', h: 'hyperite', o: 'obsidian' }, result: 'enchanting_table' },
+  { type: 'shaped', pattern: ['III', ' i ', 'iii'], key: { I: 'iron_block', i: 'iron_ingot' }, result: 'anvil' },
+  { type: 'shaped', pattern: ['sls', 'p p'], key: { s: 'stick', l: 'stone_slab', p: '#planks' }, result: 'grindstone' },
+);

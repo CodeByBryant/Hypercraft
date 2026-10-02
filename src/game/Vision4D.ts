@@ -71,6 +71,11 @@ export class Vision4D {
     this.drawnMobs = n;
   }
 
+  /** One mob, projected, in a given colour (alpha above 1: x-ray). */
+  mobOne(lines: LineOverlay, eye: Float64Array, cam: Frame4, mobs: MobManager, m: Mob, r: number, g: number, b: number, alpha: number): void {
+    this.mob(lines, eye, cam, mobs, m, r, g, b, alpha);
+  }
+
   /** One mob's parts, projected. */
   private mob(lines: LineOverlay, eye: Float64Array, cam: Frame4, mobs: MobManager, m: Mob, r: number, g: number, b: number, alpha: number): void {
     const parts = m.def.parts;

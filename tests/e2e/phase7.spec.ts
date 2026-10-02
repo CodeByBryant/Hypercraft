@@ -58,7 +58,7 @@ test('4D Glasses draw mobs off-slice; armour, hunger and effects work in surviva
     const food = hc.survival().food;
     hc.applyEffect('speed', 30, 1);
     hc.applyEffect('absorption', 60, 0);
-    await hc.frames(2);
+    await hc.frames(20); // the HUD refreshes ten times a second
     const s = hc.survival();
     const hud = { food: !!document.querySelector('.vitals .food'), effects: document.querySelectorAll('.effects .effect').length, xp: (document.querySelector('.xpbar') as HTMLElement).style.display };
     return { bare, armored, armor, food, effects: s.effects, absorption: s.absorption, hud };
@@ -72,5 +72,56 @@ test('4D Glasses draw mobs off-slice; armour, hunger and effects work in surviva
   expect(r.hud.effects).toBe(2);
   expect(r.hud.xp).toBe('block');
   await page.screenshot({ path: `${dir()}/survival-hud.png` });
+  expect(errors).toEqual([]);
+});
+
+test('enchanting table (4D bookshelves), anvil screen, 4D Vision shows key blocks off-slice', async ({ page }) => {
+  test.setTimeout(300_000);
+  const errors: string[] = [];
+  await boot(page, 'res=270&rd=2&seed=enchant', errors);
+  mkdirSync(dir(), { recursive: true });
+  const r = await page.evaluate(async () => {
+    const hc = window.__hc;
+    hc.setMobSpawning(false);
+    hc.clearMobs();
+    const p = hc.state().pos.map(Math.floor);
+    const [x, y, z, w] = [p[0]! + 3, p[1]!, p[2]!, p[3]!];
+    // A table with shelves two blocks out in x, z and w (air between).
+    for (let dy = 0; dy < 3; dy++) for (let a = -3; a <= 3; a++) for (let b = -3; b <= 3; b++) for (let c = -3; c <= 3; c++) hc.setBlock(x + a, y + dy, z + b, w + c, 'air');
+    hc.setBlock(x, y, z, w, 'enchanting_table');
+    let n = 0;
+    for (const [a, b, c] of [[2, 0, 0], [-2, 0, 0], [0, 2, 0], [0, -2, 0], [0, 0, 2], [0, 0, -2], [2, 2, 0], [-2, 0, 2]] as const)
+      for (let dy = 0; dy < 2; dy++) {
+        hc.setBlock(x + a, y + dy, z + b, w + c, 'bookshelf');
+        n++;
+      }
+    const shelves = hc.shelves([x, y, z, w]);
+    hc.setMode('survival');
+    const poor = hc.enchantAt([x, y, z, w], 'iron_sword', 3, 2);
+    hc.addXp(1500); // level 30+
+    const rich = hc.enchantAt([x, y, z, w], 'iron_sword', 3, 2);
+    // The anvil screen renders.
+    hc.setBlock(x - 3, y, z, w, 'anvil');
+    hc.openScreen('anvil', [x - 3, y, z, w]);
+    await hc.frames(2);
+    const anvilUi = !!document.querySelector('.anvil-name');
+    hc.closeScreen();
+    // 4D Vision: a crafting table 3 blocks kata of the slice is outlined.
+    hc.setMode('creative');
+    hc.setBlock(x, y, z, w - 3, 'crafting_table');
+    hc.wearTagged(0, 'iron_helmet', { ench: [['4d_vision', 1]] });
+    await hc.frames(12);
+    return { n, shelves, poor, rich, anvilUi, keys: hc.keyBlocksFound(), lines: hc.lineSegments() };
+  });
+  expect(r.shelves).toBe(15); // 16 placed, capped at 15
+  expect(r.poor.ok).toBe(false); // no levels
+  expect(r.rich.ok).toBe(true);
+  expect(r.rich.ench.length).toBeGreaterThan(0);
+  expect(r.rich.level).toBeLessThan(31);
+  expect(r.anvilUi).toBe(true);
+  expect(r.keys).toBeGreaterThanOrEqual(2); // the table and the crafting table
+  expect(r.lines).toBeGreaterThan(20);
+  await page.evaluate(() => window.__hc.renderNow());
+  await page.screenshot({ path: `${dir()}/vision.png` });
   expect(errors).toEqual([]);
 });

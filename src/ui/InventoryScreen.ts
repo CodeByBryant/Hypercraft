@@ -13,6 +13,13 @@ import type { FurnaceData } from '../game/items/BlockEntities';
 import { countIn } from '../game/items/ItemStack';
 import { levelProgress, price, repFactor, soldOut } from '../game/Trading';
 import { LEVEL_NAMES } from '../content/trades';
+import { anvil, grindstone, describeEnchant } from '../content/enchanting';
+import { ENCHANT_BY_NAME } from '../content/enchantments';
+import { isEnchanted } from '../game/items/ItemStack';
+import { ARMOR_SLOTS } from '../content/armor';
+
+/** Station block each screen belongs to (the screen closes if it is broken). */
+const SCREEN_BLOCK: Record<string, string> = { crafting: 'crafting_table', chest: 'chest', enchanting: 'enchanting_table', anvil: 'anvil', grindstone: 'grindstone' };
 
 type SlotKind = 'normal' | 'result' | 'output' | 'creative';
 
@@ -45,6 +52,10 @@ export class InventoryScreen {
   private readonly tip: HTMLDivElement;
   private grid: SlotContainer | null = null;
   private gridSize = 0;
+  /** Station inputs (enchanting table, anvil, grindstone): returned to you on close. */
+  private work: SlotContainer | null = null;
+  /** Anvil: the name typed (null = unchanged). */
+  private anvilName: string | null = null;
   private container: Container | null = null;
   private furnace: FurnaceData | null = null;
   private flameEl: HTMLDivElement | null = null;
@@ -119,12 +130,16 @@ export class InventoryScreen {
     this.gridSize = 0;
     this.container = null;
     this.furnace = null;
+    this.work = null;
+    this.anvilName = null;
     if (req.kind === 'inventory') {
       this.gridSize = 2;
       this.grid = new SlotContainer(4);
     } else if (req.kind === 'crafting') {
       this.gridSize = 3;
       this.grid = new SlotContainer(9);
+    } else if (req.kind === 'enchanting' || req.kind === 'anvil' || req.kind === 'grindstone') {
+      this.work = new WorkSlots(2, req.kind === 'enchanting' ? (i, st) => (i === 1 ? IREG.name(st.id) === 'azurite' : true) : null);
     } else if (req.kind !== 'trade') {
       const [x, y, z, w] = req.pos;
       this.container = this.game.blockEntities.container(x, y, z, w);
@@ -138,9 +153,10 @@ export class InventoryScreen {
     if (!this.req) return;
     const g = this.game;
     // Return the crafting grid and the cursor to the inventory (throw what does not fit).
-    if (this.grid) {
-      for (let i = 0; i < this.grid.size; i++) {
-        const s = this.grid.get(i);
+    for (const c of [this.grid, this.work]) {
+      if (!c) continue;
+      for (let i = 0; i < c.size; i++) {
+        const s = c.get(i);
         if (s && g.inv.add(s) > 0) g.throwStack(s);
       }
     }
@@ -170,7 +186,7 @@ export class InventoryScreen {
       const [x, y, z, w] = r.pos;
       const id = this.game.world.getBlock(x, y, z, w) & 0xfff;
       const name = REG.blocks[id]?.name ?? '';
-      const ok = r.kind === 'crafting' ? name === 'crafting_table' : r.kind === 'chest' ? name === 'chest' : this.game.blockEntities.furnaceKind(id) !== null;
+      const ok = SCREEN_BLOCK[r.kind] ? name === SCREEN_BLOCK[r.kind] : this.game.blockEntities.furnaceKind(id) !== null;
       const e = this.game.eye();
       const far = Math.hypot(x + 0.5 - e[0]!, y + 0.5 - e[1]!, z + 0.5 - e[2]!, w + 0.5 - e[3]!) > 9;
       if (!ok || far) {
@@ -242,6 +258,9 @@ export class InventoryScreen {
     else if (req.kind === 'crafting') this.renderCraftingGrid(main, 'Crafting Table');
     else if (req.kind === 'chest') this.renderChest(main);
     else if (req.kind === 'trade') this.renderTrade(main, req.mob);
+    else if (req.kind === 'enchanting') this.renderEnchanting(main, req.pos);
+    else if (req.kind === 'anvil') this.renderAnvil(main);
+    else if (req.kind === 'grindstone') this.renderGrindstone(main);
     else this.renderFurnace(main, req.furnace);
     h('div', 'inv-title', main, 'INVENTORY');
     const mainGrid = h('div', 'inv-grid', main);
@@ -340,7 +359,12 @@ export class InventoryScreen {
       const res = h('div', 'trade-stack', row);
       g.icons.apply(h('div', 'icon', res), IREG.id(o.result[0]), 32);
       if (o.result[1] > 1) h('span', 'count', res, String(o.result[1]));
-      res.title = IREG.displayName(IREG.id(o.result[0]));
+      const rs: ItemStack = { id: IREG.id(o.result[0]), count: o.result[1], damage: 0 };
+      if (o.tag) {
+        rs.tag = o.tag;
+        res.classList.add('glint');
+      }
+      res.title = stackTip(rs);
       h('div', 'trade-uses', row, out ? 'Sold out' : `${o.maxUses - o.uses} left`);
       row.addEventListener('click', () => {
         if (this.justOpened()) return;
@@ -348,6 +372,116 @@ export class InventoryScreen {
       });
     });
     h('div', 'inv-hint', main, merchant ? 'The merchant moves on after a day or so.' : 'Offers restock twice a day. Trading raises your standing (cheaper prices); hitting villagers lowers it.');
+  }
+
+  /** Enchanting table: item + azurite; three offers (level needed, a hint of what you get). */
+  private renderEnchanting(main: HTMLElement, pos: [number, number, number, number]): void {
+    const g = this.game;
+    const shelves = g.shelvesAt(pos);
+    h('div', 'inv-title', main, `ENCHANTING TABLE · ${shelves} BOOKSHELVES`);
+    const row = h('div', 'inv-row', main);
+    const col = h('div', '', row);
+    col.style.display = 'flex';
+    col.style.gap = '4px';
+    const item = this.slot(col, this.work, 0);
+    item.el.title = 'Item to enchant';
+    const az = this.slot(col, this.work, 1);
+    az.el.title = 'Azurite';
+    if (!this.work!.get(1)) az.el.classList.add('hint-azurite');
+    const list = h('div', 'ench-list', row);
+    const offers = g.enchantOffersFor(this.work!.get(0), pos);
+    const azCount = this.work!.get(1)?.count ?? 0;
+    const creative = g.player.mode === 'creative';
+    offers.forEach((o, i) => {
+      const el = h('div', 'ench-offer', list);
+      if (!o) {
+        el.classList.add('empty');
+        return;
+      }
+      const can = creative || (g.xp.level >= o.level && azCount >= o.cost);
+      el.classList.toggle('can', can);
+      h('span', 'ench-cost', el, `${'◆'.repeat(o.cost)}`);
+      h('span', 'ench-hint', el, `${describeEnchant(o.ench[0]!)}${o.ench.length > 1 ? ' . . . ?' : ''}`);
+      h('span', 'ench-level', el, String(o.level));
+      el.title = `Needs level ${o.level}; costs ${o.cost} azurite and ${o.cost} level${o.cost > 1 ? 's' : ''}`;
+      el.addEventListener('click', () => {
+        if (this.justOpened() || !can) return;
+        if (g.enchantWith(this.work!, i, pos)) this.render();
+      });
+    });
+    h('div', 'inv-hint', main, `Your level: ${g.xp.level}. Bookshelves two blocks out (in x, z and w, with air between) give better offers, up to 15.`);
+  }
+
+  /** Anvil: combine, repair, rename. */
+  private renderAnvil(main: HTMLElement): void {
+    const g = this.game;
+    h('div', 'inv-title', main, 'ANVIL');
+    const name = h('input', 'anvil-name', main) as HTMLInputElement;
+    const left = this.work!.get(0);
+    name.placeholder = left ? IREG.displayName(left.id) : 'Name';
+    name.value = this.anvilName ?? left?.tag?.name ?? '';
+    name.maxLength = 40;
+    name.addEventListener('input', () => {
+      this.anvilName = name.value;
+      this.renderAnvilResult();
+    });
+    name.addEventListener('keydown', (e) => e.stopPropagation());
+    const row = h('div', 'inv-row', main);
+    this.slot(row, this.work, 0);
+    h('div', 'inv-arrow', row, '+');
+    this.slot(row, this.work, 1);
+    h('div', 'inv-arrow', row, '⇒');
+    const res = this.slot(row, null, 0, 'result');
+    res.el.classList.add('anvil-out');
+    h('div', 'anvil-cost', main);
+    this.renderAnvilResult();
+    void g;
+  }
+
+  /** Refresh just the anvil's output and cost (typing a name must keep the input focused). */
+  private renderAnvilResult(): void {
+    const g = this.game;
+    const res = this.root.querySelector('.anvil-out') as HTMLDivElement | null;
+    const costEl = this.root.querySelector('.anvil-cost') as HTMLDivElement | null;
+    if (!res || !costEl) return;
+    res.querySelectorAll('.icon, .count, .dura').forEach((e) => e.remove());
+    res.classList.remove('glint');
+    const r = this.anvilJob();
+    costEl.textContent = '';
+    costEl.className = 'anvil-cost';
+    if (!r) return;
+    this.paint(res, r.out);
+    const creative = g.player.mode === 'creative';
+    if (!creative && r.cost >= 40) {
+      costEl.textContent = 'Too Expensive!';
+      costEl.classList.add('bad');
+    } else {
+      costEl.textContent = `Enchantment Cost: ${r.cost}`;
+      if (!g.canPayLevels(r.cost)) costEl.classList.add('bad');
+    }
+  }
+
+  private anvilJob(): ReturnType<typeof anvil> {
+    const w = this.work;
+    if (!w) return null;
+    return anvil(w.get(0), w.get(1), this.anvilName);
+  }
+
+  /** Grindstone: strip enchantments (experience back), or merge two worn items. */
+  private renderGrindstone(main: HTMLElement): void {
+    h('div', 'inv-title', main, 'GRINDSTONE');
+    const row = h('div', 'inv-row', main);
+    const col = h('div', '', row);
+    col.style.display = 'flex';
+    col.style.flexDirection = 'column';
+    col.style.gap = '4px';
+    this.slot(col, this.work, 0);
+    this.slot(col, this.work, 1);
+    h('div', 'inv-arrow', row, '⇒');
+    const res = this.slot(row, null, 0, 'result');
+    const r = grindstone(this.work!.get(0), this.work!.get(1));
+    if (r) this.paint(res.el, r.out);
+    h('div', 'inv-hint', main, 'Removes enchantments (curses stay) and gives some experience back; two of the same item merge their durability.');
   }
 
   private renderChest(main: HTMLElement): void {
@@ -503,10 +637,7 @@ export class InventoryScreen {
     el.addEventListener('pointerenter', () => {
       this.hover = ref;
       const s = ref.kind === 'creative' ? (ref.item !== undefined && ref.item >= 0 ? { id: ref.item, count: 1, damage: 0 } : null) : ref.kind === 'result' ? this.resultStack() : ref.c?.get(ref.i);
-      if (s) {
-        const max = IREG.durability[s.id]!;
-        this.showTip(`${IREG.displayName(s.id)}${max > 0 ? `  (${max - s.damage}/${max})` : ''}`);
-      }
+      if (s) this.showTip(stackTip(s));
     });
     el.addEventListener('pointerleave', () => {
       if (this.hover === ref) this.hover = null;
@@ -519,6 +650,7 @@ export class InventoryScreen {
   private paint(el: HTMLElement, s: ItemStack): void {
     const icon = h('div', 'icon', el);
     this.game.icons.apply(icon, s.id, 32);
+    if (isEnchanted(s) || IREG.tags[s.id]!.has('glint')) el.classList.add('glint');
     if (s.count > 1) h('span', 'count', el, String(s.count));
     const max = IREG.durability[s.id]!;
     if (max > 0 && s.damage > 0) {
@@ -557,8 +689,40 @@ export class InventoryScreen {
   }
 
   private resultStack(): ItemStack | null {
+    const k = this.req?.kind;
+    if (k === 'anvil') return this.anvilJob()?.out ?? null;
+    if (k === 'grindstone') return this.work ? (grindstone(this.work.get(0), this.work.get(1))?.out ?? null) : null;
     const m = this.grid ? CRAFTING.match(this.gridStacks(), this.gridSize) : null;
     return m ? { id: m.result, count: m.count, damage: 0 } : null;
+  }
+
+  /** Anvil and grindstone: take the output (paying levels / getting experience). */
+  private takeStationResult(shift: boolean): void {
+    const g = this.game;
+    const w = this.work!;
+    let out: ItemStack;
+    if (this.req!.kind === 'anvil') {
+      const r = this.anvilJob();
+      if (!r || !g.payAnvil(r.cost)) return;
+      out = r.out;
+      w.set(0, null);
+      const right = w.get(1);
+      if (right && r.used > 0) {
+        right.count -= r.used;
+        w.set(1, right.count > 0 ? right : null);
+      }
+      this.anvilName = null;
+    } else {
+      const r = grindstone(w.get(0), w.get(1));
+      if (!r) return;
+      out = r.out;
+      w.set(0, null);
+      w.set(1, null);
+      g.grindXp(r.xp);
+    }
+    if (shift || this.cursor) {
+      if (g.inv.add(out) > 0) g.throwStack(out);
+    } else this.cursor = out;
   }
 
   /** Consume one of each grid ingredient. */
@@ -647,6 +811,10 @@ export class InventoryScreen {
 
   private takeResult(shift: boolean): void {
     const g = this.game;
+    if (this.req?.kind === 'anvil' || this.req?.kind === 'grindstone') {
+      this.takeStationResult(shift);
+      return;
+    }
     let res = this.resultStack();
     if (!res) return;
     if (shift) {
@@ -681,6 +849,12 @@ export class InventoryScreen {
         const smeltable = CRAFTING.smelt(st.id, this.req.furnace) !== null;
         if (smeltable) insertInto(this.container, moving, 0, 1);
         else if (fuel) insertInto(this.container, moving, 1, 2);
+      } else if (this.work) {
+        if (this.req?.kind === 'enchanting' && IREG.name(st.id) === 'azurite') insertInto(this.work, moving, 1, 2);
+        else if (!this.work.get(0)) {
+          this.work.set(0, withCount(moving, this.req?.kind === 'enchanting' ? 1 : moving.count));
+          moving.count -= this.req?.kind === 'enchanting' ? 1 : moving.count;
+        } else if (this.req?.kind !== 'enchanting') insertInto(this.work, moving, 1, 2);
       } else if (this.container) insertInto(this.container, moving);
       else if (ref.i < MAIN_END && IREG.armorSlot[st.id]! >= 0 && insertIntoArmor(g.inv, moving, IREG.armorSlot[st.id]!)) {
         // Shift-click armour onto your body.
@@ -767,4 +941,37 @@ function insertIntoArmor(inv: Container, s: ItemStack, slot: number): boolean {
   inv.set(i, withCount(s, s.count));
   s.count = 0;
   return true;
+}
+
+/** Tooltip text for a stack: name (custom names quoted), enchantments, trim, durability. */
+export function stackTip(s: ItemStack): string {
+  const lines: string[] = [];
+  const base = IREG.displayName(s.id);
+  lines.push(s.tag?.name ? `“${s.tag.name}” (${base})` : base);
+  for (const [n, l] of s.tag?.ench ?? []) {
+    const e = ENCHANT_BY_NAME.get(n);
+    lines.push(`  ${describeEnchant([n, l])}${e?.curse ? ' ☠' : ''}`);
+  }
+  if (s.tag?.trim) lines.push(`  Trim: ${s.tag.trim[0].replace(/_/g, ' ')} (${IREG.has(s.tag.trim[1]) ? IREG.displayName(IREG.id(s.tag.trim[1])) : s.tag.trim[1]})`);
+  const a = IREG.armor[s.id];
+  if (a && a.points > 0) lines.push(`  +${a.points} armour${a.toughness ? `, +${a.toughness} toughness` : ''} (${ARMOR_SLOTS.indexOf(a.slot) >= 0 ? a.slot : ''})`);
+  const f = IREG.food[s.id];
+  if (f && f.nutrition > 0) lines.push(`  Food ${f.nutrition}, saturation ${f.saturation}`);
+  const max = IREG.durability[s.id]!;
+  if (max > 0) lines.push(`  Durability ${max - s.damage}/${max}`);
+  return lines.join('\n');
+}
+
+/** Station input slots with an optional filter (the enchanting table's azurite slot). */
+class WorkSlots extends SlotContainer {
+  constructor(
+    size: number,
+    private readonly filter: ((i: number, s: ItemStack) => boolean) | null,
+  ) {
+    super(size);
+  }
+
+  accepts(i: number, s: ItemStack): boolean {
+    return this.filter ? this.filter(i, s) : true;
+  }
 }

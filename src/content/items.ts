@@ -62,7 +62,7 @@ export const ITEMS: ItemDef[] = [
   { name: 'clock', displayName: 'Clock', maxStack: 1, icon: { shape: 'clock', colors: ['#f4d03f', '#a8861f', '#3f6ff0'] }, readout: 'clock', group: 'tools' },
   // Phase 5: paper and books (librarians), wheat and bread (farmers), atlases (cartographers).
   material('paper', 'Paper', 'paper', ['#f4f0e4', '#c8c0a8']),
-  material('book', 'Book', 'book', ['#8a4a2a', '#5a2a14', '#f4e8c8']),
+  material('book', 'Book', 'book', ['#8a4a2a', '#5a2a14', '#f4e8c8'], { enchantability: 1 }),
   material('wheat', 'Wheat', 'wheat', ['#e0c060', '#8a7a2a']),
   { name: 'bread', displayName: 'Bread', icon: { shape: 'bread', colors: ['#c8904a', '#8a5a2a', '#e8c080'] }, group: 'food' },
   // Atlases point to the nearest structure of their kind, in your slice and kata/ana of it.
@@ -115,9 +115,10 @@ for (const t of TIERS) {
 
 // Phase 7.
 ITEMS.push(...ARMOR_ITEMS, ...FOOD_ITEMS);
+ITEMS.push({ name: 'enchanted_book', displayName: 'Enchanted Book', maxStack: 1, icon: { shape: 'book', colors: ['#6a3aa8', '#3a1a6a', '#ffd86a'] }, group: 'tools', tags: ['glint'] });
 
 /** Blocks without an item (fluids, portals, technical and "lit" state blocks). */
-export const NO_ITEM_BLOCKS = new Set(['air', 'water', 'lava', 'portal', 'lit_furnace', 'lit_blast_furnace', 'lit_smoker', 'mob_spawner', 'red_bed_head', 'blue_bed_head', 'white_bed_head']);
+export const NO_ITEM_BLOCKS = new Set(['air', 'water', 'lava', 'portal', 'lit_furnace', 'lit_blast_furnace', 'lit_smoker', 'mob_spawner', 'red_bed_head', 'blue_bed_head', 'white_bed_head', 'frosted_ice']);
 
 /** Extra item properties for block items (fuel values, stack sizes, groups). */
 export const BLOCK_ITEM_EXTRAS: Record<string, Partial<ItemDef>> = {
@@ -132,6 +133,11 @@ export const BLOCK_ITEM_EXTRAS: Record<string, Partial<ItemDef>> = {
   dead_bush: { fuel: 5 },
   torch: { group: 'functional', icon: { shape: 'torch', colors: ['#8a6a3c', '#ffb02a', '#fff4b0'] } },
   bookshelf: { fuel: 15, group: 'functional' },
+  enchanting_table: { group: 'functional' },
+  anvil: { group: 'functional' },
+  grindstone: { group: 'functional' },
+  brewing_stand: { group: 'functional' },
+  smithing_table: { group: 'functional' },
   oak_fence: { fuel: 15, icon: { shape: 'fence', colors: ['#b08a50', '#8a6a3c'] } },
   lantern: { group: 'functional', icon: { shape: 'lantern', colors: ['#4a4c56', '#ffc85a', '#fff6d0'] } },
   campfire: { group: 'functional', icon: { shape: 'campfire', colors: ['#7a5a32', '#ff8a2a', '#ffe08a'] } },

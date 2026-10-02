@@ -7,6 +7,7 @@ import { makeRayHit, raycast } from '../world/raycast';
 import type { Game } from '../game/Game';
 import type { WeatherKind } from '../content/types';
 import { IREG } from '../content/itemRegistry';
+import { SlotContainer } from '../game/items/ItemStack';
 import type { InventoryScreen } from '../ui/InventoryScreen';
 import { STRUCTURES } from '../content/structures';
 import { frameCells, framedAxes, interiorCells, type PortalBox } from '../game/Portals';
@@ -467,6 +468,20 @@ export function installTestApi(game: Game, screen?: InventoryScreen): void {
       game.input.setButton(2, false);
       await nextFrame();
     },
+    wearTagged(slot: number, name: string, tag: Record<string, unknown>): void {
+      game.inv.set(36 + slot, { id: IREG.id(name), count: 1, damage: 0, tag });
+    },
+    /** Enchant `name` at the table at pos with offer i (azurite and levels as a player would pay). */
+    enchantAt(pos: number[], name: string, azurite: number, i: number): { ok: boolean; ench: [string, number][]; level: number } {
+      const work = new SlotContainer(2);
+      work.set(0, { id: IREG.id(name), count: 1, damage: 0 });
+      if (azurite > 0) work.set(1, { id: IREG.id('azurite'), count: azurite, damage: 0 });
+      const ok = game.enchantWith(work, i, pos);
+      return { ok, ench: work.get(0)?.tag?.ench ?? [], level: game.xp.level };
+    },
+    shelves: (pos: number[]) => game.shelvesAt(pos),
+    openScreen: (kind: 'enchanting' | 'anvil' | 'grindstone', pos: [number, number, number, number]) => game.onOpenScreen?.({ kind, pos }),
+    keyBlocksFound: () => game.keyBlocks.found,
     lineSegments: () => game.renderer.lines.segments,
     visionMobs: () => game.vision.drawnMobs,
     orbs: () => game.orbs.list.length,

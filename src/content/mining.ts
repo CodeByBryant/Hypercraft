@@ -138,3 +138,9 @@ set(['phase_crystal', 'soul_glass', 'ember_bloom'], { tool: 'pickaxe' });
 set(['ember_leaves'], { drops: [{ item: 'stick', count: [1, 2], chance: 0.05 }, { item: 'hypercinder', chance: 0.02 }] });
 set(['fire', 'soul_fire', 'erupting_magma'], { drops: 'none' });
 set(['ember_grass', 'brimstone_sprouts', 'ash_tuft', 'soul_fern', 'rift_grass', 'cinder_lichen'], { shears: true, drops: 'none' });
+
+// Phase 7 stations.
+set(['enchanting_table', 'anvil'], { tool: 'pickaxe', tier: 0 });
+set(['grindstone', 'brewing_stand'], { tool: 'pickaxe', tier: 0 });
+set(['smithing_table'], { tool: 'axe' });
+set(['frosted_ice'], { drops: 'none' });

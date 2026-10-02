@@ -3,6 +3,8 @@
 // Pure data + functions: the state lives on the villager (Mob.data) and is saved with it.
 
 import { IREG } from '../content/itemRegistry';
+import { randomEnchantment, rollEnchantments } from '../content/enchanting';
+import type { ItemTag } from './items/ItemStack';
 import { MERCHANT_TRADES, PROFESSIONS, TRADE_LEVEL_XP } from '../content/trades';
 import type { TradeDef } from '../content/types';
 import { Rng } from '../math/rng';
@@ -15,6 +17,8 @@ export interface Offer {
   uses: number;
   /** Rises when an offer sells out between restocks; raises its price. */
   demand: number;
+  /** Enchantments on the result (Phase 7: enchanted books, enchanted gear). */
+  tag?: ItemTag;
 }
 
 export interface VillagerData {
@@ -34,8 +38,23 @@ export interface VillagerData {
 
 const OFFERS_PER_LEVEL = 2;
 
-function offer(t: TradeDef): Offer {
-  return { cost: t.cost.map(([n, c]) => [n, c] as [string, number]), result: [t.result[0], t.result[1]], maxUses: t.maxUses, xp: t.xp, uses: 0, demand: 0 };
+function offer(t: TradeDef, rng?: Rng): Offer {
+  const o: Offer = { cost: t.cost.map(([n, c]) => [n, c] as [string, number]), result: [t.result[0], t.result[1]], maxUses: t.maxUses, xp: t.xp, uses: 0, demand: 0 };
+  if (t.enchant && rng) {
+    const r = () => rng.next();
+    const id = IREG.id(t.result[0]);
+    let ench: [string, number][] = [];
+    if (t.enchant === 'random') {
+      // Books: any enchantment (treasure too); the price grows with the level, like Minecraft's.
+      const e = randomEnchantment(IREG.id('book'), r);
+      if (e) {
+        ench = [e];
+        o.cost[0]![1] = Math.min(64, o.cost[0]![1] + 3 * e[1] + rng.int(5));
+      }
+    } else ench = rollEnchantments(id, t.enchant[0] + rng.int(t.enchant[1] - t.enchant[0] + 1), r);
+    if (ench.length) o.tag = { ench };
+  }
+  return o;
 }
 
 /** Pick `n` distinct trades from a list with a seeded RNG. */
@@ -51,7 +70,7 @@ export function newVillager(profession: string, seed: number): VillagerData {
   const d: VillagerData = { profession, level: 0, xp: 0, offers: [], rep: 0, restock: -1, seed };
   if (profession === 'merchant') {
     const rng = new Rng(seed);
-    d.offers = pick(MERCHANT_TRADES, 6, rng).map(offer);
+    d.offers = pick(MERCHANT_TRADES, 6, rng).map((t) => offer(t, rng));
     d.level = 4;
   } else unlockLevel(d, 0);
   return d;
@@ -62,7 +81,7 @@ function unlockLevel(d: VillagerData, level: number): void {
   const prof = PROFESSIONS.find((p) => p.name === d.profession);
   if (!prof) return;
   const rng = new Rng(d.seed ^ (level * 0x9e3779b1));
-  for (const t of pick(prof.levels[level] ?? [], OFFERS_PER_LEVEL, rng)) d.offers.push(offer(t));
+  for (const t of pick(prof.levels[level] ?? [], OFFERS_PER_LEVEL, rng)) d.offers.push(offer(t, rng));
 }
 
 /** Reputation discount (up to 35% off) or markup (up to 50% more when disliked). */

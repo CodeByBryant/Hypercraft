@@ -4,7 +4,7 @@
 //   input -> camera/physics -> fixed 20 Hz ticks (time, weather, fluids) -> streaming ->
 //   light BFS (budgeted) -> GPU sync (budgeted) -> picking -> hazards -> render -> HUD.
 
-import { REG, makeVoxel, voxelId, voxelMeta, FLUID_LAVA, VARIANT_HORIZONTAL6, VARIANT_VERTICAL2, FLUID_WATER, FACING_AXES, FACING_SIGNS } from '../content/registry';
+import { REG, makeVoxel, voxelId, voxelMeta, hexToRgb, FLUID_LAVA, VARIANT_HORIZONTAL6, VARIANT_VERTICAL2, FLUID_WATER, FACING_AXES, FACING_SIGNS } from '../content/registry';
 import { Particles } from '../env/Particles';
 import { Environment, TICKS_PER_DAY } from '../env/Environment';
 import { Input } from '../input/Input';
@@ -20,13 +20,13 @@ import { makeRayHit, raycast, type RayHit } from '../world/raycast';
 import { createGenerator, type WorldGenerator } from '../world/gen/generators';
 import { VOID_VOXEL } from '../world/constants';
 import { COLLISION_NONE } from '../content/registry';
-import { IREG } from '../content/itemRegistry';
+import { IREG, toolCode } from '../content/itemRegistry';
 import { MOB_REG } from '../content/mobRegistry';
 import { Inventory, HOTBAR_SIZE } from './items/Inventory';
 import { ItemEntities } from './items/ItemEntities';
 import { BlockEntities } from './items/BlockEntities';
 import { breakInfo, rollDrops, wearFor } from './items/Mining';
-import { countIn, removeFrom, withCount, type ItemStack } from './items/ItemStack';
+import { countIn, enchLevel, removeFrom, withCount, type ItemStack } from './items/ItemStack';
 import { MobManager, type Mob, type MobHost } from './mobs/MobManager';
 import { Projectiles, type ProjectileHost } from './mobs/Projectiles';
 import { MAX_AIR, MAX_HEALTH, Vitals } from './Vitals';
@@ -50,7 +50,10 @@ import { BURN_FIRE, BURN_LAVA } from '../content/fire';
 import { findPortal, framedAxes, portalCenter, portalDestination, scalePosition, frameCells, interiorCells, type PortalBox, type PortalRecord, type PortalShape } from './Portals';
 import { EffectList } from './Effects';
 import { EFFECT_BY_NAME } from '../content/effects';
-import { Experience, Hunger, MAX_FOOD, armorApplies, armorReduce, armorWear, isFireDamage, type DamageKind } from './Survival';
+import { Experience, Hunger, MAX_FOOD, armorApplies, armorReduce, armorWear, epfReduce, isFireDamage, type DamageKind } from './Survival';
+import { KeyBlocks } from './KeyBlocks';
+import { applyOffer, countBookshelves, enchantOffers, type EnchantOffer } from './Stations';
+import type { Container } from './items/ItemStack';
 import { XpOrbs } from './XpOrbs';
 import { Vision4D } from './Vision4D';
 import { ARMOR_START } from './items/Inventory';
@@ -79,6 +82,15 @@ REG.blocks.forEach((b, i) => {
   if (REG.has(other)) BED_OTHER[i] = REG.id(other);
 });
 const isBed = (v: number): boolean => v !== VOID_VOXEL && BED_IDS[voxelId(v)]! > 0;
+const SWORD_KIND = toolCode('sword');
+const PICKAXE_KIND = toolCode('pickaxe');
+/** 4D Vision colours: stations, containers, beds, spawners. */
+const KEY_COLORS: [number, number, number][] = [
+  [1, 0.8, 0.3],
+  [0.4, 0.85, 1],
+  [1, 0.45, 0.6],
+  [1, 0.3, 0.3],
+];
 /** Portal frame blocks (obsidian, voidstone) and fire (a portal can be lit through it). */
 const PORTAL_FRAME = new Uint8Array(REG.count);
 const FIRE_IDS = new Uint8Array(REG.count);
@@ -121,7 +133,13 @@ export type ScreenRequest =
   | { kind: 'crafting'; pos: [number, number, number, number] }
   | { kind: 'chest'; pos: [number, number, number, number] }
   | { kind: 'furnace'; pos: [number, number, number, number]; furnace: FurnaceKind }
-  | { kind: 'trade'; mob: number };
+  | { kind: 'trade'; mob: number }
+  | { kind: 'enchanting'; pos: [number, number, number, number] }
+  | { kind: 'anvil'; pos: [number, number, number, number] }
+  | { kind: 'grindstone'; pos: [number, number, number, number] };
+
+/** Stations that open a screen of their own (block name -> screen kind). */
+const STATION_SCREENS: Record<string, 'enchanting' | 'anvil' | 'grindstone'> = { enchanting_table: 'enchanting', anvil: 'anvil', grindstone: 'grindstone' };
 
 const WEATHER_CYCLE: WeatherKind[] = ['clear', 'rain', 'snow', 'thunder', 'phase_storm'];
 const DIFFICULTY: Record<string, number> = { peaceful: 0, easy: 1, normal: 2, hard: 3 };
@@ -252,6 +270,22 @@ export class Game {
   readonly xp = new Experience();
   readonly orbs = new XpOrbs();
   readonly vision = new Vision4D();
+  /** Phase Strike: a mob kata/ana of the slice under the crosshair, and the cooldown. */
+  phaseTarget: Mob | null = null;
+  private phaseCd = 0;
+  /** Reach Through: the targeted block is this far along the hidden axis (0 = in the slice). */
+  targetShift = 0;
+  private readonly reachHit: RayHit = makeRayHit();
+  private surgeT = 30;
+  /** Key blocks for 4D Vision. */
+  readonly keyBlocks: KeyBlocks;
+  /** Frost Walker ice: world key -> seconds until it melts. */
+  private readonly frosted = new Map<string, [number, number, number, number, number]>();
+  private frostT = 0;
+  private sliceSense: number[] = [];
+  private sliceSenseT = 0;
+  /** Enchanting table seed: the offers stay the same until you enchant something. */
+  enchSeed = (Math.random() * 0x7fffffff) | 0;
   /** Hold-to-use in progress (eating, drinking): the item, its hotbar slot, seconds so far / needed. */
   using: { item: number; slot: number; t: number; need: number } | null = null;
   private effectTick = 0;
@@ -321,6 +355,20 @@ export class Game {
   }
   /** An experience orb reached the player. */
   private readonly collectXp = (points: number): void => {
+    // Mending: experience repairs a damaged mending item (2 durability per point) first.
+    const slots = [this.hotbarIndex, ARMOR_START, ARMOR_START + 1, ARMOR_START + 2, ARMOR_START + 3, ARMOR_START + 4];
+    const damaged = slots.filter((i) => {
+      const s = this.inv.get(i);
+      return s && s.damage > 0 && enchLevel(s, 'mending') > 0;
+    });
+    if (damaged.length) {
+      const i = damaged[Math.floor(Math.random() * damaged.length)]!;
+      const s = this.inv.get(i)!;
+      const fix = Math.min(s.damage, points * 2);
+      s.damage -= fix;
+      this.inv.set(i, s);
+      points -= Math.ceil(fix / 2);
+    }
     this.xp.add(points);
   };
 
@@ -367,8 +415,10 @@ export class Game {
       difficulty: () => DIFFICULTY[this.info.difficulty] ?? 2,
       ignited: (x, y, z, w) => void this.lightPortal(x, y, z, w),
     });
+    this.keyBlocks = new KeyBlocks(this.world);
     this.world.onBlockChange((x, y, z, w, o, n) => {
       this.light.onBlockChanged(x, y, z, w, o, n);
+      this.keyBlocks.blockChanged(x, z, w, o, n);
       this.portalBlockChanged(x, y, z, w, o, n);
       this.fire.blockChanged(x, y, z, w, o, n);
       this.fluids.onBlockChanged(x, y, z, w, o, n);
@@ -383,6 +433,7 @@ export class Game {
     };
     this.world.columnRemoved = (c) => {
       this.renderer.gpu.onColumnRemoved(c);
+      this.keyBlocks.columnRemoved(c);
       this.blockEntities.onColumnRemoved(c);
       this.columnMobsOut(c);
       if (this.persistence && c.dirty) void this.persistence.saveColumn(c);
@@ -440,6 +491,7 @@ export class Game {
       hurtPlayer: (amount, from, cause, kind, attacker) => void this.hurtPlayer(amount, from, cause, kind ?? 'melee', attacker ?? null),
       explode: (x, y, z, w, r) => this.explode(x, y, z, w, r),
       dropXp: (x, y, z, w, n) => this.orbs.spawn(x, y, z, w, n),
+      shovePlayer: (d, what) => void this.shove(d, what),
       get playerStealth() {
         return game.effects.has('invisibility') ? 0.25 : 1;
       },
@@ -559,6 +611,7 @@ export class Game {
     this.hunger.load(sp.data?.hunger);
     this.xp.load(sp.data?.xp);
     this.effects.load(sp.data?.effects);
+    if (typeof sp.data?.enchSeed === 'number') this.enchSeed = sp.data.enchSeed | 0;
     const ab = sp.data?.absorption;
     if (typeof ab === 'number' && this.effects.has('absorption')) this.vitals.absorption = Math.max(0, Math.min(20, ab));
     const bed = sp.data?.bed;
@@ -612,6 +665,7 @@ export class Game {
           xp: dead ? 0 : this.xp.save(),
           effects: dead ? [] : this.effects.save(),
           absorption: dead ? 0 : this.vitals.absorption,
+          enchSeed: this.enchSeed,
         },
       },
       ticks: this.env.ticks,
@@ -738,6 +792,7 @@ export class Game {
       this.updateAtlas();
       if (!this.traveling) this.updatePortal(dt);
       this.burnEffects(dt);
+      this.enchantTick(dt);
     }
 
     // Fixed-rate world ticks.
@@ -765,7 +820,7 @@ export class Game {
 
     // Picking (crosshair, or the touch aim point while one is active).
     this.updateTargets();
-    this.params.selectOn = this.hasTarget && !this.targetMob;
+    this.params.selectOn = this.hasTarget && !this.targetMob && this.targetShift === 0;
     if (this.hasTarget) {
       const s = this.params.select;
       s[0] = this.target.x;
@@ -1044,13 +1099,51 @@ export class Game {
     const p = this.player;
     const dir = this.input.aimOn ? this.aimDirection() : p.cam.fwd;
     this.pickDir = dir;
-    this.hasTarget = p.frozen ? false : raycast(this.world, this.eyePos, dir, p.mode === 'survival' ? 5 : 7, this.target);
+    const reachB = p.mode === 'survival' ? 5 : 7;
+    this.hasTarget = p.frozen ? false : raycast(this.world, this.eyePos, dir, reachB, this.target);
+    this.targetShift = 0;
+    // Reach Through: with nothing in reach in your slice, look 1..level slices kata and ana.
+    if (!this.hasTarget && !p.frozen && p.mode !== 'spectator') {
+      const rt = enchLevel(this.held, 'reach_through');
+      if (rt > 0) {
+        const H = p.cam.H, o = this.tmp4, hit = this.reachHit;
+        for (let k = 1; k <= rt && !this.hasTarget; k++)
+          for (const sgn of [1, -1]) {
+            for (let i = 0; i < 4; i++) o[i] = this.eyePos[i]! + H[i]! * k * sgn;
+            if (!raycast(this.world, o, dir, reachB, hit)) continue;
+            if (this.hasTarget && hit.t >= this.target.t) continue;
+            const t = this.target;
+            t.x = hit.x;
+            t.y = hit.y;
+            t.z = hit.z;
+            t.w = hit.w;
+            t.axis = hit.axis;
+            t.sign = hit.sign;
+            t.t = hit.t;
+            t.voxel = hit.voxel;
+            t.p.set(hit.p);
+            t.bmin.set(hit.bmin);
+            t.bmax.set(hit.bmax);
+            this.hasTarget = true;
+            this.targetShift = k * sgn;
+          }
+      }
+    }
     this.targetMob = null;
+    this.phaseTarget = null;
     if (!p.frozen && p.mode !== 'spectator' && this.mobs.list.length > 0) {
       const reach = REACH_ATTACK[p.mode === 'creative' ? 1 : 0]!;
       const limit = this.hasTarget ? Math.min(reach, this.target.t + 0.3) : reach;
       if (this.mobs.pick(this.eyePos, dir, limit, this.pickOut) < limit) this.targetMob = this.pickOut.mob;
       else if (this.mobs.pickAssist(this.eyePos, dir, limit, this.touchMode ? 0.45 : 0.12, p.cam.H, this.pickOut) < limit) this.targetMob = this.pickOut.mob;
+      // Phase Strike: a mob kata or ana of your slice whose shadow is under the crosshair.
+      if (!this.targetMob && this.phaseCd <= 0) {
+        const ps = enchLevel(this.held, 'phase_strike');
+        if (ps > 0 && this.mobs.pickProjected(this.eyePos, dir, limit, p.cam.H, 2 + 2 * ps, this.pickOut) < limit) {
+          this.targetMob = this.pickOut.mob;
+          this.phaseTarget = this.pickOut.mob;
+        }
+      }
     }
   }
 
@@ -1188,8 +1281,9 @@ export class Game {
       for (const [item, n] of prices) removeFrom(this.inv, (st) => st.id === item, n);
     }
     const res: ItemStack = { id: IREG.id(o.result[0]), count: o.result[1], damage: 0 };
+    if (o.tag) res.tag = JSON.parse(JSON.stringify(o.tag));
     const left = this.inv.add(res);
-    if (left > 0) this.throwStack({ ...res, count: left });
+    if (left > 0) this.throwStack(withCount(res, left));
     const up = recordTrade(v.data, o);
     const m = v.mob;
     this.particles.burst(m.pos[0]!, m.pos[1]! + m.height + 0.2, m.pos[2]!, m.pos[3]!, this.player.cam, 'spark', '#6aff8a', 8, 1.2, 0.3, true);
@@ -1657,6 +1751,128 @@ export class Game {
   }
 
   /** No movement input (paused, dead, a screen is open). */
+  // ------------------------------------------------------------------ enchantments over time
+
+  private enchantTick(dt: number): void {
+    const p = this.player;
+    if (this.phaseCd > 0) this.phaseCd -= dt;
+    // Frost Walker: water under and around your feet freezes (a 4D disc in x, z and w).
+    const fw = enchLevel(this.armorPiece(3), 'frost_walker');
+    if (fw > 0 && p.onGround && !p.inWater && p.mode !== 'spectator') this.frostWalk(2 + fw);
+    if (this.frosted.size) {
+      this.frostT -= dt;
+      if (this.frostT <= 0) {
+        this.frostT = 0.25;
+        const ice = REG.id('frosted_ice'), water = REG.id('water');
+        for (const [k, f] of this.frosted) {
+          f[4] -= 0.25;
+          if (f[4] > 0) continue;
+          // Not while you stand on it.
+          const under = Math.abs(f[0] + 0.5 - p.pos[0]!) < 1 && Math.abs(f[2] + 0.5 - p.pos[2]!) < 1 && Math.abs(f[3] + 0.5 - p.pos[3]!) < 1 && Math.abs(f[1] + 1 - p.pos[1]!) < 0.5;
+          if (under) {
+            f[4] = 1;
+            continue;
+          }
+          this.frosted.delete(k);
+          if ((this.world.getBlock(f[0], f[1], f[2], f[3]) & 0xfff) === ice) this.world.setBlock(f[0], f[1], f[2], f[3], water);
+        }
+      }
+    }
+    // Slice Sense: refresh the ores kata and ana of your slice a few times a second.
+    this.sliceSenseT -= dt;
+    if (this.sliceSenseT <= 0) {
+      this.sliceSenseT = 0.25;
+      const held = this.held;
+      const ss = held && IREG.toolKind[held.id] === PICKAXE_KIND ? enchLevel(held, 'slice_sense') : 0;
+      this.sliceSense.length = 0;
+      if (ss > 0 && p.mode !== 'spectator') this.scanSliceSense(ss);
+    }
+    // Phase storms surge now and then: out under the sky you may be shoved kata or ana.
+    if (this.env.weather === 'phase_storm' && this.world.realm.name === 'surface' && (p.mode === 'survival' || p.mode === 'adventure')) {
+      this.surgeT -= dt;
+      if (this.surgeT <= 0) {
+        this.surgeT = 20 + Math.random() * 25;
+        const e = this.eyePos;
+        if (this.world.skyHeight(Math.floor(e[0]!), Math.floor(e[2]!), Math.floor(e[3]!)) <= e[1]! && Math.random() < 0.6) {
+          this.particles.burst(e[0]!, e[1]! - 0.5, e[2]!, e[3]!, p.cam, 'spark', '#c86aff', 30, 3, 1.2, true);
+          this.shove((Math.random() < 0.5 ? -1 : 1) * (2 + Math.floor(Math.random() * 2)), 'A phase surge');
+        }
+      }
+    }
+  }
+
+  private frostWalk(r: number): void {
+    const p = this.player;
+    const water = REG.id('water'), ice = REG.id('frosted_ice');
+    const x0 = Math.floor(p.pos[0]!), y = Math.floor(p.pos[1]! - 0.5), z0 = Math.floor(p.pos[2]!), w0 = Math.floor(p.pos[3]!);
+    for (let dw = -r; dw <= r; dw++)
+      for (let dz = -r; dz <= r; dz++)
+        for (let dx = -r; dx <= r; dx++) {
+          if (dx * dx + dz * dz + dw * dw > r * r) continue;
+          const x = x0 + dx, z = z0 + dz, w = w0 + dw;
+          const v = this.world.getBlock(x, y, z, w);
+          if ((v & 0xfff) !== water || v >>> 12 !== 0) continue;
+          if (this.world.getBlock(x, y + 1, z, w) !== 0) continue;
+          if (!this.world.setBlock(x, y, z, w, ice)) continue;
+          this.frosted.set(`${x},${y},${z},${w}`, [x, y, z, w, 3 + Math.random() * 3]);
+        }
+  }
+
+  /** Ores within reach whose cells lie off your slice, up to 1 + level blocks kata or ana. */
+  private scanSliceSense(level: number): void {
+    const e = this.eyePos, cam = this.player.cam;
+    const R = 6;
+    const ex = Math.floor(e[0]!), ey = Math.floor(e[1]!), ez = Math.floor(e[2]!), ew = Math.floor(e[3]!);
+    const out = this.sliceSense;
+    for (let dw = -R; dw <= R; dw++)
+      for (let dz = -R; dz <= R; dz++)
+        for (let dy = -R; dy <= R; dy++)
+          for (let dx = -R; dx <= R; dx++) {
+            const x = ex + dx, y = ey + dy, z = ez + dz, w = ew + dw;
+            const id = this.world.getBlock(x, y, z, w) & 0xfff;
+            if (IREG.mineXp[id] === null || IREG.mineXp[id] === undefined) continue;
+            const dh = Math.abs(Vision4D.dh(e, cam, x + 0.5, y + 0.5, z + 0.5, w + 0.5));
+            if (dh < 0.75 || dh > level + 1.5) continue;
+            out.push(x, y, z, w, id);
+            if (out.length >= 64 * 5) return;
+          }
+  }
+
+  /**
+   * Shove the player `dist` blocks along the hidden axis (kata < 0 < ana), into open space
+   * only. Anchor stops it; Kata Grip boots resist it (30% per level).
+   */
+  shove(dist: number, what: string): boolean {
+    const p = this.player;
+    if (p.mode === 'creative' || p.mode === 'spectator') return false;
+    if (this.effects.has('anchor')) {
+      this.message?.(`${what} cannot move you: anchored`);
+      return false;
+    }
+    const grip = enchLevel(this.armorPiece(3), 'kata_grip');
+    if (grip > 0 && Math.random() < 0.3 * grip) {
+      this.message?.(`Kata Grip holds you in your slice`);
+      return false;
+    }
+    const H = p.cam.H;
+    const step = Math.sign(dist);
+    for (let d = Math.abs(dist); d >= 1; d--) {
+      const q = [0, 0, 0, 0];
+      for (let k = 0; k < 4; k++) q[k] = p.pos[k]! + H[k]! * d * step;
+      let free = true;
+      for (let hgt = 0; hgt < 2 && free; hgt++) {
+        const v = this.world.getBlock(Math.floor(q[0]!), Math.floor(q[1]! + 0.1 + hgt), Math.floor(q[2]!), Math.floor(q[3]!));
+        if (v === VOID_VOXEL || REG.solid[v & 0xfff]) free = false;
+      }
+      if (!free) continue;
+      p.setPosition(q[0]!, q[1]!, q[2]!, q[3]!);
+      this.message?.(`${what} shoves you ${step > 0 ? 'ana' : 'kata'}!`);
+      this.params.damage = Math.max(this.params.damage, 0.25);
+      return true;
+    }
+    return false;
+  }
+
   /** Effects, hunger, armour and items in use change how the player moves. */
   private movementModifiers(): void {
     const p = this.player;
@@ -1670,6 +1886,7 @@ export class Game {
     p.jumpBoost = e.level('jump_boost');
     p.slowFall = e.has('slow_falling');
     p.lavaSwim = this.setBonus('slag');
+    p.depthStrider = enchLevel(this.armorPiece(3), 'depth_strider');
     if (p.mode === 'survival' || p.mode === 'adventure') {
       // Too hungry to sprint (and no sprinting while eating).
       if (!this.hunger.canSprint || this.using) this.move.sprint = false;
@@ -1691,7 +1908,7 @@ export class Game {
   private stationTargeted(): boolean {
     if (!this.hasTarget || this.input.held('sneak')) return false;
     const tid = voxelId(this.target.voxel);
-    return REG.blocks[tid]!.name === 'crafting_table' || this.blockEntities.hasEntity(tid) || isBed(this.target.voxel);
+    return REG.blocks[tid]!.name === 'crafting_table' || STATION_SCREENS[REG.blocks[tid]!.name] !== undefined || this.blockEntities.hasEntity(tid) || isBed(this.target.voxel);
   }
 
   // ------------------------------------------------------------------ combat & health
@@ -1707,7 +1924,13 @@ export class Game {
     const str = this.effects.amp('strength'), weak = this.effects.amp('weakness');
     if (str >= 0) dmg += 3 * (str + 1);
     if (weak >= 0) dmg = Math.max(0, dmg - 4);
-    dmg *= swingStrength(this.sinceSwing, cd);
+    // Weapon enchantments.
+    const sharp = enchLevel(held, 'sharpness'), smite = enchLevel(held, 'smite'), bane = enchLevel(held, 'bane_of_arthropods');
+    if (sharp > 0) dmg += 0.5 * sharp + 0.5;
+    if (smite > 0 && m.def.undead) dmg += 2.5 * smite;
+    if (bane > 0 && m.def.arthropod) dmg += 2.5 * bane;
+    const strength = swingStrength(this.sinceSwing, cd);
+    dmg *= strength;
     this.hunger.exhaust(0.1);
     // Critical hit: a full-strength swing while falling.
     const crit = full && !p.onGround && !p.flying && p.vel[p.up]! < 0 && !p.inWater && !p.onClimbable;
@@ -1717,7 +1940,28 @@ export class Game {
     const from = this.tmp4;
     const F = p.cam.F;
     for (let k = 0; k < 4; k++) from[k] = m.pos[k]! - F[k]!;
-    if (!this.mobs.damage(m, dmg, from, this.eyePos, p.cam.H, true)) return false;
+    const phase = this.phaseTarget === m;
+    if (!this.mobs.damage(m, dmg, from, phase ? null : this.eyePos, p.cam.H, true, 1 + enchLevel(held, 'knockback'))) return false;
+    if (phase) {
+      this.phaseCd = 1;
+      this.particles.burst(m.pos[0]!, m.pos[1]! + m.height * 0.5, m.pos[2]!, m.pos[3]!, p.cam, 'spark', '#c86aff', 14, 2, m.width, true);
+    }
+    const fa = enchLevel(held, 'fire_aspect');
+    if (fa > 0 && !m.def.fireproof) m.burning = Math.max(m.burning, 4 * fa);
+    if (bane > 0 && m.def.arthropod) this.mobs.applyEffect(m, 'slowness', 1 + Math.random() * 0.5 * bane, 3);
+    m.looting = enchLevel(held, 'looting');
+    // Sweeping: a full swing with a sword on the ground also hits everything around the target,
+    // in all four dimensions (a sweep catches mobs kata and ana of it).
+    if (full && p.onGround && !p.sprinting && heldId >= 0 && IREG.toolKind[heldId] === SWORD_KIND) {
+      const sw = enchLevel(held, 'sweeping');
+      const sd = 1 + (sw > 0 ? dmg * (sw / (sw + 1)) : 0);
+      for (const o of this.mobs.list) {
+        if (o === m || o.def.profession) continue;
+        const d = Math.hypot(o.pos[0]! - m.pos[0]!, o.pos[1]! - m.pos[1]!, o.pos[2]! - m.pos[2]!, o.pos[3]! - m.pos[3]!);
+        if (d > 1.6 + o.width) continue;
+        this.mobs.damage(o, sd, from, this.eyePos, p.cam.H, true);
+      }
+    }
     if (m.data && m.def.profession) {
       // Hitting a villager: it and its neighbours think less of you (prices go up).
       offend(m.data, 5);
@@ -1732,16 +1976,7 @@ export class Game {
     if (crit) this.message?.('Critical hit!');
     this.mobs.noise(m.pos);
     // Weapon wear (survival).
-    if (held && p.mode === 'survival') {
-      const wear = hitWear(heldId);
-      if (wear > 0) {
-        held.damage += wear;
-        if (held.damage >= IREG.durability[held.id]!) {
-          this.inv.set(this.hotbarIndex, null);
-          this.message?.(`${IREG.displayName(held.id)} broke`);
-        } else this.inv.set(this.hotbarIndex, held);
-      }
-    }
+    if (held) this.wearHeld(hitWear(heldId));
     return true;
   }
 
@@ -1752,12 +1987,14 @@ export class Game {
     if (power < 0.1) return;
     const arrow = IREG.id('arrow');
     const survival = p.mode === 'survival' || p.mode === 'adventure';
+    const bowStack = this.held;
     if (survival) {
       if (countIn(this.inv, arrow) <= 0) {
         this.message?.('No arrows');
         return;
       }
-      removeFrom(this.inv, (s) => s.id === arrow, 1);
+      // Infinity: one arrow is enough.
+      if (enchLevel(bowStack, 'infinity') === 0) removeFrom(this.inv, (s) => s.id === arrow, 1);
     }
     const e = this.eyePos, f = p.cam.fwd;
     const from = this.tmp4;
@@ -1765,15 +2002,10 @@ export class Game {
     from[p.up] = from[p.up]! - 0.1;
     const v = this.tmpMin;
     for (let k = 0; k < 4; k++) v[k] = f[k]! * ARROW_SPEED * power;
-    this.projectiles.spawn(from, v, arrowDamage(power), arrow, true);
-    const held = this.held;
-    if (held && survival) {
-      held.damage += 1;
-      if (held.damage >= IREG.durability[held.id]!) {
-        this.inv.set(this.hotbarIndex, null);
-        this.message?.(`${IREG.displayName(held.id)} broke`);
-      } else this.inv.set(this.hotbarIndex, held);
-    }
+    const pw = enchLevel(bowStack, 'power');
+    const dmg = arrowDamage(power) * (pw > 0 ? 1 + 0.25 * (pw + 1) : 1);
+    this.projectiles.spawn(from, v, dmg, arrow, true, { fire: enchLevel(bowStack, 'flame') > 0, knock: enchLevel(bowStack, 'punch') });
+    if (survival) this.wearHeld(1);
   }
 
   /**
@@ -1789,7 +2021,17 @@ export class Game {
     // Fire immunity: Fire Resistance, or a full set of Ancient Slag armour.
     if (isFireDamage(kind) && (this.effects.has('fire_resistance') || this.setBonus('slag'))) return false;
     const dmg = this.reduceDamage(amount, kind);
-    void attacker;
+    // Thorns: a chance to hurt whatever hit you in melee.
+    if (attacker && kind === 'melee') {
+      for (let k = 0; k < 4; k++) {
+        const t = enchLevel(this.armorPiece(k), 'thorns');
+        if (t > 0 && Math.random() < 0.15 * t) {
+          attacker.hurt = 0;
+          this.mobs.damage(attacker, 1 + Math.floor(Math.random() * 4), p.pos, undefined, undefined, true);
+          this.wearArmorPiece(k, 2);
+        }
+      }
+    }
     if (this.vitals.damage(dmg, cause, false) <= 0) {
       // Fully soaked by armour: still a hit (invulnerability frames, knockback).
       if (dmg > 0) return false;
@@ -1866,9 +2108,35 @@ export class Game {
       dmg = armorReduce(dmg, armor, tough);
       this.wearArmor(amount);
     }
+    // Protection enchantments (enchantment protection factor, capped at 20: 80% off).
+    if (kind !== 'void' && kind !== 'starve') {
+      let epf = 0;
+      for (let k = 0; k < 4; k++) {
+        for (const [n, l] of this.armorPiece(k)?.tag?.ench ?? []) {
+          if (n === 'protection') epf += l;
+          else if (n === 'fire_protection' && isFireDamage(kind)) epf += 2 * l;
+          else if (n === 'blast_protection' && kind === 'explosion') epf += 2 * l;
+          else if (n === 'projectile_protection' && kind === 'projectile') epf += 2 * l;
+          else if (n === 'feather_falling' && kind === 'fall') epf += 3 * l;
+        }
+      }
+      if (epf > 0) dmg = epfReduce(dmg, epf);
+    }
     const res = this.effects.amp('resistance');
     if (res >= 0) dmg *= Math.max(0, 1 - 0.2 * (res + 1));
     return dmg;
+  }
+
+  /** Wear one armour piece (Thorns costs extra). */
+  private wearArmorPiece(k: number, n: number): void {
+    const i = ARMOR_START + k;
+    const s = this.inv.get(i);
+    if (!s || IREG.durability[s.id] === 0) return;
+    s.damage += n;
+    if (s.damage >= IREG.durability[s.id]!) {
+      this.inv.set(i, null);
+      this.message?.(`${IREG.displayName(s.id)} broke`);
+    } else this.inv.set(i, s);
   }
 
   /** Armour wears out as it takes hits (a quarter of the damage per piece). */
@@ -1878,12 +2146,43 @@ export class Game {
       const i = ARMOR_START + k;
       const s = this.inv.get(i);
       if (!s || !IREG.armor[s.id] || IREG.durability[s.id] === 0) continue;
+      // Unbreaking on armour: 60% + 40% / (level + 1) of hits wear it.
+      const ub = enchLevel(s, 'unbreaking');
+      if (ub > 0 && Math.random() >= 0.6 + 0.4 / (ub + 1)) continue;
       s.damage += wear;
       if (s.damage >= IREG.durability[s.id]!) {
         this.inv.set(i, null);
         this.message?.(`${IREG.displayName(s.id)} broke`);
       } else this.inv.set(i, s);
     }
+  }
+
+  /** Highest level of an enchantment across the armour worn. */
+  armorEnch(name: string): number {
+    let m = 0;
+    for (let k = 0; k < 4; k++) m = Math.max(m, enchLevel(this.armorPiece(k), name));
+    return m;
+  }
+
+  /** Burn time after Fire Protection (15% less per level). */
+  private burnTime(base: number): number {
+    return base * Math.max(0, 1 - 0.15 * this.armorEnch('fire_protection'));
+  }
+
+  /**
+   * Use `amount` durability of the held item (Unbreaking may spare it); breaks it when worn
+   * out. Survival only.
+   */
+  wearHeld(amount: number): void {
+    const held = this.held;
+    if (!held || amount <= 0 || this.player.mode !== 'survival' || IREG.durability[held.id] === 0) return;
+    const ub = enchLevel(held, 'unbreaking');
+    for (let k = 0; k < amount; k++) if (ub === 0 || Math.random() < 1 / (ub + 1)) held.damage++;
+    if (held.damage >= IREG.durability[held.id]!) {
+      this.inv.set(this.hotbarIndex, null);
+      this.message?.(`${IREG.displayName(held.id)} broke`);
+      this.particles.burst(this.eyePos[0]!, this.eyePos[1]! - 0.3, this.eyePos[2]!, this.eyePos[3]!, this.player.cam, 'poof', '#8a8a8a', 8, 1.2, 0.2);
+    } else this.inv.set(this.hotbarIndex, held);
   }
 
   /**
@@ -1954,7 +2253,7 @@ export class Game {
     if (this.setBonus('reefshell') && !p.eyeInWater) this.reefAir = 10;
     else if (p.eyeInWater) this.reefAir = Math.max(0, this.reefAir - dt);
     const breathing = this.effects.has('water_breathing') || this.reefAir > 0;
-    const drown = v.update(dt, p.eyeInWater, !vulnerable, breathing ? 0 : 1);
+    const drown = v.update(dt, p.eyeInWater, !vulnerable, breathing ? 0 : 1 / (1 + enchLevel(this.armorPiece(0), 'respiration')));
     if (drown > 0) this.hurtPlayer(drown, null, 'Drowned', 'drown');
     const fireproof = this.effects.has('fire_resistance') || this.setBonus('slag');
     this.envDamageTimer -= dt;
@@ -1962,13 +2261,13 @@ export class Game {
       this.envDamageTimer = 0.5;
       if (p.inLava) {
         this.hurtPlayer(4, null, 'Tried to swim in lava', 'lava');
-        if (!fireproof) this.burning = Math.max(this.burning, BURN_LAVA);
+        if (!fireproof) this.burning = Math.max(this.burning, this.burnTime(BURN_LAVA));
       } else {
         const c = this.contactDamage();
         if (c > 0) {
           const fire = FIRE_IDS[c] === 1;
           this.hurtPlayer(REG.damage[c]!, null, fire ? 'Went up in flames' : (REG.blocks[c]!.displayName ?? REG.blocks[c]!.name), fire ? 'fire' : 'contact');
-          if (fire && !fireproof) this.burning = Math.max(this.burning, BURN_FIRE);
+          if (fire && !fireproof) this.burning = Math.max(this.burning, this.burnTime(BURN_FIRE));
         }
       }
       if (p.pos[p.up]! < -32) this.hurtPlayer(4, null, 'Fell out of the world', 'void');
@@ -2002,6 +2301,7 @@ export class Game {
         const s = this.inv.get(i);
         if (!s) continue;
         this.inv.set(i, null);
+        if (enchLevel(s, 'curse_of_vanishing') > 0) continue; // gone
         this.dropAtCell(x, y, z, w, s);
       }
       // Some of your experience spills too (7 per level, at most 100); the rest is lost.
@@ -2245,7 +2545,8 @@ export class Game {
       this.mineProgress = 0;
     }
     // Break time depends on the held tool, whether we stand on the ground and are underwater.
-    this.mineSeconds = breakInfo(voxelId(t.voxel), heldId, this.player.onGround || this.player.flying, this.player.eyeInWater).seconds;
+    const wet = this.player.eyeInWater && enchLevel(this.armorPiece(0), 'aqua_affinity') === 0;
+    this.mineSeconds = breakInfo(voxelId(t.voxel), heldId, this.player.onGround || this.player.flying, wet, enchLevel(held, 'efficiency')).seconds;
     const haste = this.effects.amp('haste'), fatigue = this.effects.amp('mining_fatigue');
     if (haste >= 0) this.mineSeconds /= 1 + 0.2 * (haste + 1);
     if (fatigue >= 0) this.mineSeconds /= Math.pow(0.3, Math.min(4, fatigue + 1));
@@ -2273,7 +2574,7 @@ export class Game {
     const id = voxelId(t.voxel);
     const held = this.held;
     const heldId = held ? held.id : -1;
-    const drops = rollDrops(id, heldId, Math.random);
+    const drops = rollDrops(id, heldId, Math.random, enchLevel(held, 'silk_touch') > 0, enchLevel(held, 'fortune'));
     if (!this.world.setBlock(t.x, t.y, t.z, t.w, 0)) return false;
     this.removeBedPartner(t.x, t.y, t.z, t.w, t.voxel);
     for (const d of drops) this.dropAtCell(t.x, t.y, t.z, t.w, d);
@@ -2285,14 +2586,7 @@ export class Game {
       const n = xr[0] + Math.floor(Math.random() * (xr[1] - xr[0] + 1));
       if (n > 0) this.orbs.spawn(t.x + 0.5, t.y + 0.5, t.z + 0.5, t.w + 0.5, n);
     }
-    const wear = wearFor(id, heldId);
-    if (held && wear > 0) {
-      held.damage += wear;
-      if (held.damage >= IREG.durability[held.id]!) {
-        this.inv.set(this.hotbarIndex, null);
-        this.message?.(`${IREG.displayName(held.id)} broke`);
-      } else this.inv.set(this.hotbarIndex, held);
-    }
+    this.wearHeld(wearFor(id, heldId));
     return true;
   }
 
@@ -2336,6 +2630,57 @@ export class Game {
     const e = this.eyePos, f = this.player.cam.fwd;
     const v = [f[0]! * 5, f[1]! * 5 + 2, f[2]! * 5, f[3]! * 5];
     this.items.spawn(e[0]! + f[0]! * 0.4, e[1]! - 0.35, e[2]! + f[2]! * 0.4, e[3]! + f[3]! * 0.4, st, v, 1.5);
+  }
+
+  // ------------------------------------------------------------------ stations (Phase 7)
+
+  /** Bookshelves around an enchanting table. */
+  shelvesAt(pos: ArrayLike<number>): number {
+    return countBookshelves(this.world, pos[0]!, pos[1]!, pos[2]!, pos[3]!);
+  }
+
+  enchantOffersFor(item: ItemStack | null, pos: ArrayLike<number>): (EnchantOffer | null)[] {
+    return enchantOffers(item, this.shelvesAt(pos), this.enchSeed);
+  }
+
+  /** Can the player pay `levels` (creative always can)? */
+  canPayLevels(levels: number): boolean {
+    return this.player.mode === 'creative' || this.xp.level >= levels;
+  }
+
+  /**
+   * Enchant the item in `work` slot 0 with offer `i`, paying azurite from slot 1 and
+   * experience levels. Returns true on success.
+   */
+  enchantWith(work: Container, i: number, pos: ArrayLike<number>): boolean {
+    const item = work.get(0);
+    const offer = this.enchantOffersFor(item, pos)[i];
+    if (!item || !offer) return false;
+    const creative = this.player.mode === 'creative';
+    const az = work.get(1);
+    if (!creative && (this.xp.level < offer.level || !az || IREG.name(az.id) !== 'azurite' || az.count < offer.cost)) return false;
+    work.set(0, applyOffer(item, offer));
+    if (!creative) {
+      az!.count -= offer.cost;
+      work.set(1, az!.count > 0 ? az! : null);
+      this.xp.spendLevels(offer.cost);
+    }
+    this.enchSeed = (Math.random() * 0x7fffffff) | 0;
+    this.particles.burst(pos[0]! + 0.5, pos[1]! + 1.2, pos[2]! + 0.5, pos[3]! + 0.5, this.player.cam, 'spark', '#c8a0ff', 24, 2, 0.6, true);
+    return true;
+  }
+
+  /** Pay for an anvil job (false: not enough levels, or too expensive in survival). */
+  payAnvil(cost: number): boolean {
+    if (this.player.mode === 'creative') return true;
+    if (cost >= 40 || this.xp.level < cost) return false;
+    return this.xp.spendLevels(cost);
+  }
+
+  /** Experience back from a grindstone. */
+  grindXp(points: number): void {
+    const p = this.player.pos;
+    if (points > 0) this.orbs.spawn(p[0]!, p[1]! + 0.9, p[2]!, p[3]!, points);
   }
 
   // ------------------------------------------------------------------ eating and drinking
@@ -2400,6 +2745,11 @@ export class Game {
       const name = REG.blocks[tid]!.name;
       if (name === 'crafting_table') {
         this.onOpenScreen?.({ kind: 'crafting', pos });
+        return;
+      }
+      const station = STATION_SCREENS[name];
+      if (station) {
+        this.onOpenScreen?.({ kind: station, pos });
         return;
       }
       if (isBed(t.voxel)) {
@@ -2655,10 +3005,35 @@ export class Game {
               lines.addBox(mn, mx, cam, 0.35, 0.95, 1.0, 0.55);
             }
     }
-    // 4D Glasses: every mob near you, wherever your slice is.
-    if (this.wearing('4d_glasses') && this.player.mode !== 'spectator') this.vision.mobs(lines, e, cam, this.mobs, 32);
+    // 4D Glasses: every mob near you, wherever your slice is. 4D Vision (any other helmet):
+    // mobs and key blocks. Phase Sight (the potion) shows mobs too.
+    const helm = this.armorPiece(0);
+    const vision4d = helm !== null && IREG.name(helm.id) !== '4d_glasses' && enchLevel(helm, '4d_vision') > 0;
+    if (this.player.mode !== 'spectator' && (this.wearing('4d_glasses') || vision4d || this.effects.has('phase_sight'))) this.vision.mobs(lines, e, cam, this.mobs, 32);
     else this.vision.drawnMobs = 0;
-    if (this.hasTarget) {
+    if (vision4d && this.player.mode !== 'spectator') {
+      const ex = Math.floor(e[0]!), ey = Math.floor(e[1]!), ez = Math.floor(e[2]!), ew = Math.floor(e[3]!);
+      this.keyBlocks.near(ex, ey, ez, ew, 24, 24, 3, (x, y, z, w, id) => {
+        const dh = Vision4D.dh(e, cam, x + 0.5, y + 0.5, z + 0.5, w + 0.5);
+        const c = KEY_COLORS[REG.blocks[id]!.tags?.includes('container') ? 1 : REG.blocks[id]!.tags?.includes('bed') ? 2 : REG.blocks[id]!.name === 'mob_spawner' ? 3 : 0]!;
+        this.vision.cell(lines, e, cam, x, y, z, w, c[0], c[1], c[2], (Math.abs(dh) < 0.6 ? 0.35 : 0.9) + 1);
+      });
+    } else this.keyBlocks.found = 0;
+    // Phase Strike target: its 4D outline, so you know what you are swinging at.
+    if (this.phaseTarget) this.vision.mobOne(lines, e, cam, this.mobs, this.phaseTarget, 0.85, 0.45, 1, 1.95);
+    // Slice Sense: ores in the slices kata and ana of yours.
+    for (let i = 0; i < this.sliceSense.length; i += 5) {
+      const id = this.sliceSense[i + 4]!;
+      const tex = REG.textures[REG.texSide[id]!];
+      const col = tex ? hexToRgb(tex.colors[tex.colors.length - 1]!) : [1, 1, 1];
+      this.vision.cell(lines, e, cam, this.sliceSense[i]!, this.sliceSense[i + 1]!, this.sliceSense[i + 2]!, this.sliceSense[i + 3]!, col[0]!, col[1]!, col[2]!, 1.85, 0.12);
+    }
+    // Reach Through target: outlined in violet (the slice does not cut it).
+    if (this.hasTarget && this.targetShift !== 0 && !this.targetMob) {
+      const t = this.target;
+      this.vision.cell(lines, e, cam, t.x, t.y, t.z, t.w, 0.8, 0.4, 1, 1.95, 0.02);
+    }
+    if (this.hasTarget && this.targetShift === 0) {
       const t = this.target;
       mn[0] = t.x + t.bmin[0]! - e[0]!;
       mn[1] = t.y + t.bmin[1]! - e[1]!;

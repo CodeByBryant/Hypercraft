@@ -30,7 +30,7 @@ export function canHarvest(block: number, held: number): boolean {
   return t !== null && t.level >= need;
 }
 
-export function breakInfo(block: number, held: number, onGround = true, inWater = false): BreakInfo {
+export function breakInfo(block: number, held: number, onGround = true, inWater = false, efficiency = 0): BreakInfo {
   const hardness = REG.hardness[block]!;
   if (hardness < 0) return { seconds: Infinity, canHarvest: false, rightTool: false };
   const harvest = canHarvest(block, held);
@@ -44,6 +44,8 @@ export function breakInfo(block: number, held: number, onGround = true, inWater 
     right = true;
     speed = 5;
   }
+  // Efficiency (Minecraft): + level^2 + 1 with the right tool.
+  if (right && efficiency > 0) speed += efficiency * efficiency + 1;
   if (hardness === 0) return { seconds: 0, canHarvest: harvest, rightTool: right };
   if (!onGround) speed /= 5;
   if (inWater) speed /= 5;
@@ -52,18 +54,24 @@ export function breakInfo(block: number, held: number, onGround = true, inWater 
   return { seconds: ticks / 20, canHarvest: harvest, rightTool: right };
 }
 
-/** Roll the drops for breaking `block` with `held` (-1 = hand). `rand` returns [0, 1). */
-export function rollDrops(block: number, held: number, rand: () => number): ItemStack[] {
+/**
+ * Roll the drops for breaking `block` with `held` (-1 = hand). `rand` returns [0, 1).
+ * Silk Touch drops the block itself; Fortune multiplies ore drops (Minecraft's formula).
+ */
+export function rollDrops(block: number, held: number, rand: () => number, silk = false, fortune = 0): ItemStack[] {
   if (!canHarvest(block, held)) return [];
   const self = IREG.blockItem[block]!;
   if (held >= 0 && IREG.toolKind[held] === SHEARS && IREG.shearsDrop[block]) return self >= 0 ? [{ id: self, count: 1, damage: 0 }] : [];
   const list = IREG.drops[block];
   if (list === null || list === undefined) return self >= 0 ? [{ id: self, count: 1, damage: 0 }] : [];
+  if (silk && self >= 0 && list.length) return [{ id: self, count: 1, damage: 0 }];
+  const ore = IREG.mineXp[block] !== null;
   const out: ItemStack[] = [];
   for (const d of list) {
     if (rand() >= d.chance) continue;
-    const n = d.min + Math.floor(rand() * (d.max - d.min + 1));
-    if (n > 0) out.push({ id: d.item, count: n, damage: 0 });
+    let n = d.min + Math.floor(rand() * (d.max - d.min + 1));
+    if (ore && fortune > 0) n *= Math.max(0, Math.floor(rand() * (fortune + 2)) - 1) + 1;
+    if (n > 0) out.push({ id: d.item, count: Math.min(64, n), damage: 0 });
   }
   return out;
 }

@@ -4,10 +4,12 @@
 
 import { IREG } from './itemRegistry';
 import { LOOT_TABLES } from './loot';
+import { randomEnchantment, rollEnchantments } from './enchanting';
 import type { LootTable } from './types';
+import type { ItemTag } from '../game/items/ItemStack';
 
-/** A rolled stack in save format: [item name, count, damage?]. */
-export type LootStack = [string, number, number?];
+/** A rolled stack in save format: [item name, count, damage?, tag?]. */
+export type LootStack = [string, number, number?, ItemTag?];
 
 interface Entry {
   item: number;
@@ -16,6 +18,7 @@ interface Entry {
   max: number;
   wearLo: number;
   wearHi: number;
+  enchant: 'random' | [number, number] | null;
 }
 
 interface Pool {
@@ -45,7 +48,7 @@ export class LootRegistry {
           if (min < 1 || max < min) errors.push(`loot "${name}": bad count for "${e.item}"`);
           const id = IREG.id(e.item);
           if (e.wear && IREG.durability[id] === 0) errors.push(`loot "${name}": "${e.item}" has no durability to wear`);
-          entries.push({ item: id, weight: e.weight, min, max, wearLo: e.wear?.[0] ?? 0, wearHi: e.wear?.[1] ?? 0 });
+          entries.push({ item: id, weight: e.weight, min, max, wearLo: e.wear?.[0] ?? 0, wearHi: e.wear?.[1] ?? 0, enchant: e.enchant ?? null });
           total += e.weight;
         }
         if (p.rolls[0] < 0 || p.rolls[1] < p.rolls[0]) errors.push(`loot "${name}": bad rolls`);
@@ -87,7 +90,19 @@ export class LootRegistry {
         const count = Math.min(IREG.maxStack[e.item]!, e.min + Math.floor(rand() * (e.max - e.min + 1)));
         const dura = IREG.durability[e.item]!;
         const damage = dura > 0 && e.wearHi > 0 ? Math.min(dura - 1, Math.floor(dura * (e.wearLo + rand() * (e.wearHi - e.wearLo)))) : 0;
-        const st: LootStack = damage > 0 ? [IREG.name(e.item), count, damage] : [IREG.name(e.item), count];
+        let st: LootStack = damage > 0 ? [IREG.name(e.item), count, damage] : [IREG.name(e.item), count];
+        if (e.enchant) {
+          let id = e.item;
+          let ench: [string, number][] = [];
+          if (e.enchant === 'random') {
+            const one = randomEnchantment(id, rand);
+            if (one) ench = [one];
+          } else ench = rollEnchantments(id, e.enchant[0] + Math.floor(rand() * (e.enchant[1] - e.enchant[0] + 1)), rand, true);
+          if (ench.length) {
+            if (IREG.name(id) === 'book') id = IREG.id('enchanted_book');
+            st = [IREG.name(id), 1, damage, { ench }];
+          }
+        }
         let slot = -1;
         for (let t = 0; t < 12 && slot < 0; t++) {
           const k = Math.floor(rand() * slots);

@@ -18,6 +18,10 @@ export interface Projectile {
   byPlayer: boolean;
   age: number;
   stuck: boolean;
+  /** Flame: sets what it hits on fire. */
+  fire?: boolean;
+  /** Punch: extra knockback level. */
+  knock?: number;
 }
 
 export interface ProjectileHost {
@@ -34,9 +38,9 @@ export class Projectiles {
   readonly list: Projectile[] = [];
   private readonly prev = new Float64Array(4);
 
-  spawn(from: ArrayLike<number>, vel: ArrayLike<number>, damage: number, item: number, byPlayer: boolean): void {
+  spawn(from: ArrayLike<number>, vel: ArrayLike<number>, damage: number, item: number, byPlayer: boolean, opts?: { fire?: boolean; knock?: number }): void {
     if (this.list.length > 128) this.list.shift();
-    this.list.push({ pos: Float64Array.from(from), vel: Float64Array.from(vel), damage, item, byPlayer, age: 0, stuck: false });
+    this.list.push({ pos: Float64Array.from(from), vel: Float64Array.from(vel), damage, item, byPlayer, age: 0, stuck: false, fire: opts?.fire, knock: opts?.knock });
   }
 
   update(dt: number, world: World, mobs: MobManager, h: ProjectileHost): void {
@@ -80,7 +84,7 @@ export class Projectiles {
         if (a.byPlayer) {
           const m = this.hitMob(mobs, a.pos);
           if (m) {
-            mobs.damage(m, a.damage, this.prev, h.eye, h.hidden, true);
+            if (mobs.damage(m, a.damage, this.prev, h.eye, h.hidden, true, 1 + (a.knock ?? 0)) && a.fire && !m.def.fireproof) m.burning = Math.max(m.burning, 5);
             this.list.splice(i, 1);
             removed = true;
           }

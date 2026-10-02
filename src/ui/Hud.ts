@@ -224,10 +224,11 @@ export class Hud {
     for (let i = 0; i < HOTBAR_SIZE; i++) {
       const st = g.inv.get(i);
       const icon = this.slotIcons[i]!;
+      this.slots[i]!.classList.toggle('glint', !!st && (!!st.tag?.ench?.length || IREG.tags[st.id]!.has('glint')));
       if (st) {
         icons.apply(icon, st.id, 32);
         icon.style.display = 'block';
-        this.slots[i]!.title = IREG.displayName(st.id);
+        this.slots[i]!.title = st.tag?.name ?? IREG.displayName(st.id);
         this.slotCounts[i]!.textContent = st.count > 1 ? String(st.count) : '';
         const max = IREG.durability[st.id]!;
         const bar = this.slotBars[i]!;

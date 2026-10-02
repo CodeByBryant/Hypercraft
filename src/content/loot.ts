@@ -606,3 +606,22 @@ const extra: Record<string, LootTable['pools'][number]> = {
   cabin: { rolls: W(0, 2), entries: [{ item: 'mushroom_stew', weight: 4 }, { item: 'leather_chestplate', weight: 3 }, { item: 'bowl', weight: 3, count: W(1, 2) }] },
 };
 for (const [name, pool] of Object.entries(extra)) LOOT_TABLES[name]?.pools.push(pool);
+
+// Enchanted books and gear (Minecraft: dungeons, mineshafts, temples, strongholds...).
+const enchanted: Record<string, LootTable['pools'][number]> = {
+  dungeon: { rolls: W(0, 1), entries: [{ item: 'book', weight: 3, enchant: 'random' }, { item: 'iron_sword', weight: 1, enchant: [5, 20] }] },
+  hypermine: { rolls: W(0, 1), entries: [{ item: 'book', weight: 3, enchant: 'random' }, { item: 'iron_pickaxe', weight: 2, enchant: [5, 15] }] },
+  library: { rolls: W(1, 3), entries: [{ item: 'book', weight: 5, enchant: 'random' }] },
+  ana_vault: { rolls: W(1, 2), entries: [{ item: 'book', weight: 4, enchant: 'random' }, { item: 'verdant_sword', weight: 1, enchant: [20, 30] }, { item: 'iron_helmet', weight: 1, enchant: [20, 30] }] },
+  deep_silent_vault: { rolls: W(1, 2), entries: [{ item: 'book', weight: 4, enchant: [20, 39] }, { item: 'hyperite_pickaxe', weight: 1, enchant: [25, 39] }, { item: 'hyperite_boots', weight: 1, enchant: [25, 39] }] },
+  desert_temple: { rolls: W(0, 1), entries: [{ item: 'book', weight: 3, enchant: 'random' }] },
+  jungle_shrine: { rolls: W(0, 1), entries: [{ item: 'book', weight: 3, enchant: 'random' }, { item: 'bow', weight: 2, enchant: [5, 20] }] },
+  tesseract_temple: { rolls: W(1, 1), entries: [{ item: 'book', weight: 3, enchant: [15, 30] }, { item: 'iron_helmet', weight: 1, enchant: [15, 30] }] },
+  shipwreck_treasure: { rolls: W(0, 1), entries: [{ item: 'book', weight: 2, enchant: 'random' }] },
+  sunken_monument: { rolls: W(0, 1), entries: [{ item: 'book', weight: 2, enchant: [10, 25] }] },
+  ruined_portal: { rolls: W(0, 1), entries: [{ item: 'gold_sword', weight: 2, enchant: [5, 15] }, { item: 'gold_helmet', weight: 2, enchant: [5, 15] }] },
+  citadel_treasure: { rolls: W(0, 2), entries: [{ item: 'book', weight: 3, enchant: 'random' }, { item: 'gold_chestplate', weight: 2, enchant: [10, 30] }, { item: 'hyperite_sword', weight: 1, enchant: [20, 39] }] },
+  regent_caldera: { rolls: W(1, 1), entries: [{ item: 'book', weight: 2, enchant: [25, 39] }] },
+  village_library: { rolls: W(0, 1), entries: [{ item: 'book', weight: 2, enchant: 'random' }] },
+};
+for (const [name, pool] of Object.entries(enchanted)) LOOT_TABLES[name]?.pools.push(pool);

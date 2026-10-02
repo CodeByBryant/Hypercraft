@@ -102,6 +102,11 @@ export interface Hc {
   giveTagged(name: string, tag: Record<string, unknown>, count?: number): number;
   holdUse(ms: number): Promise<void>;
   lineSegments(): number;
+  wearTagged(slot: number, name: string, tag: Record<string, unknown>): void;
+  enchantAt(pos: number[], name: string, azurite: number, i: number): { ok: boolean; ench: [string, number][]; level: number };
+  shelves(pos: number[]): number;
+  openScreen(kind: 'enchanting' | 'anvil' | 'grindstone', pos: [number, number, number, number]): void;
+  keyBlocksFound(): number;
   visionMobs(): number;
   orbs(): number;
 }

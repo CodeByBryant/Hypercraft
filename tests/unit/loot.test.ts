@@ -17,7 +17,7 @@ describe('loot tables', () => {
           const id = IREG.id(s![0]);
           expect(s![1]).toBeGreaterThan(0);
           expect(s![1]).toBeLessThanOrEqual(IREG.maxStack[id]!);
-          if (s![2] !== undefined) expect(s![2]).toBeLessThan(IREG.durability[id]!);
+          if (s![2]) expect(s![2]).toBeLessThan(IREG.durability[id]!); // enchanted loot carries damage 0 before its tag
         }
       }
     }

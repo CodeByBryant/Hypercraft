@@ -60,6 +60,8 @@ export interface MobHost {
   dropXp?(x: number, y: number, z: number, w: number, points: number): void;
   /** How far mobs notice the player (1 normal, 0.25 invisible). */
   playerStealth?: number;
+  /** Shove the player along the hidden axis (stalkers knock you out of your slice). */
+  shovePlayer?(dist: number, what: string): void;
   explode(x: number, y: number, z: number, w: number, radius: number): void;
   shoot(from: Float64Array, vel: Float64Array, damage: number, item: number, byPlayer: boolean): void;
   /** A mob died (not by exploding): death effects. */
@@ -102,6 +104,8 @@ export class Mob {
   fireTouch = 0;
   /** Seconds since the player last hurt it (> 0: a kill counts as the player's: experience). */
   playerHit = 0;
+  /** Looting level of the player's last hit (extra drops). */
+  looting = 0;
   /** Status effects (splash potions, Fire Aspect...), created on first use. */
   effects: EffectList | null = null;
   /** Walking speed multiplier from effects (slowness, speed). */
@@ -577,6 +581,8 @@ export class MobManager {
       const weak = m.effects?.amp('weakness') ?? -1, strong = m.effects?.amp('strength') ?? -1;
       const dmg = Math.max(0, (m.def.damage ?? 2) * mult * damageScale * Math.max(0.5, m.scale) + (strong >= 0 ? 3 * (strong + 1) : 0) - (weak >= 0 ? 4 : 0));
       h.hurtPlayer(dmg, m.pos, m.def.displayName, 'melee', m);
+      // Ana Stalkers hit you out of your slice: a shove kata or ana (Kata Grip and Anchor resist).
+      if (m.def.ai === 'stalker' && Math.random() < 0.6) h.shovePlayer?.(Math.random() < 0.5 ? -2 : 2, m.def.displayName);
     }
   }
 
@@ -1045,7 +1051,7 @@ export class MobManager {
    * Damage a mob. `from` (a 4D point, e.g. the attacker) sets the knockback direction; null
    * for environmental damage. Returns false if the hit was ignored.
    */
-  damage(m: Mob, amount: number, from: ArrayLike<number> | null, eye?: ArrayLike<number>, hidden?: ArrayLike<number>, byPlayer = false): boolean {
+  damage(m: Mob, amount: number, from: ArrayLike<number> | null, eye?: ArrayLike<number> | null, hidden?: ArrayLike<number>, byPlayer = false, kbMul = 1): boolean {
     if (m.hurt > 0 && from) return false;
     if (byPlayer) m.playerHit = 5;
     const res = m.effects?.amp('resistance') ?? -1;
@@ -1061,7 +1067,7 @@ export class MobManager {
       m.hurt = 0.45;
       const dx = m.pos[0]! - from[0]!, dz = m.pos[2]! - from[2]!, dw = m.pos[3]! - from[3]!;
       const l = Math.hypot(dx, dz, dw) || 1;
-      const kb = m.def.boss ? 0 : m.def.ai === 'golem' || m.def.ai === 'brute' ? 1.2 : 3.6;
+      const kb = (m.def.boss ? 0 : m.def.ai === 'golem' || m.def.ai === 'brute' ? 1.2 : 3.6) * kbMul;
       m.vel[0] = (dx / l) * kb;
       m.vel[2] = (dz / l) * kb;
       m.vel[3] = (dw / l) * kb;
@@ -1136,9 +1142,10 @@ export class MobManager {
       const xp = def.xp ?? (def.boss ? 200 : def.hostile ? 5 : 1 + Math.floor(Math.random() * 3));
       if (xp > 0 && !(m.scale < 0.6 && def.scale === undefined)) h.dropXp(m.pos[0]!, m.pos[1]! + 0.5, m.pos[2]!, m.pos[3]!, xp);
     }
+    const loot = m.playerHit > 0 ? m.looting : 0;
     for (const d of m.cm.drops) {
-      if (Math.random() >= d.chance) continue;
-      const n = d.min + Math.floor(Math.random() * (d.max - d.min + 1));
+      if (Math.random() >= d.chance + 0.01 * loot) continue;
+      const n = d.min + Math.floor(Math.random() * (d.max - d.min + 1)) + Math.floor(Math.random() * (loot + 1));
       if (n > 0) h.dropItem(m.pos[0]!, m.pos[1]! + 0.4, m.pos[2]!, m.pos[3]!, { id: d.item, count: n, damage: 0 });
     }
     const sp = m.def.splits;
@@ -1154,6 +1161,29 @@ export class MobManager {
   }
 
   // ---------------------------------------------------------------- picking and rendering
+
+  /**
+   * Phase Strike: the nearest mob kata or ana of the slice (|dh| <= maxDh, but not cut by the
+   * slice) whose shadow on the slice lies on the ray. Returns t or Infinity.
+   */
+  pickProjected(o: ArrayLike<number>, d: ArrayLike<number>, maxT: number, H: ArrayLike<number>, maxDh: number, out: { mob: Mob | null }): number {
+    let best = maxT;
+    out.mob = null;
+    const c = this.tmp;
+    for (const m of this.list) {
+      let dh = 0;
+      for (let k = 0; k < 4; k++) dh += (m.pos[k]! - o[k]!) * H[k]!;
+      const r = m.cm.radius * m.scale;
+      if (Math.abs(dh) <= r * 0.5 || Math.abs(dh) > maxDh) continue;
+      for (let k = 0; k < 4; k++) c[k] = m.pos[k]! - dh * H[k]! + (k === 1 ? m.height * 0.5 : 0);
+      const t = rayBall(o, d, c, Math.max(m.width + 0.2, m.height * 0.5));
+      if (t < best) {
+        best = t;
+        out.mob = m;
+      }
+    }
+    return out.mob ? best : Infinity;
+  }
 
   /** Mob hit by a ray (world coords), nearest first; returns t or Infinity. */
   pick(o: ArrayLike<number>, d: ArrayLike<number>, maxT: number, out: { mob: Mob | null }): number {

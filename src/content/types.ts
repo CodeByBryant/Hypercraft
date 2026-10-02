@@ -615,6 +615,11 @@ export interface LootEntry {
   count?: [number, number];
   /** Tools: durability already used, as a fraction range of the maximum. */
   wear?: [number, number];
+  /**
+   * Enchant it (Phase 7): 'random' puts one random enchantment on it (books become enchanted
+   * books); a level range enchants it like the table at that level, treasure included.
+   */
+  enchant?: 'random' | [number, number];
 }
 
 export interface LootPool {
@@ -673,6 +678,8 @@ export interface TradeDef {
   maxUses: number;
   /** Villager experience per trade. */
   xp: number;
+  /** Phase 7: the result comes enchanted ('random': one random enchantment, books too; a range: table levels). */
+  enchant?: 'random' | [number, number];
 }
 
 export interface ProfessionDef {

@@ -52,6 +52,8 @@ export class Player {
   slowFall = false;
   /** Swim through lava like water (a full Ancient Slag set). */
   lavaSwim = false;
+  /** Depth Strider level: walk underwater up to land speed. */
+  depthStrider = 0;
   sneaking = false;
   sprinting = false;
   frozen = true;
@@ -284,7 +286,7 @@ export class Player {
     if (this.flying) speed = this.sprinting ? 21.6 : 10.9;
     else if (this.sneaking) speed = 1.31;
     else if (this.sprinting) speed = 5.61;
-    if (!this.flying && (this.inWater || this.inLava)) speed = this.inLava && !this.lavaSwim ? 1.2 : 2.2;
+    if (!this.flying && (this.inWater || this.inLava)) speed = this.inLava && !this.lavaSwim ? 1.2 : 2.2 + (4.317 - 2.2) * (this.inWater ? Math.min(3, this.depthStrider) / 3 : 0);
     const webbed = this.slow < 1 && this.mode !== 'spectator';
     if (webbed) speed *= this.slow;
     if (!this.flying) speed *= this.speedMul;

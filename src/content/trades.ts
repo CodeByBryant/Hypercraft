@@ -4,7 +4,7 @@
 
 import type { ProfessionDef, TradeDef } from './types';
 
-const t = (cost: [string, number][], result: [string, number], maxUses: number, xp: number): TradeDef => ({ cost, result, maxUses, xp });
+const t = (cost: [string, number][], result: [string, number], maxUses: number, xp: number, enchant?: TradeDef['enchant']): TradeDef => (enchant ? { cost, result, maxUses, xp, enchant } : { cost, result, maxUses, xp });
 const V = 'verdant';
 
 /** Experience needed to reach each level (index = level). */
@@ -31,11 +31,11 @@ export const PROFESSIONS: ProfessionDef[] = [
     robe: '#3a3a42',
     trim: '#a8a8b0',
     levels: [
-      [t([['coal', 15]], [V, 1], 16, 2), t([['iron_ingot', 4]], [V, 1], 12, 2)],
-      [t([[V, 2]], ['iron_sword', 1], 3, 5), t([[V, 3]], ['iron_pickaxe', 1], 3, 5), t([[V, 3]], ['iron_axe', 1], 3, 5)],
-      [t([['gold_ingot', 3]], [V, 1], 12, 10), t([[V, 2]], ['shears', 1], 3, 10)],
-      [t([[V, 8], ['azurite', 1]], ['azurite_pickaxe', 1], 3, 15), t([[V, 8], ['azurite', 1]], ['azurite_sword', 1], 3, 15)],
-      [t([[V, 20], ['hyperite', 1]], ['hyperite_pickaxe', 1], 3, 30), t([[V, 16], ['hyperite', 1]], ['hyperite_sword', 1], 3, 30)],
+      [t([['coal', 15]], [V, 1], 16, 2), t([['iron_ingot', 4]], [V, 1], 12, 2), t([[V, 5]], ['iron_helmet', 1], 3, 2), t([[V, 4]], ['iron_boots', 1], 3, 2)],
+      [t([[V, 2]], ['iron_sword', 1], 3, 5), t([[V, 3]], ['iron_pickaxe', 1], 3, 5), t([[V, 3]], ['iron_axe', 1], 3, 5), t([[V, 9]], ['iron_chestplate', 1], 3, 5), t([[V, 7]], ['iron_leggings', 1], 3, 5)],
+      [t([['gold_ingot', 3]], [V, 1], 12, 10), t([[V, 2]], ['shears', 1], 3, 10), t([[V, 6]], ['iron_sword', 1], 3, 10, [5, 19]), t([[V, 1]], ['anvil', 1], 3, 10)],
+      [t([[V, 8], ['azurite', 1]], ['azurite_pickaxe', 1], 3, 15), t([[V, 8], ['azurite', 1]], ['azurite_sword', 1], 3, 15), t([[V, 14], ['azurite', 2]], ['azurite_chestplate', 1], 3, 15, [8, 20])],
+      [t([[V, 20], ['hyperite', 1]], ['hyperite_pickaxe', 1], 3, 30, [10, 25]), t([[V, 16], ['hyperite', 1]], ['hyperite_sword', 1], 3, 30, [10, 25]), t([[V, 24], ['hyperite', 1]], ['hyperite_helmet', 1], 3, 30, [10, 25])],
     ],
   },
   {
@@ -44,11 +44,11 @@ export const PROFESSIONS: ProfessionDef[] = [
     robe: '#e8e0c8',
     trim: '#8a3a2a',
     levels: [
-      [t([['paper', 24]], [V, 1], 16, 2), t([[V, 3]], ['bookshelf', 1], 12, 1)],
-      [t([['book', 4]], [V, 1], 12, 5), t([[V, 1]], ['lantern', 1], 12, 5)],
-      [t([[V, 2]], ['compass', 1], 12, 10), t([[V, 3]], ['clock', 1], 12, 10)],
-      [t([[V, 4]], ['ruins_atlas', 1], 12, 15), t([['book', 8]], [V, 2], 12, 15)],
-      [t([[V, 12]], ['vault_atlas', 1], 12, 30)],
+      [t([['paper', 24]], [V, 1], 16, 2), t([[V, 3]], ['bookshelf', 1], 12, 1), t([[V, 5], ['book', 1]], ['enchanted_book', 1], 12, 1, 'random')],
+      [t([['book', 4]], [V, 1], 12, 5), t([[V, 1]], ['lantern', 1], 12, 5), t([[V, 6], ['book', 1]], ['enchanted_book', 1], 12, 5, 'random')],
+      [t([[V, 2]], ['compass', 1], 12, 10), t([[V, 3]], ['clock', 1], 12, 10), t([[V, 8], ['book', 1]], ['enchanted_book', 1], 12, 10, 'random')],
+      [t([[V, 4]], ['ruins_atlas', 1], 12, 15), t([['book', 8]], [V, 2], 12, 15), t([[V, 10], ['book', 1]], ['enchanted_book', 1], 12, 15, 'random')],
+      [t([[V, 12]], ['vault_atlas', 1], 12, 30), t([[V, 20]], ['enchanting_table', 1], 4, 30)],
     ],
   },
   {
