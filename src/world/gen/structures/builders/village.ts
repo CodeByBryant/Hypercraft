@@ -330,7 +330,10 @@ function farm(b: Builder, s: Style, vid: string): void {
         } else {
           b.set(a, g, bb, c, farmland);
           const [crop, stages] = crops[(c + 3) % crops.length]!;
-          b.set(a, g + 1, bb, c, id(`${crop}_${b.int(Math.max(0, stages - 4), stages - 1)}`));
+          // Stage from the plot position (not the builder's random stream: the rest of the
+          // village must not change).
+          const stage = stages - 1 - (((a * 7 + bb * 13 + c * 31) & 0xff) % Math.min(4, stages));
+          b.set(a, g + 1, bb, c, id(`${crop}_${stage}`));
         }
         b.set(a, g + 2, bb, c, 0, IF_AIR);
       }

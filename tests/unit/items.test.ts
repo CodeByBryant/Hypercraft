@@ -110,7 +110,9 @@ describe('mining', () => {
     expect(rollDrops(B('stone'), -1, r)).toEqual([]);
     expect(rollDrops(B('grass'), -1, r).map((s) => IREG.name(s.id))).toEqual(['dirt']);
     expect(rollDrops(B('coal_ore'), I('wood_pickaxe'), r).map((s) => IREG.name(s.id))).toEqual(['coal']);
-    expect(rollDrops(B('tall_grass'), -1, r)).toEqual([]);
+    // Tall grass by hand: wheat seeds now and then (Minecraft: 1 in 8).
+    expect(rollDrops(B('tall_grass'), -1, r).map((s) => IREG.name(s.id))).toEqual(['wheat_seeds']);
+    expect(rollDrops(B('tall_grass'), -1, () => 0.99)).toEqual([]);
     expect(rollDrops(B('tall_grass'), I('shears'), r).map((s) => IREG.name(s.id))).toEqual(['tall_grass']);
     expect(rollDrops(B('glass'), -1, r)).toEqual([]);
     const cu = rollDrops(B('copper_ore'), I('stone_pickaxe'), () => 0.99);
