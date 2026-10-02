@@ -159,6 +159,17 @@ export class World {
     return c;
   }
 
+  /** Flag the brick holding (x, y, z, w) for a GPU refresh (its data did not change). */
+  private touchBrick(x: number, y: number, z: number, w: number): void {
+    if (y < 0 || y >= this.height) return;
+    const col = this.column(x >> 4, z >> 4, w >> 4);
+    if (col === null) return;
+    const ch = col.chunks[y >> 4]!;
+    const bi = ((x & 15) >> 2) | (((y & 15) >> 2) << 2) | (((z & 15) >> 2) << 4) | (((w & 15) >> 2) << 6);
+    ch.dirtyB[bi >> 5] = ch.dirtyB[bi >> 5]! | (1 << (bi & 31));
+    this.markChunkDirty(ch);
+  }
+
   markChunkDirty(ch: Chunk): void {
     if (!ch.queued) {
       ch.queued = true;
@@ -200,6 +211,16 @@ export class World {
     col.edited = true;
     col.dirty = true;
     this.markChunkDirty(ch);
+    // A voxel on a brick face can bury or uncover the brick across it (the GPU shows buried
+    // bricks as one value): have the renderer look at those again.
+    if ((lx & 3) === 0) this.touchBrick(x - 1, y, z, w);
+    else if ((lx & 3) === 3) this.touchBrick(x + 1, y, z, w);
+    if ((ly & 3) === 0) this.touchBrick(x, y - 1, z, w);
+    else if ((ly & 3) === 3) this.touchBrick(x, y + 1, z, w);
+    if ((lz & 3) === 0) this.touchBrick(x, y, z - 1, w);
+    else if ((lz & 3) === 3) this.touchBrick(x, y, z + 1, w);
+    if ((lw & 3) === 0) this.touchBrick(x, y, z, w - 1);
+    else if ((lw & 3) === 3) this.touchBrick(x, y, z, w + 1);
     this.updateHeightmap(col, lx, y, lz, lw, v);
     for (let i = 0; i < this.blockListeners.length; i++) this.blockListeners[i]!(x, y, z, w, old, v);
     return true;

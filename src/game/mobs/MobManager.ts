@@ -1493,22 +1493,32 @@ export class MobManager {
    * Pack mobs whose bounding 4-ball crosses the view hyperplane into the entity texture
    * buffer. `origin` = window origin (world coords of the texture space). Returns the count.
    */
-  pack(eye: ArrayLike<number>, cam: Frame4, maxDist: number, origin: ArrayLike<number>): number {
+  pack(eye: ArrayLike<number>, cam: Frame4, maxDist: number, origin: ArrayLike<number>, tanX = 0, tanY = 0): number {
     const g = this.gpu;
-    const H = cam.hidden;
+    const H = cam.hidden, Fw = cam.fwd, Rt = cam.right, Up = cam.up;
+    // Side planes of the view frustum (every pixel tests every packed mob, so mobs off
+    // screen are left out): unit normals in (along, forward) for |along| <= forward * tan.
+    const kx = 1 / Math.sqrt(1 + tanX * tanX), ky = 1 / Math.sqrt(1 + tanY * tanY);
     let n = 0;
     const a = this.pa, b = this.pb;
     let part = 0;
     for (const m of this.list) {
       if (n >= MAX_GPU_MOBS) break;
       const r = m.cm.radius * m.scale;
-      let dh = 0, d2 = 0;
+      let dh = 0, d2 = 0, f = 0, x = 0, y = 0;
       for (let k = 0; k < 4; k++) {
         const dk = m.pos[k]! - eye[k]!;
         dh += dk * H[k]!;
         d2 += dk * dk;
+        f += dk * Fw[k]!;
+        x += dk * Rt[k]!;
+        y += dk * Up[k]!;
       }
       if (Math.abs(dh) > r || d2 > (maxDist + r) * (maxDist + r)) continue;
+      if (tanX > 0) {
+        const rr = r * 1.05 + 0.1;
+        if (f < -rr || (Math.abs(x) - f * tanX) * kx > rr || (Math.abs(y) - f * tanY) * ky > rr) continue;
+      }
       const parts = m.def.parts;
       const e = n * MOB_TEXELS * 4;
       for (let k = 0; k < 4; k++) {

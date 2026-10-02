@@ -8,17 +8,18 @@ Honest list as of Phase 6 (the Ember Depths, portals, the Magma Regent). Items t
   steps per pixel, see `docs/benchmarks/phase-1.md`), but 60 fps at 360p on integrated GPUs
   must be confirmed with `?bench=1` on real hardware.
 - **GPU and CPU memory**: the deeper Surface (192 tall, Minecraft-density ores and caves)
-  has about 1600 non-uniform block bricks per column (was ≈760 at 128 tall), so brick pools
-  and the CPU column cache are roughly twice as big as in Phase 6: at render distance 4 the
-  block pool is about 23 layers (≈190 MB of GPU memory). Options: 8-bit palette bricks,
-  fewer isolated ore bricks, shrinking pools. Default render distance may need to drop to 3
-  on low-end devices (Phase 12 settings presets).
+  has about 1500 non-uniform block bricks per column on the CPU. Buried bricks (all solid,
+  one value on every open face) are stored on the GPU as one value, which leaves ≈1000 per
+  column there (a third less): at render distance 4 the block pool is about 12 layers
+  (≈100 MB) on the Surface, the light pool 11 (Ember Depths: 11 and 20). Further options:
+  8-bit palette bricks, shrinking pools. Default render distance may need to drop to 3 on
+  low-end devices (Phase 12 settings presets).
 - **Old saves after the underground rework**: Surface columns saved at the old height are
   regenerated (edits there are lost), and the player, bed and portals are lifted 56 blocks.
   Builds in the Ember Depths are kept.
-- **Pool regrow hitch**: when a brick pool fills up it is recreated larger and *every*
-  resident chunk is re-uploaded, which is a visible stall. The initial size is estimated from
-  the render distance, so this should be rare.
+- **Brick pool limit**: pools grow in place (a GPU copy, no re-upload) up to 64 layers; past
+  that, new chunks wait as unloaded fog until columns unload. Only very large render
+  distances get there.
 - Rotating the slice by large angles triggers streaming of a new shell of columns
   (~0.5–1 s of fog-coloured unloaded areas at the edges). Inherent to 4D; can be softened
   with a larger hidden-axis margin.

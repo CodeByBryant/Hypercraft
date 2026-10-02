@@ -868,7 +868,8 @@ export class Game {
     org[1] = 0;
     org[2] = this.world.oz * 16;
     org[3] = this.world.ow * 16;
-    this.params.entityCount = this.mobs.pack(this.eyePos, p.cam, this.params.maxDist, org);
+    const tanY = Math.tan(this.params.fovY / 2);
+    this.params.entityCount = this.mobs.pack(this.eyePos, p.cam, this.params.maxDist, org, tanY * (this.canvas.width / Math.max(1, this.canvas.height)), tanY);
     this.params.entityData = this.mobs.gpuData;
 
     // Environment + screen effects.

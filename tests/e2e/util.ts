@@ -8,6 +8,8 @@ export interface Hc {
   renderNow(): number;
   benchRender(n?: number): number;
   raySteps(): { avg: number; max: number; p95: number };
+  setBrickCollapse(on: boolean): void;
+  capture(t?: number): { w: number; h: number; data: number[] };
   setView(v: { yaw?: number; pitch?: number; xw?: number; zw?: number }): void;
   teleport(x: number, y: number, z: number, w: number): void;
   setFlying(on: boolean): void;

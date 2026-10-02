@@ -78,10 +78,24 @@ Pool brick `p` lives in layer `p >> 14` (16 384 bricks per 2048² layer), tile
 cache locality for 4D neighbourhoods).
 
 Pool bricks are allocated in **groups of 8** consecutive tiles (a 128×16 strip). A chunk's
-non-uniform bricks are packed in order into its groups, so uploading a fresh chunk takes
+GPU bricks are packed in order into its groups, so uploading a fresh chunk takes
 `⌈bricks/8⌉` `texSubImage3D` calls; a single edited brick is one 16×16 upload. Freed groups
-go on a free list. When a pool runs out, it is recreated with ~1.5× the layers and every
-resident chunk is re-uploaded from the CPU copy (rare; counted as `regrows` in F3).
+go on a free list. When a pool runs out it grows to ~1.5× the layers in place: a new texture
+array, the old layers blitted into it on the GPU, every allocation still valid (counted as
+`regrows` in F3). At the 64-layer limit, fresh chunks wait until columns unload.
+
+**Buried bricks.** The GPU does not need every non-uniform CPU brick. A brick whose voxels
+are all solid (opaque, full shape) and whose ray-reachable voxels (those with a face open to
+a non-solid neighbour, or to the sky above the world) all hold the same value looks uniform
+to every ray, so its brick-table entry is that value and it takes no pool space: rock full
+of ores and veins behind a plain stone wall, the inside of an ore vein. Unloaded neighbours
+count as solid (no ray comes from there); when a column loads, the buried bricks facing it
+are looked at again, and an edited voxel on a brick face re-checks the brick across it
+(`World.setBlock` → `touchBrick`). A chunk whose bricks all show one value gets the chunk
+table's "uniform" flag, so x-ray rays (spectator, inside rock) cross it 16 blocks at a time.
+About a third of the Surface's and the Ember Depths' non-uniform bricks are buried. The
+`bricks` e2e test renders the world with and without this and requires identical pixels,
+before and after digging into a hidden ore.
 
 Light bricks are pooled separately because block-uniform bricks are often light-varying (a
 dark cave next to a lit one) and vice versa.

@@ -104,6 +104,25 @@ export function installTestApi(game: Game, screen?: InventoryScreen): void {
       times.sort((a, b) => a - b);
       return times[Math.floor(times.length / 2)]!;
     },
+    /** Show buried bricks collapsed (default) or as stored; re-uploads the world at once. */
+    setBrickCollapse(on: boolean): void {
+      const gpu = game.renderer.gpu;
+      gpu.setCollapse(on);
+      for (let i = 0; i < 1000 && game.world.dirtyChunks.length > 0; i++) gpu.sync(1e9);
+    },
+    /** Render now and return the frame's pixels (RGBA, canvas size); `t` pins the animation clock. */
+    capture(t?: number): { w: number; h: number; data: number[] } {
+      if (t !== undefined) game.env.sky.time = t;
+      game.renderImmediate();
+      sync();
+      const c = game.canvas;
+      const cv = document.createElement('canvas');
+      cv.width = c.width;
+      cv.height = c.height;
+      const ctx = cv.getContext('2d')!;
+      ctx.drawImage(c, 0, 0);
+      return { w: c.width, h: c.height, data: Array.from(ctx.getImageData(0, 0, c.width, c.height).data) };
+    },
     /** Average / max ray steps per pixel of the last render (synchronous readback). */
     raySteps(): { avg: number; max: number; p95: number } {
       const aux = game.renderer.readAux();

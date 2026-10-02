@@ -2,7 +2,25 @@
 
 ## 0.6.1 — Playtest fixes (unreleased)
 
+### Performance
+- **Buried bricks cost nothing on the GPU.** Solid rock with ores, veins and fossils inside,
+  behind a plain stone face, is stored as one value: about a third fewer GPU bricks on the
+  Surface and in the Ember Depths, and the spectator's x-ray view from inside rock does
+  35–50% less ray marching (it crosses buried rock a brick or a chunk at a time). Renders are
+  pixel-identical (an e2e test compares them, before and after digging into hidden ore).
+- **Brick pools grow in place** (a GPU copy) instead of re-uploading the whole world, so the
+  starting size is smaller (≈30% less GPU memory at the same render distance) with no stall
+  when it fills up. Full pools no longer crash the game.
+- **Mobs off screen are not traced**: every pixel tests every mob handed to the ray marcher,
+  so mobs outside the view frustum are left out.
+
 ### Fixed
+- **The creative inventory crashed the tab** (all 900+ items): every item icon carried its
+  own copy of the multi-megabyte icon sheet as a data: URL. The sheet now sits behind one
+  blob: URL in a single stylesheet rule.
+- **Creative tabs and recipe book sections**, like Minecraft's: Building, Natural,
+  Functional, Tools & Utilities, Combat, Food & Drinks, Ingredients and Technical, plus All
+  with a section per category.
 - **Portals work like Minecraft's.** A flat obsidian frame (4 × 5, corners optional, at least
   2 × 3 of air inside) in any vertical plane of the slice now lights with flint and steel or
   a fire charge. Before, only 3D hyper-frames counted, so a Minecraft-style frame just caught
