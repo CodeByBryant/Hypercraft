@@ -27,7 +27,7 @@ import { ItemEntities } from './items/ItemEntities';
 import { BlockEntities } from './items/BlockEntities';
 import { breakInfo, rollDrops, wearFor } from './items/Mining';
 import { countIn, enchLevel, removeFrom, withCount, type ItemStack } from './items/ItemStack';
-import { MobManager, type Mob, type MobHost } from './mobs/MobManager';
+import { LOVE_TIME, MobManager, type Mob, type MobHost } from './mobs/MobManager';
 import { Projectiles, type ProjectileHost } from './mobs/Projectiles';
 import { MAX_AIR, MAX_HEALTH, Vitals } from './Vitals';
 import { newVillager, offend, price, recordTrade, restock, soldOut, type VillagerData } from './Trading';
@@ -513,6 +513,11 @@ export class Game {
       explode: (x, y, z, w, r) => this.explode(x, y, z, w, r),
       dropXp: (x, y, z, w, n) => this.orbs.spawn(x, y, z, w, n),
       shovePlayer: (d, what) => void this.shove(d, what),
+      get heldItem() {
+        return game.held?.id ?? -1;
+      },
+      hearts: (x, y, z, w) => this.particles.burst(x, y, z, w, this.player.cam, 'spark', '#ff5a8a', 2, 0.6, 0.3, true),
+      leadBroke: (x, y, z, w) => this.dropInSlice(x, y, z, w, { id: IREG.id('lead'), count: 1, damage: 0 }),
       get playerStealth() {
         return game.effects.has('invisibility') ? 0.25 : 1;
       },
@@ -1095,8 +1100,8 @@ export class Game {
     } else {
       this.bowDraw = 0;
       this.using = null;
-      if (mode !== 'spectator' && input.buttonPressed(2) && this.targetMob && this.talkTo(this.targetMob)) {
-        // Right click on a villager: trade.
+      if (mode !== 'spectator' && input.buttonPressed(2) && this.targetMob && this.useOnMob(this.targetMob)) {
+        // Right click on a mob: trade, feed, shear, milk, lead, name.
       } else if (mode !== 'spectator' && (input.buttonPressed(2) || (input.buttonHeld(2) && this.placeCooldown <= 0))) {
         this.useHeld(input.held('sneak'));
         this.placeCooldown = 0.25;
@@ -1191,7 +1196,7 @@ export class Game {
   private interact(sneaking: boolean): void {
     if (this.player.mode === 'spectator') return;
     if (this.targetMob) {
-      if (!this.talkTo(this.targetMob)) this.attack(this.targetMob);
+      if (!this.useOnMob(this.targetMob)) this.attack(this.targetMob);
       return;
     }
     this.useHeld(sneaking);
@@ -1239,7 +1244,7 @@ export class Game {
     const out: SavedMob[] = [];
     for (let i = this.mobs.list.length - 1; i >= 0; i--) {
       const m = this.mobs.list[i]!;
-      if (!m.def.persistent) continue;
+      if (!m.persistent) continue;
       if (Math.floor(m.pos[0]! / 16) !== c.cx || Math.floor(m.pos[2]! / 16) !== c.cz || Math.floor(m.pos[3]! / 16) !== c.cw) continue;
       out.push(this.mobs.serialize(m));
       this.mobs.list.splice(i, 1);
@@ -1255,7 +1260,7 @@ export class Game {
   private snapshotMobs(): void {
     const byCol = new Map<Column, SavedMob[]>();
     for (const m of this.mobs.list) {
-      if (!m.def.persistent) continue;
+      if (!m.persistent) continue;
       const c = this.world.column(Math.floor(m.pos[0]! / 16), Math.floor(m.pos[2]! / 16), Math.floor(m.pos[3]! / 16));
       if (!c) continue;
       let l = byCol.get(c);
@@ -1270,6 +1275,81 @@ export class Game {
       else delete ex.mobs;
       c.dirty = true;
     }
+  }
+
+  /**
+   * Right click on a mob (Phase 7 husbandry): trade with villagers; feed animals their food
+   * (love mode, babies grow faster), shear sheep, milk cows, put on or take off a lead, name
+   * it with a name tag. Returns true if the click was used.
+   */
+  useOnMob(m: Mob): boolean {
+    if (this.talkTo(m)) return true;
+    if (m.def.hostile || this.player.mode === 'spectator') return false;
+    const held = this.held;
+    const name = held ? IREG.name(held.id) : '';
+    const survival = this.player.mode === 'survival';
+    const use1 = () => {
+      if (!held || !survival) return;
+      held.count--;
+      this.inv.set(this.hotbarIndex, held.count > 0 ? held : null);
+    };
+    const at = (k = 0.5): [number, number, number, number] => [m.pos[0]!, m.pos[1]! + m.height * k, m.pos[2]!, m.pos[3]!];
+    if (m.leash) {
+      // Take the lead off (it drops back to you).
+      m.leash = null;
+      if (survival) this.dropInSlice(...at(), { id: IREG.id('lead'), count: 1, damage: 0 });
+      return true;
+    }
+    if (name === 'lead') {
+      m.leash = 'player';
+      m.kept = true;
+      use1();
+      return true;
+    }
+    if (name === 'name_tag' && held?.tag?.name) {
+      m.customName = held.tag.name;
+      m.kept = true;
+      use1();
+      this.message?.(`Named it ${m.customName}`);
+      return true;
+    }
+    if (name === 'shears' && m.def.name === 'kata_sheep' && !m.sheared && m.baby === 0) {
+      this.mobs.shear(m, true);
+      this.dropInSlice(...at(0.7), { id: IREG.id('wool'), count: 1 + Math.floor(Math.random() * 3), damage: 0 });
+      this.wearHeld(1);
+      return true;
+    }
+    if (name === 'bucket' && m.def.name === 'ana_cow' && m.baby === 0) {
+      const milk: ItemStack = { id: IREG.id('milk_bucket'), count: 1, damage: 0 };
+      if (!survival) return true;
+      if (held!.count === 1) this.inv.set(this.hotbarIndex, milk);
+      else {
+        use1();
+        if (this.inv.add(milk) > 0) this.throwStack(milk);
+      }
+      return true;
+    }
+    if (held && m.def.breed?.includes(name)) {
+      if (m.baby > 0) m.baby *= 0.9; // babies grow up faster
+      else if (m.breedCd <= 0 && m.love <= 0) m.love = LOVE_TIME;
+      else return false;
+      m.health = Math.min(m.def.health * Math.max(0.5, m.scale), m.health + 2);
+      use1();
+      for (let k = 0; k < 4; k++) this.particles.burst(m.pos[0]!, m.pos[1]! + m.height, m.pos[2]!, m.pos[3]!, this.player.cam, 'spark', '#ff5a8a', 2, 0.8, 0.4, true);
+      return true;
+    }
+    return false;
+  }
+
+  /** Tie every animal on your lead to the fence post at (x, y, z, w). */
+  private tieToFence(x: number, y: number, z: number, w: number): boolean {
+    let n = 0;
+    for (const m of this.mobs.list) {
+      if (m.leash !== 'player') continue;
+      m.leash = [x, y, z, w];
+      n++;
+    }
+    return n > 0;
   }
 
   /** Right click / tap on a villager: open trading (their data is created on first contact). */
@@ -2789,6 +2869,15 @@ export class Game {
       this.orbs.spawn(x, y + 0.3, z, w, 3 + Math.floor(Math.random() * 9));
       return;
     }
+    if (name === 'egg') {
+      // An egg hatches a chick now and then (Minecraft: 1 in 8, sometimes four).
+      this.particles.burst(x, y, z, w, this.player.cam, 'poof', '#f0e4c8', 6, 1, 0.2);
+      if (Math.random() < 1 / 8) {
+        const n = Math.random() < 1 / 32 ? 4 : 1;
+        for (let k = 0; k < n; k++) this.mobs.spawnBaby('hyperchicken', x, y + 0.2, z, w);
+      }
+      return;
+    }
     const color = IREG.def(item).icon?.colors[0] ?? '#3f76e4';
     this.particles.burst(x, y, z, w, this.player.cam, 'poof', color, 24, 2.5, 0.8);
     this.particles.burst(x, y, z, w, this.player.cam, 'spark', color, 12, 3, 0.4, true);
@@ -2882,6 +2971,7 @@ export class Game {
         this.onOpenScreen?.({ kind: 'crafting', pos });
         return;
       }
+      if (name.includes('fence') && this.tieToFence(t.x, t.y, t.z, t.w)) return;
       const station = STATION_SCREENS[name];
       if (station) {
         this.onOpenScreen?.({ kind: station, pos });
@@ -2973,7 +3063,7 @@ export class Game {
       else if (this.inv.add(water) > 0) this.throwStack(water);
       return;
     }
-    if (use === 'splash_potion' || use === 'xp_bottle') {
+    if (use === 'splash_potion' || use === 'xp_bottle' || use === 'throw') {
       // Throw it: it bursts where it lands.
       const p = this.player, e = this.eyePos, f = p.cam.fwd;
       const from = this.tmp4;
@@ -3197,6 +3287,25 @@ export class Game {
       const tex = REG.textures[REG.texSide[id]!];
       const col = tex ? hexToRgb(tex.colors[tex.colors.length - 1]!) : [1, 1, 1];
       this.vision.cell(lines, e, cam, this.sliceSense[i]!, this.sliceSense[i + 1]!, this.sliceSense[i + 2]!, this.sliceSense[i + 3]!, col[0]!, col[1]!, col[2]!, 1.85, 0.12);
+    }
+    // Leads: a line from each leashed animal to your hand or its fence post.
+    for (const m of this.mobs.list) {
+      if (!m.leash) continue;
+      const a0 = m.pos[0]! - e[0]!, a1 = m.pos[1]! + m.height * 0.75 - e[1]!, a2 = m.pos[2]! - e[2]!, a3 = m.pos[3]! - e[3]!;
+      let b0: number, b1: number, b2: number, b3: number;
+      if (m.leash === 'player') {
+        const R = cam.right;
+        b0 = R[0]! * 0.35;
+        b1 = -0.45 + R[1]! * 0.35;
+        b2 = R[2]! * 0.35;
+        b3 = R[3]! * 0.35;
+      } else {
+        b0 = m.leash[0] + 0.5 - e[0]!;
+        b1 = m.leash[1] + 0.7 - e[1]!;
+        b2 = m.leash[2] + 0.5 - e[2]!;
+        b3 = m.leash[3] + 0.5 - e[3]!;
+      }
+      lines.addSegment4(a0, a1, a2, a3, b0, b1, b2, b3, cam, 0.5, 0.33, 0.16, 0.95);
     }
     // Reach Through target: outlined in violet (the slice does not cut it).
     if (this.hasTarget && this.targetShift !== 0 && !this.targetMob) {

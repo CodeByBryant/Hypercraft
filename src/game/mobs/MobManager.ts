@@ -30,7 +30,22 @@ export interface SavedMob {
   data?: VillagerData | null;
   /** Bosses: their arena. */
   home?: number[];
+  /** Phase 7 husbandry: seconds until grown up, adult scale, kept (bred, leashed, named). */
+  baby?: number;
+  adult?: number;
+  kept?: boolean;
+  sheared?: boolean;
+  /** Tied to a fence post here. */
+  leash?: number[];
+  /** A name-tag name. */
+  name2?: string;
 }
+
+/** Seconds a baby takes to grow up. */
+export const BABY_TIME = 600;
+/** Seconds of love mode after feeding, and the cooldown after breeding. */
+export const LOVE_TIME = 30;
+export const BREED_COOLDOWN = 300;
 
 export const MAX_GPU_MOBS = 48;
 /** Texels per mob record and per part record in the entity texture. */
@@ -62,6 +77,12 @@ export interface MobHost {
   playerStealth?: number;
   /** Shove the player along the hidden axis (stalkers knock you out of your slice). */
   shovePlayer?(dist: number, what: string): void;
+  /** The item the player holds (animals follow their food). */
+  heldItem?: number;
+  /** Hearts over a mob (love, breeding). */
+  hearts?(x: number, y: number, z: number, w: number): void;
+  /** A lead snapped (too far): drop it here. */
+  leadBroke?(x: number, y: number, z: number, w: number): void;
   explode(x: number, y: number, z: number, w: number, radius: number): void;
   shoot(from: Float64Array, vel: Float64Array, damage: number, item: number, byPlayer: boolean): void;
   /** A mob died (not by exploding): death effects. */
@@ -110,6 +131,22 @@ export class Mob {
   effects: EffectList | null = null;
   /** Walking speed multiplier from effects (slowness, speed). */
   speedMul = 1;
+  // ---- Phase 7 husbandry
+  /** Seconds until a baby grows up (0 = adult). */
+  baby = 0;
+  /** Scale it grows to. */
+  adultScale = 1;
+  /** Seconds left in love mode, and until it can breed again. */
+  love = 0;
+  breedCd = 0;
+  /** Kept animals are saved with their column instead of despawning (bred, leashed, named). */
+  kept = false;
+  sheared = false;
+  customName = '';
+  /** Leashed to the player, or tied to a fence post (world cell). */
+  leash: 'player' | [number, number, number, number] | null = null;
+  /** Per-part colour override (sheared sheep show their skin). */
+  tint: Float32Array | null = null;
   noiseAt: Float64Array | null = null;
   /** Bosses: where the arena is (they return there and heal when you flee). */
   home: Float64Array | null = null;
@@ -123,7 +160,13 @@ export class Mob {
     this.id = id;
     this.cm = cm;
     this.scale = scale;
+    this.adultScale = scale;
     this.health = cm.def.health * (scale < 1 ? scale : 1);
+  }
+
+  /** Saved with its column (villagers, and animals the player bred, leashed or named). */
+  get persistent(): boolean {
+    return this.def.persistent === true || this.kept;
   }
   get def() {
     return this.cm.def;
@@ -234,6 +277,14 @@ export class MobManager {
   serialize(m: Mob): SavedMob {
     const s: SavedMob = { name: m.def.name, pos: Array.from(m.pos), health: m.health, scale: m.scale, data: m.data };
     if (m.home) s.home = Array.from(m.home);
+    if (m.kept) s.kept = true;
+    if (m.baby > 0) {
+      s.baby = Math.round(m.baby);
+      s.adult = m.adultScale;
+    }
+    if (m.sheared) s.sheared = true;
+    if (m.customName) s.name2 = m.customName;
+    if (Array.isArray(m.leash)) s.leash = [...m.leash];
     return s;
   }
 
@@ -245,6 +296,14 @@ export class MobManager {
     if (typeof s.health === 'number' && s.health > 0) m.health = s.health;
     m.data = s.data ?? null;
     if (Array.isArray(s.home) && s.home.length === 4) m.home = Float64Array.from(s.home);
+    m.kept = s.kept === true;
+    if (typeof s.baby === 'number' && s.baby > 0) {
+      m.baby = s.baby;
+      m.adultScale = typeof s.adult === 'number' ? s.adult : m.scale * 2;
+    }
+    if (s.sheared) this.shear(m, true);
+    if (typeof s.name2 === 'string') m.customName = s.name2;
+    if (Array.isArray(s.leash) && s.leash.length === 4) m.leash = s.leash as [number, number, number, number];
     return m;
   }
 
@@ -387,7 +446,7 @@ export class MobManager {
       m.near = d4 < 32;
       // Despawn far away (hostiles sooner), and hostiles on peaceful. Persistent mobs
       // (villagers) never despawn: the game saves them with their column instead.
-      if (!m.def.persistent && ((m.def.hostile && (d4 > 80 || h.difficulty === 0)) || d4 > 96)) {
+      if (!m.persistent && ((m.def.hostile && (d4 > 80 || h.difficulty === 0)) || d4 > 96)) {
         this.list.splice(i, 1);
         continue;
       }
@@ -626,6 +685,7 @@ export class MobManager {
     const sp = def.speed * m.speedMul;
     const seePlayer = h.playerTargetable && d4 < 18 * (h.playerStealth ?? 1);
     if (def.spins && seePlayer) this.spin(m, dt, h, d4);
+    if (!def.hostile && !def.profession && this.husbandry(m, dt, h, d4, sp)) return;
     switch (def.ai) {
       case 'passive': {
         if (m.mode === 'flee' && m.timer > 0) {
@@ -1081,6 +1141,131 @@ export class MobManager {
     return true;
   }
 
+  // ---------------------------------------------------------------- husbandry (Phase 7)
+
+  /**
+   * Animal life: growing up, love mode and breeding, following food, leads, wool regrowth.
+   * Returns true when it moved the mob this frame (the normal AI then waits).
+   */
+  private husbandry(m: Mob, dt: number, h: MobHost, d4: number, sp: number): boolean {
+    if (m.baby > 0) {
+      m.baby = Math.max(0, m.baby - dt);
+      m.scale = m.adultScale * (1 - 0.5 * (m.baby / BABY_TIME));
+      if (m.baby === 0) m.scale = m.adultScale;
+    }
+    if (m.love > 0) {
+      m.love -= dt;
+      if (Math.random() < dt * 2) h.hearts?.(m.pos[0]!, m.pos[1]! + m.height, m.pos[2]!, m.pos[3]!);
+    }
+    if (m.breedCd > 0) m.breedCd -= dt;
+    // Sheared sheep regrow their wool by grazing.
+    if (m.sheared && m.onGround && Math.random() < dt / 60) {
+      const x = Math.floor(m.pos[0]!), y = Math.floor(m.pos[1]! - 0.5), z = Math.floor(m.pos[2]!), w = Math.floor(m.pos[3]!);
+      const below = REG.blocks[this.world.getBlock(x, y, z, w) & 0xfff];
+      if (below && (below.name === 'grass' || REG.textures[REG.texTop[REG.id(below.name)]!]?.pattern === 'grass_top')) {
+        this.world.setBlock(x, y, z, w, REG.id('dirt'));
+        this.shear(m, false);
+      }
+    }
+    // On a lead: follow the player (or stay near the fence post).
+    if (m.leash) {
+      const L = m.leash;
+      const t: ArrayLike<number> = L === 'player' ? h.playerPos : [L[0] + 0.5, L[1], L[2] + 0.5, L[3] + 0.5];
+      const tx = t[0]!, ty = t[1]!, tz = t[2]!, tw = t[3]!;
+      const d = Math.hypot(tx - m.pos[0]!, ty - m.pos[1]!, tz - m.pos[2]!, tw - m.pos[3]!);
+      if (m.leash === 'player' && d > 16) {
+        h.leadBroke?.(m.pos[0]!, m.pos[1]! + 0.5, m.pos[2]!, m.pos[3]!);
+        m.leash = null;
+      } else if (d > 3) {
+        this.steer(m, tx, tz, tw, Math.max(sp, 2.5) * (d > 8 ? 2 : 1));
+        if (d > 10) for (const k of [0, 2, 3]) m.vel[k] = m.vel[k]! + ((([tx, 0, tz, tw][k]! - m.pos[k]!) / d) * 6 - m.vel[k]!) * Math.min(1, dt * 3);
+        return true;
+      }
+    }
+    if (m.baby === 0 && m.love > 0) {
+      // Find a partner in love within 8 blocks (4D), walk to it, breed.
+      let best: Mob | null = null, bd = 8;
+      for (const o of this.list) {
+        if (o === m || o.cm !== m.cm || o.love <= 0 || o.baby > 0) continue;
+        const dd = dist4(o.pos, m.pos);
+        if (dd < bd) {
+          bd = dd;
+          best = o;
+        }
+      }
+      if (best) {
+        if (bd < 1.2 + m.width) this.breed(m, best, h);
+        else this.steer(m, best.pos[0]!, best.pos[2]!, best.pos[3]!, sp);
+        return true;
+      }
+    }
+    // Tempted by its food in the player's hand.
+    const food = m.def.breed;
+    if (food && h.heldItem !== undefined && h.heldItem >= 0 && h.playerTargetable && d4 < 10 && food.includes(IREG.name(h.heldItem))) {
+      const p = h.playerPos;
+      if (d4 > 2.2) this.steer(m, p[0]!, p[2]!, p[3]!, sp * 0.9);
+      else {
+        this.brake(m);
+        m.face(p[0]! - m.pos[0]!, p[2]! - m.pos[2]!, p[3]! - m.pos[3]!);
+      }
+      return true;
+    }
+    // Babies keep near a grown-up of their kind.
+    if (m.baby > 0) {
+      let best: Mob | null = null, bd = 16;
+      for (const o of this.list) {
+        if (o === m || o.cm !== m.cm || o.baby > 0) continue;
+        const dd = dist4(o.pos, m.pos);
+        if (dd < bd) {
+          bd = dd;
+          best = o;
+        }
+      }
+      if (best && bd > 3) {
+        this.steer(m, best.pos[0]!, best.pos[2]!, best.pos[3]!, sp * 1.2);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Two animals in love make a baby (kept: it will not despawn). */
+  private breed(a: Mob, b: Mob, h: MobHost): void {
+    a.love = b.love = 0;
+    a.breedCd = b.breedCd = BREED_COOLDOWN;
+    const c = this.spawnBaby(a.def.name, (a.pos[0]! + b.pos[0]!) / 2, Math.max(a.pos[1]!, b.pos[1]!) + 0.1, (a.pos[2]! + b.pos[2]!) / 2, (a.pos[3]! + b.pos[3]!) / 2);
+    if (!c) return;
+    a.kept = b.kept = true;
+    for (let k = 0; k < 6; k++) h.hearts?.(c.pos[0]!, c.pos[1]! + c.height, c.pos[2]!, c.pos[3]!);
+    h.dropXp?.(c.pos[0]!, c.pos[1]! + 0.5, c.pos[2]!, c.pos[3]!, 1 + Math.floor(Math.random() * 7));
+  }
+
+  /** A baby of a kind (half size, grows up over BABY_TIME). */
+  spawnBaby(name: string, x: number, y: number, z: number, w: number): Mob | null {
+    const c = this.spawn(name, x, y, z, w);
+    if (!c) return null;
+    c.adultScale = c.scale;
+    c.scale = c.adultScale * 0.5;
+    c.baby = BABY_TIME;
+    c.kept = true;
+    c.health = Math.max(1, c.def.health * 0.5);
+    return c;
+  }
+
+  /** Shear (or regrow) a sheep: the fleece (its first part) shows skin while sheared. */
+  shear(m: Mob, sheared: boolean): void {
+    m.sheared = sheared;
+    if (!sheared) {
+      m.tint = null;
+      return;
+    }
+    const t = Float32Array.from(m.cm.colors);
+    t[0] = 0.85;
+    t[1] = 0.74;
+    t[2] = 0.62;
+    m.tint = t;
+  }
+
   /** Give a mob an effect (splash potions, Fire Aspect...). Instant ones act at once. */
   applyEffect(m: Mob, name: string, seconds: number, amp = 0): void {
     const undead = m.def.undead === true;
@@ -1143,8 +1328,10 @@ export class MobManager {
       if (xp > 0 && !(m.scale < 0.6 && def.scale === undefined)) h.dropXp(m.pos[0]!, m.pos[1]! + 0.5, m.pos[2]!, m.pos[3]!, xp);
     }
     const loot = m.playerHit > 0 ? m.looting : 0;
+    if (m.baby > 0) return; // babies drop nothing
     for (const d of m.cm.drops) {
       if (Math.random() >= d.chance + 0.01 * loot) continue;
+      if (m.sheared && IREG.name(d.item) === 'wool') continue;
       const n = d.min + Math.floor(Math.random() * (d.max - d.min + 1)) + Math.floor(Math.random() * (loot + 1));
       if (n > 0) h.dropItem(m.pos[0]!, m.pos[1]! + 0.4, m.pos[2]!, m.pos[3]!, { id: d.item, count: n, damage: 0 });
     }
@@ -1350,9 +1537,10 @@ export class MobManager {
           g[o + 4 + k] = a[k]!;
           g[o + 8 + k] = pt.kind === 'box' ? pt.size![k]! : b[k]!;
         }
-        g[o + 12] = m.cm.colors[i * 3]!;
-        g[o + 13] = m.cm.colors[i * 3 + 1]!;
-        g[o + 14] = m.cm.colors[i * 3 + 2]!;
+        const cols = m.tint ?? m.cm.colors;
+        g[o + 12] = cols[i * 3]!;
+        g[o + 13] = cols[i * 3 + 1]!;
+        g[o + 14] = cols[i * 3 + 2]!;
         g[o + 15] = 0;
       }
       part += parts.length;

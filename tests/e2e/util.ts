@@ -111,6 +111,8 @@ export interface Hc {
   growSapling(x: number, y: number, z: number, w: number): boolean;
   useOn(x: number, y: number, z: number, w: number): void;
   farmCount(): number;
+  useOnMob(id: number): boolean;
+  mobInfo(id: number): { love: number; baby: number; scale: number; sheared: boolean; kept: boolean; leash: unknown; name: string } | null;
   hydrated(x: number, y: number, z: number, w: number): boolean;
   visionMobs(): number;
   orbs(): number;

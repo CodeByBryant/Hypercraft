@@ -609,6 +609,8 @@ export interface MobDef {
   undead?: boolean;
   /** Arthropod (Bane of Arthropods). */
   arthropod?: boolean;
+  /** Husbandry (Phase 7): items it follows and breeds with. */
+  breed?: string[];
 }
 
 // ------------------------------------------------------------------ loot (Phase 5)

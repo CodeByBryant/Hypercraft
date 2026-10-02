@@ -250,3 +250,62 @@ test('farming: till, plant, hydrate in 4D, grow, bone meal, harvest; saplings gr
   await page.screenshot({ path: `${dir()}/farm.png` });
   expect(errors).toEqual([]);
 });
+
+test('husbandry: breed cows, shear a sheep, milk, lead and name animals', async ({ page }) => {
+  test.setTimeout(300_000);
+  const errors: string[] = [];
+  await boot(page, 'res=270&rd=2&seed=farmyard', errors);
+  const r = await page.evaluate(async () => {
+    const hc = window.__hc;
+    hc.setMobSpawning(false);
+    hc.clearMobs();
+    hc.setMode('survival');
+    hc.clearInventory();
+    hc.give('wheat', 8);
+    hc.select(0);
+    const a = hc.spawnMobAhead('ana_cow', 3, -0.6);
+    const b = hc.spawnMobAhead('ana_cow', 3, 0.6);
+    const fedA = hc.useOnMob(a), fedB = hc.useOnMob(b);
+    const love = hc.mobInfo(a)!.love;
+    // They walk together and breed.
+    let babies: { id: number; name: string }[] = [];
+    for (let k = 0; k < 400 && babies.length === 0; k++) {
+      await hc.frames(1);
+      babies = hc.mobs().filter((m) => m.id !== a && m.id !== b && m.name === 'ana_cow');
+    }
+    const baby = babies[0] ? hc.mobInfo(babies[0].id) : null;
+    const parent = hc.mobInfo(a);
+    // Shear a sheep, milk a cow.
+    hc.clearInventory();
+    hc.give('shears');
+    hc.give('bucket');
+    const sheep = hc.spawnMobAhead('kata_sheep', 2);
+    hc.select(0);
+    const sheared = hc.useOnMob(sheep);
+    const wool = hc.dropped().some((d) => d[0] === 'wool');
+    hc.select(1);
+    const milked = hc.useOnMob(b);
+    const milk = hc.inventory().some(([, n]) => n === 'milk_bucket');
+    // Lead and name tag.
+    hc.clearInventory();
+    hc.give('lead');
+    hc.giveTagged('name_tag', { name: 'Daisy' });
+    hc.select(0);
+    hc.useOnMob(a);
+    const led = hc.mobInfo(a)!.leash;
+    hc.select(1);
+    hc.useOnMob(sheep);
+    return { fedA, fedB, love, baby, parentCd: parent?.kept, sheared, wool, sheepInfo: hc.mobInfo(sheep), milked, milk, led, named: hc.mobInfo(sheep)!.name };
+  });
+  expect(r.fedA && r.fedB).toBe(true);
+  expect(r.love).toBeGreaterThan(20);
+  expect(r.baby).not.toBeNull();
+  expect(r.baby!.baby).toBeGreaterThan(0);
+  expect(r.baby!.scale).toBeLessThan(0.7);
+  expect(r.parentCd).toBe(true); // bred animals are kept
+  expect(r.sheared && r.wool && r.sheepInfo!.sheared).toBe(true);
+  expect(r.milked && r.milk).toBe(true);
+  expect(r.led).toBe('player');
+  expect(r.named).toBe('Daisy');
+  expect(errors).toEqual([]);
+});

@@ -57,6 +57,7 @@ export const MOBS: MobDef[] = [
   // ---------------------------------------------------------------- passive
   {
     name: 'kata_sheep',
+    breed: ['wheat'],
     displayName: 'Kata Sheep',
     hostile: false,
     ai: 'passive',
@@ -69,6 +70,7 @@ export const MOBS: MobDef[] = [
   },
   {
     name: 'ana_cow',
+    breed: ['wheat'],
     displayName: 'Ana Cow',
     hostile: false,
     ai: 'passive',
@@ -87,6 +89,7 @@ export const MOBS: MobDef[] = [
   },
   {
     name: 'hyperchicken',
+    breed: ['wheat_seeds', 'beetroot_seeds', 'melon_seeds', 'pumpkin_seeds'],
     displayName: 'Hyperchicken',
     hostile: false,
     ai: 'passive',
@@ -108,6 +111,7 @@ export const MOBS: MobDef[] = [
   },
   {
     name: 'tesseract_rabbit',
+    breed: ['carrot', 'golden_carrot'],
     displayName: 'Tesseract Rabbit',
     hostile: false,
     ai: 'hopper',
@@ -126,6 +130,7 @@ export const MOBS: MobDef[] = [
   },
   {
     name: 'bog_frog',
+    breed: ['slime_ball'],
     displayName: 'Bog Frog',
     hostile: false,
     ai: 'hopper',
@@ -143,6 +148,7 @@ export const MOBS: MobDef[] = [
   },
   {
     name: 'frost_fox',
+    breed: ['sweet_berries', 'glow_berries'],
     displayName: 'Frost Fox',
     hostile: false,
     ai: 'passive',
@@ -161,6 +167,7 @@ export const MOBS: MobDef[] = [
   },
   {
     name: 'dune_camel',
+    breed: ['cactus'],
     displayName: 'Dune Camel',
     hostile: false,
     ai: 'passive',
@@ -179,6 +186,7 @@ export const MOBS: MobDef[] = [
   },
   {
     name: 'hyperhorse',
+    breed: ['golden_apple', 'golden_carrot'],
     displayName: 'Hyperhorse',
     hostile: false,
     ai: 'passive',

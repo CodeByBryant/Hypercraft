@@ -154,3 +154,6 @@ RECIPES.push(...BREWING_RECIPES);
 
 // Phase 7: farming.
 RECIPES.push(...FARM_RECIPES);
+
+// Phase 7: husbandry.
+RECIPES.push({ type: 'shaped', pattern: ['ss ', 'sb ', '  s'], key: { s: 'string', b: 'slime_ball' }, result: 'lead', count: 2 });

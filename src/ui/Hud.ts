@@ -82,6 +82,7 @@ export class Hud {
   private readonly xpFill: HTMLDivElement;
   private readonly xpLevel: HTMLDivElement;
   private readonly effectsBox: HTMLDivElement;
+  private readonly mobName: HTMLDivElement;
   private lastArmor = -1;
   private lastGold = -1;
   private lastFood = '';
@@ -129,6 +130,8 @@ export class Hud {
     this.xpLevel = el('div', 'xplevel', this.root);
     // Active effects (top right).
     this.effectsBox = el('div', 'effects', this.root);
+    // A named animal under the crosshair shows its name.
+    this.mobName = el('div', 'mob-name', this.root);
     this.hotbar = el('div', 'hotbar', this.root);
     this.readout = el('div', 'readout', this.root);
     this.toast = el('div', 'toast', this.root);
@@ -285,6 +288,11 @@ export class Hud {
     // Per-frame combat feedback.
     const onMob = g.targetMob !== null;
     if (this.crosshair.classList.contains('mob') !== onMob) this.crosshair.classList.toggle('mob', onMob);
+    const label = g.targetMob ? (g.targetMob.customName || (g.targetMob.baby > 0 ? `Baby ${g.targetMob.def.displayName}` : '')) : '';
+    if (this.mobName.textContent !== label) {
+      this.mobName.textContent = label;
+      this.mobName.style.display = label ? 'block' : 'none';
+    }
     if (g.bowDraw > 0) {
       this.bowBar.style.display = 'block';
       const pw = bowPower(g.bowDraw);

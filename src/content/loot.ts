@@ -638,3 +638,11 @@ const brews: Record<string, LootTable['pools'][number]> = {
   shipwreck_supply: { rolls: W(0, 1), entries: [{ item: 'potion_water_breathing', weight: 2 }] },
 };
 for (const [name, pool] of Object.entries(brews)) LOOT_TABLES[name]?.pools.push(pool);
+
+// Husbandry: name tags and leads.
+for (const [name, pool] of Object.entries({
+  dungeon: { rolls: W(0, 1), entries: [{ item: 'name_tag', weight: 3 }, { item: 'lead', weight: 2 }] },
+  hypermine: { rolls: W(0, 1), entries: [{ item: 'name_tag', weight: 2 }] },
+  village_farm: { rolls: W(0, 1), entries: [{ item: 'lead', weight: 2 }, { item: 'wheat_seeds', weight: 4, count: W(2, 6) }] },
+  witch_hut: { rolls: W(0, 1), entries: [{ item: 'name_tag', weight: 1 }] },
+} as Record<string, LootTable['pools'][number]>)) LOOT_TABLES[name]?.pools.push(pool);

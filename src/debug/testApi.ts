@@ -506,6 +506,14 @@ export function installTestApi(game: Game, screen?: InventoryScreen): void {
       (game as unknown as { useHeld(s: boolean): void }).useHeld(false);
     },
     farmCount: () => game.farming.count,
+    useOnMob(id: number): boolean {
+      const m = game.mobs.list.find((x) => x.id === id);
+      return m ? game.useOnMob(m) : false;
+    },
+    mobInfo(id: number) {
+      const m = game.mobs.list.find((x) => x.id === id);
+      return m ? { love: m.love, baby: m.baby, scale: m.scale, sheared: m.sheared, kept: m.kept, leash: m.leash, name: m.customName } : null;
+    },
     hydrated: (x: number, y: number, z: number, w: number) => game.farming.hydrated(x, y, z, w),
     lineSegments: () => game.renderer.lines.segments,
     visionMobs: () => game.vision.drawnMobs,

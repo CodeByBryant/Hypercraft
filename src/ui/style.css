@@ -1439,3 +1439,16 @@ select {
   height: 100%;
   background: #ffb030;
 }
+.mob-name {
+  position: absolute;
+  left: 50%;
+  top: calc(50% - 34px);
+  transform: translateX(-50%);
+  padding: 1px 6px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 12px;
+  border-radius: 3px;
+  display: none;
+  pointer-events: none;
+}

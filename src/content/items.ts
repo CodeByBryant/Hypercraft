@@ -40,7 +40,7 @@ export const ITEMS: ItemDef[] = [
   material('raw_chicken', 'Raw Chicken', 'raw', ['#f0c0b0', '#d0a090', '#ffffff'], { group: 'food' }),
   material('raw_rabbit', 'Raw Rabbit', 'raw', ['#e0a090', '#b87a6a', '#ffffff'], { group: 'food' }),
   material('rotten_flesh', 'Rotten Flesh', 'raw', ['#8a7a4a', '#5a4a2a', '#b0a060'], { group: 'food' }),
-  material('egg', 'Egg', 'ball', ['#f0e4c8', '#c8b898', '#ffffff'], { maxStack: 16, group: 'food' }),
+  material('egg', 'Egg', 'ball', ['#f0e4c8', '#c8b898', '#ffffff'], { maxStack: 16, group: 'food', use: 'throw' }),
   material('leather', 'Leather', 'flint', ['#a0603a', '#6a3a1f', '#c8845a']),
   material('rabbit_hide', 'Rabbit Hide', 'flint', ['#c8a878', '#9a7c50', '#e0c8a0']),
   material('feather', 'Feather', 'feather', ['#f4f4f4', '#b0b0b0', '#d8d8d8']),
@@ -119,6 +119,11 @@ for (const t of TIERS) {
 ITEMS.push(...ARMOR_ITEMS, ...FOOD_ITEMS);
 ITEMS.push({ name: 'enchanted_book', displayName: 'Enchanted Book', maxStack: 1, icon: { shape: 'book', colors: ['#6a3aa8', '#3a1a6a', '#ffd86a'] }, group: 'tools', tags: ['glint'] });
 ITEMS.push(...BREWING_ITEMS, ...POTION_ITEMS, ...FARM_ITEMS);
+// Husbandry.
+ITEMS.push(
+  { name: 'lead', displayName: 'Lead', icon: { shape: 'lead', colors: ['#c8a878', '#8a6a48', '#7ad85a'] }, use: 'lead', group: 'tools' },
+  { name: 'name_tag', displayName: 'Name Tag', icon: { shape: 'tag', colors: ['#e8dcb8', '#a89870', '#8a6a3c'] }, use: 'name_tag', group: 'tools' },
+);
 
 /** Blocks without an item (fluids, portals, technical and "lit" state blocks). */
 export const NO_ITEM_BLOCKS = new Set([
