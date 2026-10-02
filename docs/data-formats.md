@@ -135,8 +135,20 @@ groups). Other items are data:
   tier. Tools for every tier are generated in `items.ts`.
 * `fuel` is furnace burn time in seconds; blocks tagged `log` / `planks` burn 15 s
   (`TAG_FUEL`).
-* `use` (bucket, water_bucket, lava_bucket, flint_and_steel) and `readout` (compass, clock)
+* `use` (bucket, water_bucket, lava_bucket, flint_and_steel, bow, shield, potion, splash_potion,
+  xp_bottle, glass_bottle, bone_meal, seeds, lead, name_tag, throw, slicer_compass, w_anchor,
+  hyper_rope, chakram, dagger, crossbow) and `readout` (compass, clock, atlas, slicer, anchor)
   select engine behaviours.
+* Phase 7: `armor: { slot, points, toughness, knockback?, set? }` makes wearable armour,
+  `food: { nutrition, saturation, effects?, always?, remainder? }` something to eat or drink,
+  `enchantability` sets the enchanting table's odds, and `weapon: { damage, cooldown, reach?,
+  hiddenReach?, area? }` a melee weapon that is not a tool (spears reach `hiddenReach` blocks
+  kata/ana of the slice; `area` hits everything in that 4D radius ahead). Tags that matter:
+  `arrow` (bows and crossbows shoot it; `ARROWS` in `ores.ts` gives each kind's damage, undead
+  multiplier and glow), `weapon` (takes sword enchantments), `glint`, `ana_pick`, `lens`.
+* **Item stacks** carry an optional tag: `ench: [name, level][]`, `name` (anvil), `trim:
+  [pattern, material]`, `rc` (anvil prior work), `mark: [realm, x, y, z, w]` (W-Anchor),
+  `ammo` (a loaded crossbow). A saved stack is `[item, count, damage, tag?]`.
 * Item tags = the item's own `tags` plus the tags of the block it places, so recipes can use
   `#planks`, `#log`, `#sand`, `#coal`, `#stone_crafting`.
 
@@ -405,7 +417,13 @@ load consumes; the arrival portal copies that shape.
   * since Phase 4, `vitals: { health, air }`;
   * since Phase 5, `bed: [x, y, z, w] | null`, your respawn point (Surface coordinates);
   * since Phase 6, `SavedState.realm` is the realm you are in; `SavedState.data.portals`
-    holds the lit portals and `data.arrival` a pending arrival. Columns are saved per realm.
+    holds the lit portals and `data.arrival` a pending arrival. Columns are saved per realm;
+  * since Phase 7, `hunger: { food, sat, exh }`, `xp` (total points), `effects` (each with
+    its name, seconds left and level), `absorption` and `enchSeed` (the enchanting table's
+    offers stay put until you enchant).
 
   Since Phase 5, persistent mobs (villagers) are saved in their column's `extra.mobs`, and
-  since Phase 6 bosses too, with their arena (`SavedMob.home`). Other mobs respawn naturally.
+  since Phase 6 bosses too, with their arena (`SavedMob.home`). Since Phase 7 animals you keep
+  (tamed, leashed, named or bred) are saved too, with `baby`, `adult`, `kept`, `sheared`,
+  `leash` and `name2`. Other mobs respawn naturally. Growing crops and saplings are listed per
+  column in `extra.grow` (dense indices) so random ticks find them.

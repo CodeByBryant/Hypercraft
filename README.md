@@ -7,7 +7,7 @@ A 4D voxel survival sandbox for the browser. The world is made of tesseracts; yo
 (what works, what's broken, what's next): [Phase 1 — engine](docs/phases/phase-1.md) ·
 [Phase 2 — surface terrain](docs/phases/phase-2.md) · [Phase 3 — items](docs/phases/phase-3.md) ·
 [Phase 4 — mobs](docs/phases/phase-4.md) · [Phase 5 — structures](docs/phases/phase-5.md) ·
-[Phase 6 — Ember Depths](docs/phases/phase-6.md).
+[Phase 6 — Ember Depths](docs/phases/phase-6.md) · [Phase 7 — survival systems and 4D tools](docs/phases/phase-7.md).
 
 | Axis-aligned slice | 30° XW tilt | 45° XW + 45° ZW tilt |
 |---|---|---|
@@ -45,7 +45,10 @@ particles unless `&particles=1`; used by tests).
 | **F / V** | rotate the slice: forward ↔ hidden |
 | **Alt + mouse** | rotate the slice freely |
 | **C** | snap back to the nearest axis-aligned slice |
-| LMB (hold in survival) / RMB / MMB | attack or mine / place, use, open stations, draw a bow (hold) / pick block |
+| LMB (hold in survival) / RMB / MMB | attack or mine / place, use, open stations / pick block |
+| RMB (hold) | eat or drink, draw a bow, raise a shield, load a crossbow, climb a Hyper Rope |
+| **H** | swap the main hand and the off hand |
+| Shift + RMB | with a W-Anchor: mark where you stand |
 | **Tab** or **I** | inventory, crafting and recipe book |
 | **B** (Ctrl+B) | drop the held item (the whole stack) |
 | 1–9, wheel | hotbar |
@@ -95,6 +98,26 @@ hyperite deeper; rare violet tesserite at the bottom).
 trim material), sulfur (**TNT**: light it and run, 4 s, chain reactions; fire charges, splash
 potions), lumenite (Lumen Blocks, **spectral arrows** that outline the mob you hit through walls
 and off your slice, enhanced potions), tesserite (Tesseract Blocks, phase dust, the 4D tools).
+
+**Survival systems** (Phase 7): hunger and saturation, experience and levels, armour and
+status effects, like Minecraft. Enchant at an enchanting table (bookshelves count anywhere in a
+4D shell around it), combine and repair at an anvil, strip at a grindstone, brew potions
+(including **Phase Sight** and **Anchor**), farm (farmland hydrates from water in all four
+directions), breed and lead animals, trim and upgrade armour at a smithing table, block with a
+shield (a wide arc in your slice, but not from the hidden axis), and keep an **Anchor Charm**
+in either hand to cheat death once. The creative inventory and the recipe book have tabs.
+
+**Seeing in 4D**: the **4D Glasses** (a helmet) outline every mob near you, wherever your
+slice is; the **4D Vision** enchantment (any other helmet) adds furnaces, chests, tables and
+other key blocks. **Slice Sense** (pickaxes) shows ores in the neighbouring slices, the
+**Phase Lens** (worn or held) faint outlines of mobs and walls kata and ana of you.
+
+**4D tools and weapons** (tesserite): the **Slicer Compass** reads your slice's orientation;
+the **W-Anchor** marks a spot in 4D and brings you back; the **Hyper Rope** lets you climb ana
+and kata along the hidden axis; the **Ana Pick** breaks a 3×3 sheet through the slices next to
+yours. **Spears** reach off your slice, the **4D Whip** hits everything in a small
+hypersphere, the **Hyper-Chakram** comes back after cutting through mobs kata and ana of its
+path. Throwing daggers and the crossbow round it out.
 
 **Night vision** (creative and spectator): press **N** or tap 👁 NV. In **spectator**, fly into
 the ground to see through it, like Minecraft: rock vanishes and the caves show.

@@ -1,6 +1,82 @@
 # Changelog
 
-## 0.6.1 — Playtest fixes (unreleased)
+## 0.7.0 — Phase 7: Survival systems, enchanting, brewing, farming, animals, smithing, 4D tools (2026-10-02)
+
+### Added
+- **Items carry data**: enchantments, custom names, armour trims, anvil work, W-Anchor marks
+  and crossbow ammunition travel with a stack (saved, shown in tooltips).
+- **Armour**: helmets, chestplates, leggings and boots in leather, copper, gold, iron, azurite,
+  verdant, hyperite and Ancient Slag (smithing only), with Minecraft's armour and toughness
+  formula. Sets: Ancient Slag (fire immunity, lava swimming), the Reefshell helmet (breathe
+  longer underwater). Right click armour to put it on.
+- **4D Glasses** (a helmet): every mob within 32 blocks drawn as a wireframe of its whole 4D
+  body, wherever your slice is; tinted bluer kata, pinker ana.
+- **Hunger and saturation** with Minecraft's exhaustion rules (sprinting, jumping, fighting,
+  mining), natural regeneration when fed, starvation; 29 foods (hold use to eat), golden
+  apples, stews, milk.
+- **Experience**: orbs from ores, mobs, smelting, breeding and trading; Minecraft's level curve;
+  you drop some when you die.
+- **Status effects** for you and mobs: speed, slowness, haste, mining fatigue, strength,
+  weakness, regeneration, poison, wither, hunger, blindness, instant health and damage, jump
+  boost, slow falling, fire resistance, night vision, invisibility, water breathing, absorption,
+  resistance, saturation, and the
+  4D ones: **Phase Sight** and **Anchor** (resist being shoved along W). HUD badges.
+- **Enchanting**: the enchanting table (azurite and levels; bookshelves count anywhere in a 4D
+  shell around it, up to 15), Minecraft's offer algorithm, 32 enchantments, among them the 4D
+  ones: **4D Vision** (helmets but the glasses: mobs and key blocks such as furnaces, chests,
+  tables and stations, wherever they are in 4D), **Slice Sense** (ores in the slices next to
+  yours), **Phase Strike** (hit a mob kata or ana of your slice, once a second), **Kata Grip**
+  (resist W shoves), **Reach Through** (reach blocks through the hidden axis). Enchanted books
+  (librarians, loot), the **anvil** (combine, repair, rename; "Too Expensive!" at 40) and the
+  **grindstone** (strip enchantments for experience).
+- **Brewing**: the brewing stand (Cinder Powder fuel), Ember Wart and the awkward base, 20
+  potion types in plain, extended (Fluxite Dust) and enhanced (Emberglass or Lumen Dust)
+  forms, Fermented Weaver Eye corruptions, splash potions (Sulfur), Bottles o' Enchanting.
+- **Farming**: hoes, farmland that hydrates from water within 4 blocks in all four directions
+  (a 9×9×9 shell), wheat, carrots, potatoes, beetroots, melons and pumpkins (stems), Ember Wart
+  on soul sand, berry bushes, 18 saplings that grow their biome's trees, bone meal, trampling.
+- **Animals**: breeding with each animal's food, babies that grow up, tempting, leads (tie
+  them to fences), shearing, milking, eggs that hatch chicks, name tags. Animals you tame,
+  lead or name are kept with their column.
+- **Smithing table**: the Slag Upgrade (hyperite gear to Ancient Slag, enchantments kept) and
+  eight armour trim templates in ten materials.
+- **Shields** block melee, arrows and blasts from the front of your slice, in a wide arc, but
+  not from the hidden axis: a mob kata or ana of you gets around it.
+- **Off hand**: H (or the touch button, or tapping the HUD slot) swaps hands; the off hand
+  raises its shield, eats its food or places its block (torches) when the main hand has
+  nothing to do. **Torches and other lights held in either hand light your way.**
+- **Anchor Charm** (the Magma Regent, rare loot): held in either hand, it cheats death once.
+- **4D tools** (tesserite): **Slicer Compass** (reads your slice's orientation, snaps it
+  aligned), **Phase Lens** (wear or hold: faint outlines of mobs kata and ana of you and of the
+  walls in the neighbouring slices), **W-Anchor** (mark a spot in 4D, come back to it),
+  **Hyper Rope** (climb ana and kata along the hidden axis, hanging), **Ana Pick** (breaks a
+  3×3 sheet through the neighbouring slices).
+- **Weapons**: spears (longer reach, and reach off your slice), the **4D Whip** (hits
+  everything in a small hypersphere), the **Hyper-Chakram** (thrown, comes back, cuts mobs
+  kata and ana of its path), throwing daggers, the crossbow.
+- **Creative tabs and recipe book sections**, like Minecraft's: Building, Natural,
+  Functional, Tools & Utilities, Combat, Food & Drinks, Ingredients and Technical, plus All
+  with a section per category. Search looks through every tab.
+
+### Changed
+- **Far more ore.** Surface ore went from under 2% of the rock to about 7% (coal 2.2%, iron
+  1.6%, copper 1.2%...), in fatter veins whose 3D cross-sections read as veins; coal moved
+  down into the rock (half its veins used to land in the air). The Ember Depths' quartz,
+  gilded cinder, hypercinder and Ancient Slag are 2–4x as common.
+- **Four new ores, each with uses** (each with a deepstone variant):
+  - *Silver* (y 6–90): ingots, nuggets, blocks; **silver arrows** (8 arrows + an ingot: 25%
+    more damage, double on the undead); **Mirror Glass**; a trim material; smiths buy it.
+  - *Sulfur* (y 2–60): **TNT** (sulfur and sand). Light it with flint and steel, a fire
+    charge, spreading fire or another blast; it blows after 4 s (a 4D radius-4 crater), and
+    TNT in a blast chains. Also fire charges and splash potions.
+  - *Lumenite* (y 10–110, glows in the dark): lumen dust. Four make a Lumen Block (which
+    breaks back into dust); **spectral arrows** (an arrow and four dust: the mob you hit glows
+    for 10 s, outlined through walls and off your slice); enhances potions like emberglass
+    dust.
+  - *Tesserite* (y 2–40, rare, violet glow, iron pickaxe): tesserite shards, Tesseract Blocks,
+    phase dust (one shard: two), and the 4D tools (Phase 7.7).
+  - Bows shoot the off hand's arrows first, then the hotbar's, like Minecraft; Infinity only
+    saves plain arrows. Fletchers, clerics and W-Walkers trade the new things; chests hold them.
 
 ### Performance
 - **Buried bricks cost nothing on the GPU.** Solid rock with ores, veins and fossils inside,
@@ -14,13 +90,15 @@
 - **Mobs off screen are not traced**: every pixel tests every mob handed to the ray marcher,
   so mobs outside the view frustum are left out.
 
+
 ### Fixed
 - **The creative inventory crashed the tab** (all 900+ items): every item icon carried its
   own copy of the multi-megabyte icon sheet as a data: URL. The sheet now sits behind one
   blob: URL in a single stylesheet rule.
-- **Creative tabs and recipe book sections**, like Minecraft's: Building, Natural,
-  Functional, Tools & Utilities, Combat, Food & Drinks, Ingredients and Technical, plus All
-  with a section per category.
+
+## 0.6.1 — Playtest fixes (2026-10-01)
+
+### Fixed
 - **Portals work like Minecraft's.** A flat obsidian frame (4 × 5, corners optional, at least
   2 × 3 of air inside) in any vertical plane of the slice now lights with flint and steel or
   a fire charge. Before, only 3D hyper-frames counted, so a Minecraft-style frame just caught
@@ -42,24 +120,6 @@
     sets nearby fuel alight as it flows. Fire that spreads into a portal frame lights it.
 
 ### Changed
-- **Far more ore.** Surface ore went from under 2% of the rock to about 7% (coal 2.2%, iron
-  1.6%, copper 1.2%...), in fatter veins whose 3D cross-sections read as veins; coal moved
-  down into the rock (half its veins used to land in the air). The Ember Depths' quartz,
-  gilded cinder, hypercinder and Ancient Slag are 2–4x as common.
-- **Four new ores, each with uses** (each with a deepstone variant):
-  - *Silver* (y 6–90): ingots, nuggets, blocks; **silver arrows** (8 arrows + an ingot: 25%
-    more damage, double on the undead); **Mirror Glass**; a trim material; smiths buy it.
-  - *Sulfur* (y 2–60): **TNT** (sulfur and sand). Light it with flint and steel, a fire
-    charge, spreading fire or another blast; it blows after 4 s (a 4D radius-4 crater), and
-    TNT in a blast chains. Also fire charges and splash potions.
-  - *Lumenite* (y 10–110, glows in the dark): lumen dust. Four make a Lumen Block (which
-    breaks back into dust); **spectral arrows** (an arrow and four dust: the mob you hit glows
-    for 10 s, outlined through walls and off your slice); enhances potions like emberglass
-    dust.
-  - *Tesserite* (y 2–40, rare, violet glow, iron pickaxe): tesserite shards, Tesseract Blocks,
-    phase dust (one shard: two), and the 4D tools (Phase 7.7).
-  - Bows shoot the off hand's arrows first, then the hotbar's, like Minecraft; Infinity only
-    saves plain arrows. Fletchers, clerics and W-Walkers trade the new things; chests hold them.
 - **The Ember Depths fill their whole height**, like Minecraft's Nether. There was one floor,
   one ceiling and a 50–70 block empty chasm between them; now a 4D density field (sampled
   every 4 blocks and interpolated) makes masses, overhangs, ledges, arches, pillars and

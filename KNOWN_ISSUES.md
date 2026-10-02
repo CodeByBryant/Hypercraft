@@ -1,6 +1,6 @@
 # Known issues
 
-Honest list as of Phase 6 (the Ember Depths, portals, the Magma Regent). Items tagged with the phase expected to address them.
+Honest list as of Phase 7 (survival systems, enchanting, brewing, farming, animals, smithing, the 4D tools). Items tagged with the phase expected to address them.
 
 ## Unverified / performance
 - **R5 not measured on real GPUs.** Development ran in a GPU-less container (SwiftShader
@@ -26,6 +26,13 @@ Honest list as of Phase 6 (the Ember Depths, portals, the Magma Regent). Items t
 
 ## Gameplay
 - Lit TNT is not saved: after a reload it stays lit without going off (mine it to get it back).
+- A thrown Hyper-Chakram that is in the air when the game is saved is lost.
+- Crossbows take only Unbreaking and Mending (no Multishot, Piercing or Quick Charge yet).
+- Villagers keep the offers they were created with: villagers from before Phase 7 do not sell
+  the new things (silver, spectral arrows, 4D tools).
+- Fluxite (redstone) has no circuits yet, so TNT is lit only by fire, flint and steel, fire
+  charges and blasts (Phase 10).
+- Status effects on mobs are not saved with persistent mobs.
 
 ## Rendering
 - The camera is always upright (hidden axis never has a Y component), so cross-sections are
