@@ -30,7 +30,17 @@ export class IconAtlas {
     this.canvas.height = SHEET_H;
     const ctx = this.canvas.getContext('2d')!;
     ctx.putImageData(new ImageData(this.pixels, SHEET_W, SHEET_H), 0, 0);
-    this.url = this.canvas.toDataURL('image/png');
+    // The sheet lives behind a short blob: URL in ONE stylesheet rule. (Writing the multi-
+    // megabyte data: URL into every slot's inline style made each slot hold its own copy:
+    // the creative list, a thousand slots, ate gigabytes and crashed the tab.)
+    const data = this.canvas.toDataURL('image/png');
+    const bin = atob(data.slice(data.indexOf(',') + 1));
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    this.url = URL.createObjectURL(new Blob([bytes], { type: 'image/png' }));
+    const style = document.createElement('style');
+    style.textContent = `.hc-icon{background-image:url("${this.url}");background-size:${SHEET_W}px ${SHEET_H}px;background-repeat:no-repeat;image-rendering:pixelated}`;
+    document.head.appendChild(style);
   }
 
   /** Top-left pixel of an item's cell. */
@@ -42,8 +52,8 @@ export class IconAtlas {
   apply(el: HTMLElement, id: number, size = CELL): void {
     const [x, y] = this.cell(id);
     const k = size / CELL;
-    el.style.backgroundImage = `url(${this.url})`;
-    el.style.backgroundSize = `${SHEET_W * k}px ${SHEET_H * k}px`;
+    el.classList.add('hc-icon');
+    if (k !== 1) el.style.backgroundSize = `${SHEET_W * k}px ${SHEET_H * k}px`;
     el.style.backgroundPosition = `-${x * k}px -${y * k}px`;
   }
 

@@ -1483,3 +1483,50 @@ select {
 .shield-fx.on {
   display: block;
 }
+
+/* ---------------- creative tabs and recipe book sections ---------------- */
+.item-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 6px;
+}
+.item-tabs .item-tab {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 5px;
+  cursor: pointer;
+}
+.item-tabs .item-tab.on {
+  background: #3c5bd6;
+  border-color: #8aa4ff;
+}
+.item-tabs .item-tab .icon {
+  width: 24px;
+  height: 24px;
+}
+.tab-label {
+  font-size: 11px;
+  color: #c8d0e8;
+  margin: 4px 0 2px;
+}
+.creative-list {
+  max-height: 228px;
+  overflow-y: auto;
+  margin-top: 4px;
+}
+.group-head {
+  grid-column: 1 / -1;
+  flex-basis: 100%;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9aa6c8;
+  margin: 6px 0 2px;
+}

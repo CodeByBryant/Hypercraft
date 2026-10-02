@@ -17,6 +17,8 @@ import { levelProgress, price, repFactor, soldOut } from '../game/Trading';
 import { LEVEL_NAMES } from '../content/trades';
 import { anvil, grindstone, describeEnchant } from '../content/enchanting';
 import { smith, TRIM_MATERIALS, TRIM_PATTERNS } from '../content/smithing';
+import { BOOK_TABS, CREATIVE_TABS, GROUP_LABEL, GROUP_ORDER, groupOf, itemsInGroup, type ItemTab } from '../content/itemGroups';
+import type { ItemGroup } from '../content/types';
 import { ENCHANT_BY_NAME } from '../content/enchantments';
 import { isEnchanted } from '../game/items/ItemStack';
 import { ARMOR_SLOTS } from '../content/armor';
@@ -77,6 +79,9 @@ export class InventoryScreen {
   private search = '';
   private craftableOnly = false;
   private creativeSearch = '';
+  /** Selected creative tab and recipe book section. */
+  private creativeTab = 'all';
+  private bookTab = 'all';
   private refreshTimer = 0;
   private lastInvVersion = -1;
   /** Touch: taps act as shift-clicks (move whole stacks between inventory and container). */
@@ -584,19 +589,46 @@ export class InventoryScreen {
     trash.el.title = 'Drop an item here to delete it';
     trash.el.textContent = '🗑';
     trash.item = -1;
+    const q = this.creativeSearch.trim().toLowerCase();
+    // Searching looks through every tab.
+    const tab = this.tabBar(main, CREATIVE_TABS, q ? 'all' : this.creativeTab, (id) => {
+      this.creativeTab = id;
+      this.creativeSearch = '';
+    });
     const list = h('div', 'inv-grid creative-list', main);
     list.style.gridTemplateColumns = 'repeat(9, auto)';
-    list.style.maxHeight = '176px';
-    list.style.overflowY = 'auto';
-    list.style.marginTop = '6px';
-    const q = this.creativeSearch.trim().toLowerCase();
-    for (let id = 0; id < IREG.count; id++) {
-      if (q && !IREG.displayName(id).toLowerCase().includes(q) && !IREG.name(id).includes(q)) continue;
-      const s = this.slot(list, null, 0, 'creative');
-      s.item = id;
-      this.paint(s.el, { id, count: 1, damage: 0 });
+    for (const g of tab.groups ?? GROUP_ORDER) {
+      const ids = itemsInGroup(g).filter((id) => !q || IREG.displayName(id).toLowerCase().includes(q) || IREG.name(id).includes(q));
+      if (!ids.length) continue;
+      if (!tab.groups) h('div', 'group-head', list, GROUP_LABEL[g]);
+      for (const id of ids) {
+        const s = this.slot(list, null, 0, 'creative');
+        s.item = id;
+        this.paint(s.el, { id, count: 1, damage: 0 });
+      }
     }
+    if (!list.firstChild) h('div', 'group-head', list, 'Nothing matches');
     if (focus) input.focus();
+  }
+
+  /** A row of icon tabs; returns the selected one. */
+  private tabBar(parent: HTMLElement, tabs: ItemTab[], current: string, pick: (id: string) => void): ItemTab {
+    const bar = h('div', 'item-tabs', parent);
+    let sel = tabs[0]!;
+    for (const t of tabs) {
+      if (t.id === current) sel = t;
+      const b = h('button', `item-tab${t.id === current ? ' on' : ''}`, bar) as HTMLButtonElement;
+      b.title = t.label;
+      b.dataset.tab = t.id;
+      if (IREG.has(t.icon)) this.game.icons.apply(h('div', 'icon', b), IREG.id(t.icon), 24);
+      b.addEventListener('click', () => {
+        if (this.justOpened()) return;
+        pick(t.id);
+        this.render();
+      });
+    }
+    h('div', 'tab-label', parent, sel.label);
+    return sel;
   }
 
   private renderBook(panel: HTMLElement, focus: boolean): void {
@@ -620,28 +652,47 @@ export class InventoryScreen {
       this.render();
     });
     lab.append(' Craftable only');
-    const list = h('div', 'book-list', book);
     const q = this.search.trim().toLowerCase();
+    const tab = this.tabBar(book, BOOK_TABS, q ? 'all' : this.bookTab, (id) => {
+      this.bookTab = id;
+      this.search = '';
+    });
+    const list = h('div', 'book-list', book);
+    // Recipes sorted into sections (a section per group on the All tab).
+    const bySection = new Map<ItemGroup, CompiledRecipe[]>();
     const seen = new Set<number>();
     for (const r of CRAFTING.recipes) {
       if (this.gridSize === 2 && !r.small) continue;
       if (seen.has(r.result) && !q) continue;
       if (q && !IREG.displayName(r.result).toLowerCase().includes(q)) continue;
-      const can = this.canCraft(r);
-      if (this.craftableOnly && !can) continue;
+      const g = groupOf(r.result);
+      if (tab.groups && !tab.groups.includes(g)) continue;
       seen.add(r.result);
-      const el = h('div', `islot ${can ? 'craftable' : 'missing'}`, list);
-      el.dataset.item = IREG.name(r.result);
-      const icon = h('div', 'icon', el);
-      this.game.icons.apply(icon, r.result, 32);
-      if (r.count > 1) h('span', 'count', el, String(r.count));
-      el.addEventListener('pointerenter', () => this.showTip(`${IREG.displayName(r.result)}${r.count > 1 ? ` ×${r.count}` : ''} — ${this.describe(r)}`));
-      el.addEventListener('pointerleave', () => this.hideTip());
-      el.addEventListener('click', () => {
-        if (!this.justOpened()) this.fillRecipe(r);
-      });
+      let l = bySection.get(g);
+      if (!l) bySection.set(g, (l = []));
+      l.push(r);
     }
+    for (const g of GROUP_ORDER) {
+      const rs = (bySection.get(g) ?? []).map((r) => [r, this.canCraft(r)] as const).filter(([, can]) => can || !this.craftableOnly);
+      if (!rs.length) continue;
+      if (!tab.groups || tab.groups.length > 1) h('div', 'group-head', list, GROUP_LABEL[g]);
+      for (const [r, can] of rs) this.bookEntry(list, r, can);
+    }
+    if (!list.firstChild) h('div', 'group-head', list, this.craftableOnly ? 'Nothing craftable here yet' : 'No recipes');
     if (focus) input.focus();
+  }
+
+  private bookEntry(list: HTMLElement, r: CompiledRecipe, can: boolean): void {
+    const el = h('div', `islot ${can ? 'craftable' : 'missing'}`, list);
+    el.dataset.item = IREG.name(r.result);
+    const icon = h('div', 'icon', el);
+    this.game.icons.apply(icon, r.result, 32);
+    if (r.count > 1) h('span', 'count', el, String(r.count));
+    el.addEventListener('pointerenter', () => this.showTip(`${IREG.displayName(r.result)}${r.count > 1 ? ` ×${r.count}` : ''} — ${this.describe(r)}`));
+    el.addEventListener('pointerleave', () => this.hideTip());
+    el.addEventListener('click', () => {
+      if (!this.justOpened()) this.fillRecipe(r);
+    });
   }
 
   private describe(r: CompiledRecipe): string {
