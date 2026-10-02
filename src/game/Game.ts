@@ -34,7 +34,7 @@ import { newVillager, offend, price, recordTrade, restock, soldOut, type Village
 import { LEVEL_NAMES } from '../content/trades';
 import type { SavedMob } from './mobs/MobManager';
 import type { Column } from '../world/World';
-import { ARROW_SPEED, CRIT_MULTIPLIER, arrowDamage, attackCooldown, attackDamage, bowPower, hitWear, swingStrength } from './combat';
+import { ARROW_SPEED, CRIT_MULTIPLIER, arrowDamage, attackCooldown, attackDamage, bowPower, hitWear, swingStrength, shieldCovers } from './combat';
 import type { BiomeDef } from '../content/types';
 import type { FurnaceKind } from '../content/types';
 import { IconAtlas, SHEET_H, SHEET_W } from '../ui/IconAtlas';
@@ -59,7 +59,7 @@ import { BUSHES, PLANTS } from '../content/farming';
 import type { Container } from './items/ItemStack';
 import { XpOrbs } from './XpOrbs';
 import { Vision4D } from './Vision4D';
-import { ARMOR_START } from './items/Inventory';
+import { ARMOR_START, OFFHAND } from './items/Inventory';
 
 /** How the player arrives in a realm: through a portal (find or build its twin) or a respawn. */
 export interface Arrival {
@@ -141,10 +141,11 @@ export type ScreenRequest =
   | { kind: 'enchanting'; pos: [number, number, number, number] }
   | { kind: 'anvil'; pos: [number, number, number, number] }
   | { kind: 'grindstone'; pos: [number, number, number, number] }
+  | { kind: 'smithing'; pos: [number, number, number, number] }
   | { kind: 'brewing'; pos: [number, number, number, number] };
 
 /** Stations that open a screen of their own (block name -> screen kind). */
-const STATION_SCREENS: Record<string, 'enchanting' | 'anvil' | 'grindstone'> = { enchanting_table: 'enchanting', anvil: 'anvil', grindstone: 'grindstone' };
+const STATION_SCREENS: Record<string, 'enchanting' | 'anvil' | 'grindstone' | 'smithing'> = { enchanting_table: 'enchanting', anvil: 'anvil', grindstone: 'grindstone', smithing_table: 'smithing' };
 
 const WEATHER_CYCLE: WeatherKind[] = ['clear', 'rain', 'snow', 'thunder', 'phase_storm'];
 const DIFFICULTY: Record<string, number> = { peaceful: 0, easy: 1, normal: 2, hard: 3 };
@@ -291,6 +292,9 @@ export class Game {
   private frostT = 0;
   private sliceSense: number[] = [];
   private sliceSenseT = 0;
+  /** Holding up a shield (main hand or off hand). */
+  blocking = false;
+  private shieldUp = 0;
   /** Enchanting table seed: the offers stay the same until you enchant something. */
   enchSeed = (Math.random() * 0x7fffffff) | 0;
   /** Hold-to-use in progress (eating, drinking): the item, its hotbar slot, seconds so far / needed. */
@@ -586,6 +590,7 @@ export class Game {
       pixelated: opts.settings.pixelated,
       nightVision: 0,
       xray: false,
+      handLight: 0,
     };
     this.particles.density = particleDensity(opts.settings);
     this.env.setTime(1500);
@@ -893,6 +898,14 @@ export class Game {
     const pr = this.params;
     pr.underwater += ((p.eyeInWater ? 1 : 0) - pr.underwater) * Math.min(1, dt * 8);
     pr.xray = p.mode === 'spectator';
+    // Torches and other lights carried in either hand light the area around you.
+    let hl = 0;
+    for (const st of [this.held, this.inv.get(OFFHAND)]) {
+      if (!st) continue;
+      const b = IREG.itemBlock[st.id]!;
+      if (b >= 0) hl = Math.max(hl, REG.emission[b]!);
+    }
+    pr.handLight += (Math.max(0, hl - 1) - pr.handLight) * Math.min(1, dt * 8);
     // Night vision: the creative toggle, or the effect (fading out over its last 10 s).
     const nvEff = this.effects.map.get('night_vision');
     const nvGoal = this.nightVisionOn ? 1 : nvEff ? Math.min(1, nvEff.time / 10) : 0;
@@ -1046,6 +1059,7 @@ export class Game {
     }
     if (input.pressed('resolution')) this.cycleResolution();
     if (input.pressed('nightVision')) this.toggleNightVision();
+    if (input.pressed('swapHands')) this.swapHands();
 
     // Touch aim: re-pick at a new aim point before acting on it; a tap interacts once.
     if (input.aimDirty) {
@@ -1083,14 +1097,29 @@ export class Game {
       if (input.buttonPressed(0)) this.sinceSwing = 0; // a swing at the air still resets the cooldown
     }
     const bow = heldNow !== null && IREG.def(heldNow.id).use === 'bow';
-    const consumable = heldNow !== null && mode !== 'spectator' && this.consumable(heldNow) && !this.stationTargeted() && !(this.targetMob && this.targetMob.def.profession);
+    // What hold-use acts on: the main hand, or the off hand when the main hand has nothing to do.
+    const off = this.inv.get(OFFHAND);
+    const mainIdle = this.mainIdle(heldNow);
+    const eatSlot = heldNow !== null && this.consumable(heldNow) ? this.hotbarIndex : mainIdle && off && this.consumable(off) ? OFFHAND : -1;
+    const consumable = eatSlot >= 0 && mode !== 'spectator' && !this.stationTargeted() && !(this.targetMob && this.targetMob.def.profession);
+    const shield = mode !== 'spectator' && !this.stationTargeted() && ((heldNow && IREG.def(heldNow.id).use === 'shield') || (mainIdle && off && IREG.def(off.id).use === 'shield'));
     if (consumable) {
       // Eating and drinking: hold the use button.
       this.bowDraw = 0;
-      if (input.buttonHeld(2)) this.useStep(dt, heldNow!);
+      this.blocking = false;
+      if (input.buttonHeld(2)) this.useStep(dt, this.inv.get(eatSlot)!, eatSlot);
       else this.using = null;
+    } else if (shield) {
+      // Shields: hold the use button to block (up after a quarter second). A click on a mob
+      // still trades, shears, leads...
+      this.using = null;
+      this.bowDraw = 0;
+      if (input.buttonPressed(2) && this.targetMob && this.useOnMob(this.targetMob)) this.shieldUp = -1e9;
+      this.shieldUp = input.buttonHeld(2) ? this.shieldUp + dt : 0;
+      this.blocking = this.shieldUp >= 0.25;
     } else if (bow && mode !== 'spectator' && !this.stationTargeted()) {
       this.using = null;
+      this.blocking = false;
       // Bow: hold to draw, release to shoot.
       if (input.buttonHeld(2)) this.bowDraw += dt;
       else if (this.bowDraw > 0) {
@@ -1100,6 +1129,8 @@ export class Game {
     } else {
       this.bowDraw = 0;
       this.using = null;
+      this.blocking = false;
+      this.shieldUp = 0;
       if (mode !== 'spectator' && input.buttonPressed(2) && this.targetMob && this.useOnMob(this.targetMob)) {
         // Right click on a mob: trade, feed, shear, milk, lead, name.
       } else if (mode !== 'spectator' && (input.buttonPressed(2) || (input.buttonHeld(2) && this.placeCooldown <= 0))) {
@@ -1985,6 +2016,7 @@ export class Game {
     if (sp >= 0) k *= 1 + 0.2 * (sp + 1);
     if (sl >= 0) k *= Math.max(0, 1 - 0.15 * (sl + 1));
     if (this.using) k *= 0.25;
+    if (this.blocking) k *= 0.3;
     p.speedMul = k;
     p.jumpBoost = e.level('jump_boost');
     p.slowFall = e.has('slow_falling');
@@ -2123,6 +2155,7 @@ export class Game {
     if (!vulnerable || amount <= 0 || this.vitals.dead || this.vitals.hurtCooldown > 0) return false;
     // Fire immunity: Fire Resistance, or a full set of Ancient Slag armour.
     if (isFireDamage(kind) && (this.effects.has('fire_resistance') || this.setBonus('slag'))) return false;
+    if (this.blocking && from && (kind === 'melee' || kind === 'projectile' || kind === 'explosion') && this.shieldBlocks(from, amount, attacker)) return false;
     const dmg = this.reduceDamage(amount, kind);
     // Thorns: a chance to hurt whatever hit you in melee.
     if (attacker && kind === 'melee') {
@@ -2140,6 +2173,7 @@ export class Game {
       if (dmg > 0) return false;
       this.vitals.hurtCooldown = 0.5;
     }
+    if (this.vitals.dead) this.tryCharm();
     this.hunger.exhaust(0.1);
     if (from) {
       const H = p.cam.H;
@@ -2316,6 +2350,72 @@ export class Game {
     this.vitals.hurtCooldown = 0;
     this.vitals.damage(dmg, cause, false);
     this.vitals.hurtCooldown = Math.max(cd, 0);
+    if (this.vitals.dead) this.tryCharm();
+  }
+
+  /**
+   * A raised shield stops hits from in front, in a wide arc of your slice, but not from the
+   * hidden axis: an attacker mostly kata or ana of you gets around it. Costs durability.
+   */
+  private shieldBlocks(from: ArrayLike<number>, amount: number, attacker: Mob | null): boolean {
+    const p = this.player, F = p.cam.F;
+    const e = this.eyePos;
+    const d = this.tmpMax;
+    for (let k = 0; k < 4; k++) d[k] = from[k]! - e[k]!;
+    if (!shieldCovers(d, F, p.cam.H, p.up)) return false;
+    // Blocked: the shield wears, attackers are pushed back.
+    const slot = this.held && IREG.def(this.held.id).use === 'shield' ? this.hotbarIndex : OFFHAND;
+    const sh = this.inv.get(slot);
+    if (sh && this.player.mode === 'survival') {
+      const ub = enchLevel(sh, 'unbreaking');
+      if (amount >= 3 && (ub === 0 || Math.random() < 1 / (ub + 1))) sh.damage += 1 + Math.floor(amount);
+      if (sh.damage >= IREG.durability[sh.id]!) {
+        this.inv.set(slot, null);
+        this.blocking = false;
+        this.message?.('Shield broke');
+      } else this.inv.set(slot, sh);
+    }
+    if (attacker) {
+      attacker.hurt = 0;
+      this.mobs.damage(attacker, 0, p.pos, undefined, undefined, false, 0.6);
+    }
+    this.particles.burst(e[0]! + F[0]! * 0.6, e[1]! - 0.3, e[2]! + F[2]! * 0.6, e[3]! + F[3]! * 0.6, p.cam, 'spark', '#d8d8e0', 8, 2, 0.2, true);
+    this.vitals.hurtCooldown = 0.4;
+    return true;
+  }
+
+  /** The Anchor Charm (in either hand) keeps you in this world once. */
+  private tryCharm(): boolean {
+    const v = this.vitals;
+    for (const i of [this.hotbarIndex, OFFHAND]) {
+      const s = this.inv.get(i);
+      if (!s || IREG.name(s.id) !== 'anchor_charm') continue;
+      this.inv.set(i, null);
+      v.dead = false;
+      v.deathCause = '';
+      v.health = 1;
+      this.effects.clear();
+      v.absorption = 0;
+      this.applyEffect('regeneration', 45, 1);
+      this.applyEffect('absorption', 5, 1);
+      this.applyEffect('fire_resistance', 40, 0);
+      this.applyEffect('anchor', 60, 0);
+      const e = this.eyePos;
+      this.particles.burst(e[0]!, e[1]! - 0.5, e[2]!, e[3]!, this.player.cam, 'spark', '#f4d03f', 40, 4, 1, true);
+      this.particles.burst(e[0]!, e[1]! - 0.5, e[2]!, e[3]!, this.player.cam, 'spark', '#6aff8a', 30, 3, 1, true);
+      this.message?.('The Anchor Charm holds you in this world!');
+      return true;
+    }
+    return false;
+  }
+
+  /** H: swap the item in your hand with the off hand. */
+  swapHands(): void {
+    if (this.player.mode === 'spectator') return;
+    const a = this.inv.get(this.hotbarIndex), b = this.inv.get(OFFHAND);
+    this.inv.set(this.hotbarIndex, b);
+    this.inv.set(OFFHAND, a);
+    this.using = null;
   }
 
   /** Per-frame effect upkeep: regeneration, poison, wither, hunger; expiry. */
@@ -2918,8 +3018,7 @@ export class Game {
   }
 
   /** One frame of holding use on food: crumbs, then the meal. */
-  private useStep(dt: number, st: ItemStack): void {
-    const slot = this.hotbarIndex;
+  private useStep(dt: number, st: ItemStack, slot = this.hotbarIndex): void {
     const f = IREG.food[st.id]!;
     if (!this.using || this.using.slot !== slot || this.using.item !== st.id) this.using = { item: st.id, slot, t: 0, need: f.seconds ?? 1.6 };
     const u = this.using;
@@ -2989,7 +3088,10 @@ export class Game {
     }
     // Ripe berry bushes: pick the berries (the bush stays).
     if (this.hasTarget && this.pickBerries()) return;
-    if (!held) return;
+    if (!held) {
+      this.useOffhand();
+      return;
+    }
     const def = IREG.def(held.id);
     if (this.hasTarget && this.farmUse(held)) return;
     const armorSlot = IREG.armorSlot[held.id]!;
@@ -3007,11 +3109,36 @@ export class Game {
       return;
     }
     const bid = IREG.itemBlock[held.id]!;
-    if (bid < 0) return;
+    if (bid < 0) {
+      this.useOffhand();
+      return;
+    }
     if (this.placeAtTarget(bid) && this.player.mode === 'survival') {
       held.count--;
       this.inv.set(this.hotbarIndex, held.count > 0 ? held : null);
     }
+  }
+
+  /**
+   * The main hand has nothing of its own to do on a right click (empty, a weapon or tool,
+   * a plain material), so the off hand acts: raise its shield, eat its food, place its block.
+   */
+  private mainIdle(st: ItemStack | null): boolean {
+    if (!st) return true;
+    const id = st.id;
+    if (IREG.toolKind[id] === HOE_KIND) return false;
+    if (IREG.toolKind[id]! > 0) return true;
+    return IREG.itemBlock[id]! < 0 && !IREG.def(id).use && !IREG.food[id] && IREG.armorSlot[id]! < 0 && !PLANTS[IREG.name(id)];
+  }
+
+  /** Nothing to do with the main hand: place the off-hand block (torches...). */
+  private useOffhand(): void {
+    const off = this.inv.get(OFFHAND);
+    if (!off) return;
+    const bid = IREG.itemBlock[off.id]!;
+    if (bid < 0 || !this.placeAtTarget(bid) || this.player.mode !== 'survival') return;
+    off.count--;
+    this.inv.set(OFFHAND, off.count > 0 ? off : null);
   }
 
   private useItem(held: ItemStack, use: NonNullable<ReturnType<typeof IREG.def>['use']>): void {

@@ -16,12 +16,22 @@ import { countIn } from '../game/items/ItemStack';
 import { levelProgress, price, repFactor, soldOut } from '../game/Trading';
 import { LEVEL_NAMES } from '../content/trades';
 import { anvil, grindstone, describeEnchant } from '../content/enchanting';
+import { smith, TRIM_MATERIALS, TRIM_PATTERNS } from '../content/smithing';
 import { ENCHANT_BY_NAME } from '../content/enchantments';
 import { isEnchanted } from '../game/items/ItemStack';
 import { ARMOR_SLOTS } from '../content/armor';
 
 /** Station block each screen belongs to (the screen closes if it is broken). */
-const SCREEN_BLOCK: Record<string, string> = { crafting: 'crafting_table', chest: 'chest', enchanting: 'enchanting_table', anvil: 'anvil', grindstone: 'grindstone' };
+const SCREEN_BLOCK: Record<string, string> = { crafting: 'crafting_table', chest: 'chest', enchanting: 'enchanting_table', anvil: 'anvil', grindstone: 'grindstone', smithing: 'smithing_table' };
+
+/** Smithing table slots: template, item, material. */
+const TEMPLATES = new Set(['slag_upgrade_template', ...TRIM_PATTERNS.map((p) => `${p.name}_armor_trim`)]);
+const SMITH_FILTER = (i: number, st: ItemStack): boolean => {
+  const n = IREG.name(st.id);
+  if (i === 0) return TEMPLATES.has(n);
+  if (i === 2) return n === 'ancient_slag_ingot' || TRIM_MATERIALS[n] !== undefined;
+  return !TEMPLATES.has(n);
+};
 
 type SlotKind = 'normal' | 'result' | 'output' | 'creative';
 
@@ -144,6 +154,8 @@ export class InventoryScreen {
       this.grid = new SlotContainer(9);
     } else if (req.kind === 'enchanting' || req.kind === 'anvil' || req.kind === 'grindstone') {
       this.work = new WorkSlots(2, req.kind === 'enchanting' ? (i, st) => (i === 1 ? IREG.name(st.id) === 'azurite' : true) : null);
+    } else if (req.kind === 'smithing') {
+      this.work = new WorkSlots(3, SMITH_FILTER);
     } else if (req.kind !== 'trade') {
       const [x, y, z, w] = req.pos;
       this.container = this.game.blockEntities.container(x, y, z, w);
@@ -266,6 +278,7 @@ export class InventoryScreen {
     else if (req.kind === 'enchanting') this.renderEnchanting(main, req.pos);
     else if (req.kind === 'anvil') this.renderAnvil(main);
     else if (req.kind === 'grindstone') this.renderGrindstone(main);
+    else if (req.kind === 'smithing') this.renderSmithing(main);
     else if (req.kind === 'brewing') this.renderBrewing(main);
     else this.renderFurnace(main, req.furnace);
     h('div', 'inv-title', main, 'INVENTORY');
@@ -490,6 +503,20 @@ export class InventoryScreen {
     h('div', 'inv-hint', main, 'Removes enchantments (curses stay) and gives some experience back; two of the same item merge their durability.');
   }
 
+  /** Smithing table: template, item and material in a row, the result on the right. */
+  private renderSmithing(main: HTMLElement): void {
+    h('div', 'inv-title', main, 'SMITHING TABLE');
+    const row = h('div', 'inv-row', main);
+    const titles = ['Template: Slag Upgrade or an Armour Trim', 'Hyperite gear, or a piece of armour to trim', 'Ancient Slag Ingot, or a trim material'];
+    for (let i = 0; i < 3; i++) this.slot(row, this.work, i).el.title = titles[i]!;
+    h('div', 'inv-arrow', row, '⇒');
+    const res = this.slot(row, null, 0, 'result');
+    const w = this.work!;
+    const r = smith(w.get(0), w.get(1), w.get(2));
+    if (r) this.paint(res.el, r);
+    h('div', 'inv-hint', main, 'Slag Upgrade + hyperite gear + Ancient Slag Ingot upgrades it (enchantments stay). An armour trim template + armour + a material (ingots, gems, dusts) adds a coloured trim.');
+  }
+
   /** Brewing stand: ingredient on top, fuel on the left, three bottles below. */
   private renderBrewing(main: HTMLElement): void {
     h('div', 'inv-title', main, 'BREWING STAND');
@@ -679,6 +706,7 @@ export class InventoryScreen {
     const icon = h('div', 'icon', el);
     this.game.icons.apply(icon, s.id, 32);
     if (isEnchanted(s) || IREG.tags[s.id]!.has('glint')) el.classList.add('glint');
+    if (s.tag?.trim) h('div', 'trim', el).style.borderColor = TRIM_MATERIALS[s.tag.trim[1]] ?? '#ffffff';
     if (s.count > 1) h('span', 'count', el, String(s.count));
     const max = IREG.durability[s.id]!;
     if (max > 0 && s.damage > 0) {
@@ -720,6 +748,7 @@ export class InventoryScreen {
     const k = this.req?.kind;
     if (k === 'anvil') return this.anvilJob()?.out ?? null;
     if (k === 'grindstone') return this.work ? (grindstone(this.work.get(0), this.work.get(1))?.out ?? null) : null;
+    if (k === 'smithing') return this.work ? smith(this.work.get(0), this.work.get(1), this.work.get(2)) : null;
     const m = this.grid ? CRAFTING.match(this.gridStacks(), this.gridSize) : null;
     return m ? { id: m.result, count: m.count, damage: 0 } : null;
   }
@@ -740,6 +769,16 @@ export class InventoryScreen {
         w.set(1, right.count > 0 ? right : null);
       }
       this.anvilName = null;
+    } else if (this.req!.kind === 'smithing') {
+      const r = smith(w.get(0), w.get(1), w.get(2));
+      if (!r) return;
+      out = r;
+      w.set(1, null);
+      for (const i of [0, 2]) {
+        const st = w.get(i)!;
+        st.count--;
+        w.set(i, st.count > 0 ? st : null);
+      }
     } else {
       const r = grindstone(w.get(0), w.get(1));
       if (!r) return;
@@ -839,7 +878,7 @@ export class InventoryScreen {
 
   private takeResult(shift: boolean): void {
     const g = this.game;
-    if (this.req?.kind === 'anvil' || this.req?.kind === 'grindstone') {
+    if (this.req?.kind === 'anvil' || this.req?.kind === 'grindstone' || this.req?.kind === 'smithing') {
       this.takeStationResult(shift);
       return;
     }

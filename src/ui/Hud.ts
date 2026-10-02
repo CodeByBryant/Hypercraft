@@ -5,7 +5,8 @@ import { REG, hexToRgb, voxelId, FLUID_LAVA, FLUID_WATER } from '../content/regi
 import { TICKS_PER_DAY } from '../env/Environment';
 import type { Game } from '../game/Game';
 import { IREG } from '../content/itemRegistry';
-import { HOTBAR_SIZE } from '../game/items/Inventory';
+import { HOTBAR_SIZE, OFFHAND } from '../game/items/Inventory';
+import { TRIM_MATERIALS } from '../content/smithing';
 import { VOID_VOXEL } from '../world/constants';
 import { MAX_AIR, MAX_HEALTH } from '../game/Vitals';
 import { MAX_FOOD } from '../game/Survival';
@@ -50,6 +51,11 @@ export class Hud {
   private readonly slotIcons: HTMLDivElement[] = [];
   private readonly slotCounts: HTMLSpanElement[] = [];
   private readonly slotBars: HTMLDivElement[] = [];
+  private readonly slotTrims: HTMLDivElement[] = [];
+  /** The off-hand slot, left of the hotbar (shown when something is in it). */
+  private offSlot!: HTMLDivElement;
+  /** Raised shield marker under the crosshair. */
+  private readonly shieldFx: HTMLDivElement;
   private readonly readout: HTMLDivElement;
   private readonly toast: HTMLDivElement;
   private readonly sleepBox: HTMLDivElement;
@@ -133,6 +139,7 @@ export class Hud {
     // A named animal under the crosshair shows its name.
     this.mobName = el('div', 'mob-name', this.root);
     this.hotbar = el('div', 'hotbar', this.root);
+    this.shieldFx = el('div', 'shield-fx', this.root);
     this.readout = el('div', 'readout', this.root);
     this.toast = el('div', 'toast', this.root);
     // Boss fights: a health bar at the top, and the R2 warning for telegraphed attacks.
@@ -204,30 +211,43 @@ export class Hud {
 
   private buildHotbar(): void {
     const g = this.game;
-    for (let i = 0; i < HOTBAR_SIZE; i++) {
-      const s = el('div', 'slot', this.hotbar);
+    // Slot HOTBAR_SIZE in these arrays is the off hand.
+    for (let i = 0; i <= HOTBAR_SIZE; i++) {
+      const off = i === HOTBAR_SIZE;
+      const s = el('div', off ? 'slot offhand' : 'slot', this.hotbar);
+      if (off) this.hotbar.prepend(s);
       const icon = el('div', 'icon', s);
-      el('span', 'key', s, String(i + 1));
+      if (!off) el('span', 'key', s, String(i + 1));
       const count = el('span', 'count', s);
       const bar = el('div', 'dura', s);
+      const trim = el('div', 'trim', s);
       s.addEventListener('pointerdown', (e) => {
         e.stopPropagation();
-        g.hotbarIndex = i;
+        if (off) g.swapHands();
+        else g.hotbarIndex = i;
       });
+      if (off) {
+        s.title = 'Off hand (H: swap)';
+        this.offSlot = s;
+      }
       this.slots.push(s);
       this.slotIcons.push(icon);
       this.slotCounts.push(count);
       this.slotBars.push(bar);
+      this.slotTrims.push(trim);
     }
   }
 
   private renderHotbar(): void {
     const g = this.game;
     const icons = g.icons;
-    for (let i = 0; i < HOTBAR_SIZE; i++) {
-      const st = g.inv.get(i);
+    for (let i = 0; i <= HOTBAR_SIZE; i++) {
+      const st = g.inv.get(i === HOTBAR_SIZE ? OFFHAND : i);
       const icon = this.slotIcons[i]!;
       this.slots[i]!.classList.toggle('glint', !!st && (!!st.tag?.ench?.length || IREG.tags[st.id]!.has('glint')));
+      const trim = this.slotTrims[i]!;
+      trim.style.display = st?.tag?.trim ? 'block' : 'none';
+      if (st?.tag?.trim) trim.style.borderColor = TRIM_MATERIALS[st.tag.trim[1]] ?? '#ffffff';
       if (st) {
         icons.apply(icon, st.id, 32);
         icon.style.display = 'block';
@@ -248,6 +268,7 @@ export class Hud {
         this.slotBars[i]!.style.display = 'none';
       }
     }
+    this.offSlot.style.display = g.inv.get(OFFHAND) ? '' : 'none';
     this.lastHotbarVersion = g.inv.version;
   }
 
@@ -258,6 +279,7 @@ export class Hud {
       if (this.toastTimer <= 0) this.toast.style.opacity = '0';
     }
     if (g.inv.version !== this.lastHotbarVersion) this.renderHotbar();
+    if (this.shieldFx.classList.contains('on') !== g.blocking) this.shieldFx.classList.toggle('on', g.blocking);
     if (g.hotbarIndex !== this.lastHotbar) {
       this.slots.forEach((s, i) => s.classList.toggle('active', i === g.hotbarIndex));
       this.lastHotbar = g.hotbarIndex;

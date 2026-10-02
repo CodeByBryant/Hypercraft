@@ -8,6 +8,7 @@ import { ARMOR_RECIPES } from './armor';
 import { FOOD_RECIPES } from './food';
 import { BREWING_RECIPES } from './potions';
 import { FARM_RECIPES } from './farming';
+import { SMITHING_RECIPES } from './smithing';
 
 export const RECIPES: RecipeDef[] = [
   // Wood.
@@ -157,3 +158,7 @@ RECIPES.push(...FARM_RECIPES);
 
 // Phase 7: husbandry.
 RECIPES.push({ type: 'shaped', pattern: ['ss ', 'sb ', '  s'], key: { s: 'string', b: 'slime_ball' }, result: 'lead', count: 2 });
+
+// Phase 7: smithing and shields.
+RECIPES.push(...SMITHING_RECIPES);
+RECIPES.push({ type: 'shaped', pattern: ['pip', 'ppp', ' p '], key: { p: '#planks', i: 'iron_ingot' }, result: 'shield' });

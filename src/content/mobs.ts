@@ -820,7 +820,7 @@ MOBS.push(
       ball([0, 1.35, 0.3, 1.45], 0.26, '#ff6a1a', 'leg', Math.PI / 2, true),
       capsule([0, 1.2, 0, 0], [0, 0.2, -0.3, 0], 0.3, '#3a1410', 'tail'),
     ],
-    drops: [
+    drops: [{ item: 'anchor_charm', count: [1, 1] }, 
       { item: 'regent_heart', count: [1, 1] },
       { item: 'ancient_slag_ingot', count: [2, 3] },
       { item: 'ember_quartz', count: [12, 24] },

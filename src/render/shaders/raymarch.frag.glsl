@@ -74,6 +74,7 @@ uniform int uSelectOn;
 uniform float uBreak;   // mining progress 0..1 on the selected cell
 uniform float uNightVision; // 0..1: everything lit as if by daylight (keeps a hint of the realm's tint)
 uniform int uXray;          // spectator: from inside solid ground, see through it (Minecraft's view)
+uniform float uHandLight;   // light carried in your hands: level at the eye, -1 per block
 uniform highp sampler2D uEntities; // mob records + analytic parts (see MobManager.pack)
 uniform int uEntityCount;
 
@@ -657,6 +658,7 @@ vec3 shade(Surf s, vec4 d, uint vox, uvec4 bi, float t, out float alpha) {
   vec4 n = axisVec(s.axis) * s.ns;
   float sky, blk, occ;
   smoothLight(s, sky, blk, occ);
+  blk = max(blk, clamp((uHandLight - t) / 15.0, 0.0, 1.0));
   // Fixed per-axis facet shading (W facets get their own tone so they read as a 4th
   // kind of face in tilted views) plus a soft 4D sun term.
   float fs = s.axis == uUpAxis ? (s.ns > 0.0 ? 1.0 : 0.5) : (s.axis == 0 ? 0.8 : (s.axis == 2 ? 0.7 : 0.62));
@@ -853,6 +855,7 @@ vec3 shadeEntity(EntHit h, vec4 o, vec4 d, inout Cache k) {
     sky = float(light >> 4u) / 15.0;
     blk = float(light & 15u) / 15.0;
   }
+  blk = max(blk, clamp((uHandLight - h.t) / 15.0, 0.0, 1.0));
   float facet = 0.62 + 0.38 * max(0.0, dot(h.n, uUpVec)) + 0.12 * abs(dot(h.n, uHidden));
   float sunTerm = 0.78 + 0.22 * max(0.0, dot(h.n, uSunDir));
   vec3 light = uSkyLight * lightCurve(sky) * sunTerm + uBlockLight * lightCurve(blk) + uAmbient * uAmbientTint;

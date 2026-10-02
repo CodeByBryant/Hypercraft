@@ -646,3 +646,17 @@ for (const [name, pool] of Object.entries({
   village_farm: { rolls: W(0, 1), entries: [{ item: 'lead', weight: 2 }, { item: 'wheat_seeds', weight: 4, count: W(2, 6) }] },
   witch_hut: { rolls: W(0, 1), entries: [{ item: 'name_tag', weight: 1 }] },
 } as Record<string, LootTable['pools'][number]>)) LOOT_TABLES[name]?.pools.push(pool);
+
+// Smithing templates and the Anchor Charm.
+for (const [name, pool] of Object.entries({
+  citadel_treasure: { rolls: W(0, 1), entries: [{ item: 'slag_upgrade_template', weight: 3 }, { item: 'citadel_armor_trim', weight: 2 }] },
+  regent_caldera: { rolls: W(1, 1), entries: [{ item: 'slag_upgrade_template', weight: 3 }, { item: 'anchor_charm', weight: 2 }, { item: 'ember_armor_trim', weight: 1 }] },
+  forge: { rolls: W(0, 1), entries: [{ item: 'ember_armor_trim', weight: 2 }, { item: 'slag_upgrade_template', weight: 1 }] },
+  ziggurat: { rolls: W(0, 1), entries: [{ item: 'ember_armor_trim', weight: 2 }] },
+  ana_vault: { rolls: W(0, 1), entries: [{ item: 'ana_armor_trim', weight: 3 }, { item: 'kata_armor_trim', weight: 3 }] },
+  deep_silent_vault: { rolls: W(0, 1), entries: [{ item: 'vault_armor_trim', weight: 3 }, { item: 'anchor_charm', weight: 1 }] },
+  tesseract_temple: { rolls: W(0, 1), entries: [{ item: 'tesseract_armor_trim', weight: 3 }, { item: 'hyperline_armor_trim', weight: 1 }] },
+  sunken_monument: { rolls: W(0, 1), entries: [{ item: 'reef_armor_trim', weight: 3 }] },
+  shipwreck_treasure: { rolls: W(0, 1), entries: [{ item: 'reef_armor_trim', weight: 2 }] },
+  dungeon: { rolls: W(0, 1), entries: [{ item: 'kata_armor_trim', weight: 1 }, { item: 'shield', weight: 2 }] },
+} as Record<string, LootTable['pools'][number]>)) LOOT_TABLES[name]?.pools.push(pool);

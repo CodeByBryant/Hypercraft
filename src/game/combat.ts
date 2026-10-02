@@ -61,3 +61,27 @@ export function bowPower(seconds: number): number {
 export function arrowDamage(power: number): number {
   return Math.max(1, Math.round(1 + 8 * power * power));
 }
+
+/**
+ * Does a raised shield cover a hit from direction `d` (attacker minus eye; the `up`
+ * component is ignored)? Anything in front of you in your slice, in a wide arc, is blocked;
+ * a hit coming mostly along the hidden axis (from kata or ana of you) gets around it.
+ */
+export function shieldCovers(d: ArrayLike<number>, F: ArrayLike<number>, H: ArrayLike<number>, up: number): boolean {
+  let dh = 0, len2 = 0;
+  for (let k = 0; k < 4; k++) {
+    if (k === up) continue;
+    dh += d[k]! * H[k]!;
+    len2 += d[k]! * d[k]!;
+  }
+  const len = Math.sqrt(len2);
+  if (len < 1e-3 || Math.abs(dh) > 0.6 * len) return false;
+  let fwd = 0, in2 = 0;
+  for (let k = 0; k < 4; k++) {
+    if (k === up) continue;
+    const v = d[k]! - dh * H[k]!;
+    fwd += v * F[k]!;
+    in2 += v * v;
+  }
+  return fwd / Math.max(1e-3, Math.sqrt(in2)) >= -0.1;
+}

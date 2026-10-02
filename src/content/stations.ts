@@ -1,4 +1,5 @@
-// Phase 7 stations: enchanting table, anvil, grindstone, brewing stand, smithing table. Each
+// Phase 7 stations: enchanting table, anvil, grindstone, brewing stand, smithing table.
+// (The smithing table's recipe lives in smithing.ts.) Each
 // opens a screen (InventoryScreen); none stores items (inputs go back to you when you close it),
 // except the brewing stand, which brews on its own like a furnace.
 

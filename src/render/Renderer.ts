@@ -68,6 +68,8 @@ export interface RenderParams {
   nightVision: number;
   /** Spectator: see through solid ground from inside it. */
   xray: boolean;
+  /** Light level carried in your hands (a torch: 14), fading one per block (Phase 7). */
+  handLight: number;
 }
 
 export interface RenderStats {
@@ -258,6 +260,7 @@ export class Renderer {
     gl.uniform1i(m.loc('uSelectOn'), p.selectOn ? 1 : 0);
     gl.uniform1f(m.loc('uBreak'), p.breakProgress);
     gl.uniform1f(m.loc('uNightVision'), p.nightVision);
+    gl.uniform1f(m.loc('uHandLight'), p.handLight);
     gl.uniform1i(m.loc('uXray'), p.xray ? 1 : 0);
 
     gl.activeTexture(gl.TEXTURE0);

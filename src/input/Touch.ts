@@ -125,6 +125,7 @@ export class TouchControls {
       hooks.onToggleNightVision?.();
       return false;
     });
+    this.tapKey(top, '⇄ Hand', 'KeyH', 'small');
     this.tapKey(top, 'F3', 'F3', 'small');
     this.tapKey(top, 'P', 'KeyP', 'small');
     this.setVisible(false);
