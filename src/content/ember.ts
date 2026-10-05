@@ -135,7 +135,7 @@ plant('wisp_bloom', 'flower', ['#1a3a40', '#1a3a40', '#8affff'], { emission: 11 
 // ---------------------------------------------------------------- Emberglass Grove
 cube('glowing_cinder', 'speckle', ['#7a2e1a', '#5e2214', '#ffd070'], { density: 0.12, emission: 5, hardness: 0.4, tags: ['infiniburn'] });
 tex('ember_crystal', 'crystal', ['#ff8a2a', '#e8601a', '#fff0c0'], { alpha: 0.75 });
-EMBER_BLOCKS.push({ name: 'ember_crystal', render: 'translucent', solid: true, opaque: false, textures: { all: 'ember_crystal' }, emission: 10, hardness: 1.5, alpha: 0.8, tags: ['log', 'crystal', 'fireproof'] });
+EMBER_BLOCKS.push({ name: 'ember_crystal', render: 'translucent', solid: true, opaque: false, textures: { all: 'ember_crystal' }, emission: 10, hardness: 1.5, alpha: 0.8, tags: ['pillar', 'crystal', 'fireproof'] });
 tex('ember_bloom', 'crystal', ['#ffc050', '#ff8a2a', '#ffffff'], { alpha: 0.9 });
 EMBER_BLOCKS.push({ name: 'ember_bloom', render: 'cutout', solid: true, opaque: false, lightOpacity: 1, textures: { all: 'ember_bloom' }, emission: 13, hardness: 0.3, tags: ['leaves', 'crystal', 'fireproof'] });
 plant('blazecap', 'mushroom', ['#e8c8a8', '#ffb050'], { emission: 12 });
@@ -455,7 +455,7 @@ plant('warped_roots', 'plant', ['#105a6a', '#3affd8'], { density: 0.4 });
 plant('twisting_sprouts', 'bud', ['#0a4a4a', '#1a8a8a', '#7affe8'], { emission: 4 });
 
 cube('bone_soil', 'speckle', ['#7a6a5a', '#6a5a4a', '#d8c8a8'], { density: 0.08, hardness: 0.5 });
-log('bone_pillar', ['bands', ['#d8ceb8', '#c8bca4']], ['log_top', ['#e8dec8', '#c8bca4', '#8a7a64']]);
+log('bone_pillar', ['bands', ['#d8ceb8', '#c8bca4']], ['log_top', ['#e8dec8', '#c8bca4', '#8a7a64']], { tags: ['pillar', 'fireproof'] });
 plant('marrow_grass', 'plant', ['#a89a7a', '#e8dcc0'], { density: 0.4 });
 plant('skull_bloom', 'flower', ['#5a4a3a', '#5a4a3a', '#e8e0d0'], { emission: 2 });
 
@@ -471,13 +471,13 @@ plant('glowshard', 'crystal', ['#ffe89a', '#ffd050', '#ffffff'], { emission: 14 
 plant('lightcap', 'mushroom', ['#e8d8a8', '#fff0a0'], { emission: 12 });
 
 cube('obsidian_scree', 'speckle', ['#1a1222', '#0e0a14', '#6a3aa8'], { density: 0.05, hardness: 1.2 });
-log('spire_obsidian', ['crystal', ['#1e1430', '#120c1e', '#7a4ac8']], ['log_top', ['#241838', '#160e24', '#9a6ae8']], { hardness: 25 });
+log('spire_obsidian', ['crystal', ['#1e1430', '#120c1e', '#7a4ac8']], ['log_top', ['#241838', '#160e24', '#9a6ae8']], { hardness: 25, tags: ['pillar', 'fireproof'] });
 foliage('violet_shard', 'crystal', ['#b88aff', '#8a5ae8', '#ffffff'], { emission: 12 });
 plant('void_grass', 'plant', ['#2a1a3a', '#8a5ad8'], { density: 0.35 });
 plant('spire_moss', 'speckle', ['#2a1a3a', '#1e122c', '#b88aff'], { density: 0.15, emission: 2 });
 
 cube('magma_coral_block', 'cells', ['#a83a1a', '#7a240c', '#ffb050'], { emission: 5, hardness: 1 });
-log('magma_coral_stem', ['cracks', ['#8a2a14', '#6a1e0c', '#ffa040']], ['log_top', ['#a8401a', '#7a2a10', '#ffd070']], { emission: 6 });
+log('magma_coral_stem', ['cracks', ['#8a2a14', '#6a1e0c', '#ffa040']], ['log_top', ['#a8401a', '#7a2a10', '#ffd070']], { emission: 6, tags: ['pillar', 'fireproof'] });
 foliage('magma_coral_fan', 'leaves', ['#ff6a2a', '#d8401a'], { emission: 9 });
 plant('ember_anemone', 'flower', ['#6a1a0c', '#6a1a0c', '#ff8a3a'], { emission: 8 });
 plant('heat_polyp', 'bud', ['#5a1a0a', '#a83a1a', '#ffc070'], { emission: 6 });
@@ -495,7 +495,7 @@ plant('ember_vines', 'plant', ['#4a5a1a', '#c8a03a'], { density: 0.45, emission:
 plant('lantern_pod', 'fruit', ['#3a4a1a', '#3a4a1a', '#ffd070'], { density: 0.3, emission: 13 });
 
 cube('dripcinder', 'dripstone', ['#6a3a30', '#4a2a22'], { hardness: 1.5 });
-log('dripcinder_column', ['dripstone', ['#7a4438', '#5a3228']], ['log_top', ['#7a4438', '#5a3228', '#ff9a5a']]);
+log('dripcinder_column', ['dripstone', ['#7a4438', '#5a3228']], ['log_top', ['#7a4438', '#5a3228', '#ff9a5a']], { tags: ['pillar', 'fireproof'] });
 foliage('drip_tip', 'crystal', ['#ff9a5a', '#d86a3a', '#ffe0c0'], { emission: 6 });
 plant('cave_ember_moss', 'speckle', ['#4a2a1e', '#3a2018', '#ff8a4a'], { density: 0.14, emission: 3 });
 plant('drip_bulb', 'fruit', ['#4a2a1e', '#4a2a1e', '#ffa060'], { density: 0.3, emission: 10 });

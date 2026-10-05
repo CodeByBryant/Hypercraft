@@ -5,7 +5,7 @@
 // can lie along any other horizontal axis: in 4D a room has six walls, and doors on the ±c
 // walls are only reachable by moving kata/ana.
 
-import { REG, makeVoxel, VARIANT_HORIZONTAL6 } from '../../../content/registry';
+import { REG, makeVoxel, VARIANT_HORIZONTAL6, VARIANT_DOOR } from '../../../content/registry';
 import { Rng } from '../../../math/rng';
 import { IF_SOFT, REPLACE, type StructurePlan } from './Plan';
 
@@ -175,8 +175,16 @@ export class Builder {
 
   /** A facing block (stairs, ladder) placed along a local direction. */
   faced(a: number, y: number, b: number, c: number, id: number, axis: number, sign: number, mode = REPLACE): void {
-    const meta = REG.variantMode[id] === VARIANT_HORIZONTAL6 ? this.facing(axis, sign) : 0;
+    const vm = REG.variantMode[id];
+    const meta = vm === VARIANT_HORIZONTAL6 || vm === VARIANT_DOOR ? this.facing(axis, sign) : 0;
     this.set(a, y, b, c, makeVoxel(id, meta), mode);
+  }
+
+  /** A closed two-cell door (`name` and `${name}_top`) for someone walking along `axis` / `sign`. */
+  door(a: number, y: number, b: number, c: number, name: string, axis: number, sign: number): void {
+    const meta = this.facing(axis, sign);
+    this.set(a, y, b, c, makeVoxel(REG.id(name), meta));
+    this.set(a, y + 1, b, c, makeVoxel(REG.id(`${name}_top`), meta));
   }
 
   /**

@@ -10,6 +10,7 @@ import { CROPS, FARM_ITEMS } from './farming';
 import { SMITHING_ITEMS } from './smithing';
 import { ORE_ITEMS } from './ores';
 import { TOOLS4D_ITEMS } from './tools4d';
+import { DOOR_TOPS, WOOD_ITEM_EXTRAS } from './woods';
 
 const HANDLE: Hex = '#8a6a3c';
 
@@ -137,6 +138,7 @@ ITEMS.push(
 /** Blocks without an item (fluids, portals, technical and "lit" state blocks). */
 export const NO_ITEM_BLOCKS = new Set([
   ...CROPS.flatMap((c) => Array.from({ length: c.stages }, (_, k) => `${c.name}_${k}`)),
+  ...DOOR_TOPS,
   'tnt_lit',
   'sweet_berry_bush_young',
   'strawberry_bush_young',
@@ -172,6 +174,7 @@ export const BLOCK_ITEM_EXTRAS: Record<string, Partial<ItemDef>> = {
   red_bed: { maxStack: 1, group: 'functional', icon: { shape: 'bed', colors: ['#c83a3a', '#8e2424', '#8a6a3c'] } },
   blue_bed: { maxStack: 1, group: 'functional', icon: { shape: 'bed', colors: ['#4a5ed0', '#2a3a96', '#8a6a3c'] } },
   white_bed: { maxStack: 1, group: 'functional', icon: { shape: 'bed', colors: ['#ecece6', '#b8b8b0', '#8a6a3c'] } },
+  ...WOOD_ITEM_EXTRAS,
 };
 
 /** Furnace fuel for block items by block tag (seconds). */

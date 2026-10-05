@@ -97,6 +97,16 @@ export const SHAPES: ShapeDef[] = [
     variants: 'horizontal6',
     collision: 'shape',
   },
+  {
+    // Doors (two blocks tall: a lower and an upper half): a thin panel on the near side of the
+    // cell, authored facing +X. Open, it swings onto the -Z side, so you walk past it.
+    name: 'door',
+    kind: 'boxes',
+    boxes: [[[0, 0, 0, 0], [0.1875, 1, 1, 1]]],
+    openBoxes: [[[0, 0, 0, 0], [1, 1, 0.1875, 1]]],
+    variants: 'door',
+    collision: 'shape',
+  },
   { name: 'plant', kind: 'plant', collision: 'none' },
   { name: 'fluid', kind: 'fluid', collision: 'none' },
 ];

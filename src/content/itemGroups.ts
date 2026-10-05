@@ -53,7 +53,7 @@ export const GROUP_LABEL: Record<ItemGroup, string> = {
   misc: 'Technical',
 };
 
-const NATURAL_TAGS = new Set(['plant', 'log', 'leaves', 'ore', 'sapling', 'coral', 'crystal', 'crop', 'fruit', 'farmland', 'bush', 'web', 'underwater']);
+const NATURAL_TAGS = new Set(['plant', 'log', 'pillar', 'leaves', 'ore', 'sapling', 'coral', 'crystal', 'crop', 'fruit', 'farmland', 'bush', 'web', 'underwater']);
 const DECOR_TAGS = new Set(['planks', 'stone_bricks', 'cinder_bricks', 'wool', 'storage', 'glass']);
 const DECOR_NAME = /(^|_)bricks$|_planks$|_slab$|_stairs$|cobble|^chiseled_|^cut_|^smooth_|^polished_|_fence$|^thatch$|^plaster$|^hay_bale$|^glass$/;
 const FUNCTIONAL_NAMES = new Set(['torch', 'lantern', 'campfire', 'ladder', 'bookshelf', 'sea_lantern', 'tnt']);
@@ -68,6 +68,8 @@ function blockGroup(id: number, crafted: Set<string>): ItemGroup {
   const n = b.name, t = b.tags ?? [];
   if (n.startsWith('marker_') || t.includes('fire')) return 'misc';
   if (def.group === 'functional' || FUNCTIONAL_NAMES.has(n) || ['station', 'container', 'furnace', 'bed', 'portal_frame'].some((k) => t.includes(k))) return 'functional';
+  // Wood sets (stripped logs, slabs, stairs, fences, doors) are building blocks.
+  if (t.includes('stripped') || t.includes('wooden')) return 'building';
   if (t.some((k) => NATURAL_TAGS.has(k))) return 'natural';
   if (t.includes('storage')) return 'building';
   if (crafted.has(n) || t.some((k) => DECOR_TAGS.has(k)) || DECOR_NAME.test(n)) return REG.emission[bid]! > 0 ? 'functional' : 'building';

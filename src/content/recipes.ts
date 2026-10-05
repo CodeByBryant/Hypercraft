@@ -11,15 +11,11 @@ import { FARM_RECIPES } from './farming';
 import { SMITHING_RECIPES } from './smithing';
 import { ORE_RECIPES } from './ores';
 import { TOOLS4D_RECIPES } from './tools4d';
+import { WOOD_RECIPES } from './woods';
 
 export const RECIPES: RecipeDef[] = [
-  // Wood.
-  { type: 'shapeless', ingredients: ['log'], result: 'planks', count: 4 },
-  { type: 'shapeless', ingredients: ['dead_log'], result: 'planks', count: 4 },
-  { type: 'shapeless', ingredients: ['birch_log'], result: 'birch_planks', count: 4 },
-  { type: 'shapeless', ingredients: ['spruce_log'], result: 'spruce_planks', count: 4 },
-  { type: 'shapeless', ingredients: ['acacia_log'], result: 'acacia_planks', count: 4 },
-  { type: 'shapeless', ingredients: ['cherry_log'], result: 'cherry_planks', count: 4 },
+  // Wood (planks, slabs, stairs, fences and doors for every wood: see woods.ts).
+  ...WOOD_RECIPES,
   { type: 'shaped', pattern: ['#', '#'], key: { '#': '#planks' }, result: 'stick', count: 4 },
   { type: 'shaped', pattern: ['#', '#'], key: { '#': 'bamboo_block' }, result: 'stick', count: 2 },
   { type: 'shaped', pattern: ['##', '##'], key: { '#': '#planks' }, result: 'crafting_table' },
@@ -92,7 +88,6 @@ export const RECIPES: RecipeDef[] = [
   { type: 'shapeless', ingredients: ['hay_bale'], result: 'wheat', count: 9 },
   { type: 'shaped', pattern: ['ww', 'ww'], key: { w: 'wheat' }, result: 'thatch' },
   { type: 'shaped', pattern: ['nnn', 'ntn', 'nnn'], key: { n: 'iron_nugget', t: 'torch' }, result: 'lantern' },
-  { type: 'shaped', pattern: ['psp', 'psp'], key: { p: '#planks', s: 'stick' }, result: 'oak_fence', count: 3 },
   { type: 'shaped', pattern: [' s ', 'scs', 'lll'], key: { s: 'stick', c: '#coal', l: '#log' }, result: 'campfire' },
   { type: 'shaped', pattern: ['ss', 'ss'], key: { s: 'stone' }, result: 'stone_bricks', count: 4 },
   { type: 'shapeless', ingredients: ['stone_bricks', 'moss_block'], result: 'mossy_stone_bricks' },
@@ -115,7 +110,6 @@ export const RECIPES: RecipeDef[] = [
   { type: 'shapeless', ingredients: ['sulfur', '#coal'], result: 'fire_charge', count: 2 },
   { type: 'shaped', pattern: ['sss', 'sss', 'sss'], key: { s: 'sulfur' }, result: 'sulfur_block' },
   { type: 'shapeless', ingredients: ['sulfur_block'], result: 'sulfur', count: 9 },
-  { type: 'shapeless', ingredients: ['emberwood_log'], result: 'planks', count: 4 },
 ];
 
 // Storage blocks: 9 <-> 1.

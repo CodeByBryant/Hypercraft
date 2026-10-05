@@ -92,6 +92,21 @@ export function generateTexture(def: TextureDef, index: number): Uint8Array {
             else col = scale(Math.floor(r / 1.7) % 2 === 0 ? c0 : c1, 1 + (j - 0.5) * 0.08);
             break;
           }
+          case 'stripped': {
+            // A stripped log: the wood's grain without the bark, fine streaks along the trunk.
+            const streak = hash4f(u, 0, s, 3, seed);
+            const knot = noise.n3(u * 0.35, v * 0.12, s * 0.35) > 0.6 ? 0.35 : 0;
+            col = scale(mix(c0, c1, streak * 0.55 + knot), 1 + (hash4f(u, v >> 3, s, 4, seed) - 0.5) * 0.06);
+            break;
+          }
+          case 'door': {
+            // A framed, boarded door; both halves share it, so a two-cell door shows four panels
+            // (frame and a middle rail per cell, vertical boards with seams).
+            const edge = Math.min(u, 15 - u, s, 15 - s);
+            if (edge < 2 || v === 0 || v === 15 || v === 7 || v === 8) col = scale(v === 7 || v === 8 ? mix(c1, c2, 0.25) : c1, 0.95 + j * 0.1);
+            else col = scale(((u + s) & 3) === 3 ? mix(c0, c1, 0.6) : c0, 1 + noise.n3(u * 0.5, v * 0.15, s * 0.5) * 0.08 + (j - 0.5) * amount);
+            break;
+          }
           case 'planks': {
             const board = v >> 2;
             if ((v & 3) === 3) col = scale(c2, 0.9 + j * 0.1);

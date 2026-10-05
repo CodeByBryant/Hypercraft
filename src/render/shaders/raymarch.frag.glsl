@@ -227,7 +227,7 @@ vec3 animUVS(uvec4 bi, vec3 uvs) {
 int shapeIndex(uvec4 bi, uint vox) {
   int mode = variantModeOf(bi);
   int meta = int((vox >> 12) & 15u);
-  int v = mode == 1 ? (meta & 1) : (mode == 2 ? min(meta, 5) : 0);
+  int v = mode == 1 ? (meta & 1) : (mode == 2 ? min(meta, 5) : (mode == 3 ? min(meta, 11) : 0));
   return shapeBaseOf(bi) + v;
 }
 

@@ -81,8 +81,11 @@ export interface ShapeDef {
    * - none:        meta ignored
    * - vertical2:   0 = as authored (bottom), 1 = mirrored in Y (top)
    * - horizontal6: 0..5 = facing +X, -X, +Z, -Z, +W, -W (authored facing +X)
+   * - door:        0..5 = closed, facing as horizontal6; 6..11 = open (`openBoxes`), same facings
    */
-  variants?: 'none' | 'vertical2' | 'horizontal6';
+  variants?: 'none' | 'vertical2' | 'horizontal6' | 'door';
+  /** `door` shapes: the boxes when open (authored facing +X, like `boxes`). */
+  openBoxes?: Box4[];
   collision?: 'full' | 'shape' | 'none';
 }
 
@@ -131,7 +134,10 @@ export type TexturePattern =
   // Phase 7 farming.
   | 'crop'
   | 'stripes'
-  | 'furrows';
+  | 'furrows'
+  // Wood families.
+  | 'door'
+  | 'stripped';
 
 /** Procedural 16x16x16 solid texture (sampled on the 3D facets of tesseracts). */
 export interface TextureDef {
@@ -363,7 +369,10 @@ export type IconShape =
   | 'dagger'
   | 'xp_bottle'
   | 'beetroot'
-  | 'fish';
+  | 'fish'
+  // Wood families.
+  | 'door'
+  | 'stairs';
 
 /** Procedural 16x16 pixel icon: a shape painted with a small palette (main, shade, accent). */
 export interface IconDef {

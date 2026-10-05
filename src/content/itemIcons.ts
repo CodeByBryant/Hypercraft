@@ -592,6 +592,26 @@ export function paintIcon(def: IconDef): Uint8ClampedArray {
       p.poly([[11, 8], [15, 5], [15, 11]], shade);
       p.set(4, 7, accent);
       break;
+    case 'door':
+      // A boarded door: frame, two panels with a seam, a handle.
+      p.poly([[4, 0], [12, 0], [12, 16], [4, 16]], shade);
+      p.poly([[5, 1], [11, 1], [11, 7], [5, 7]], main);
+      p.poly([[5, 9], [11, 9], [11, 15], [5, 15]], main);
+      p.line(8, 1, 8, 6, shade);
+      p.line(8, 9, 8, 14, shade);
+      p.line(5, 1, 10, 1, light);
+      p.set(10, 8, accent);
+      p.set(9, 8, accent);
+      break;
+    case 'stairs':
+      // Three steps, lit from the top-left.
+      p.poly([[2, 11], [14, 11], [14, 15], [2, 15]], shade);
+      p.poly([[6, 7], [14, 7], [14, 11], [6, 11]], main);
+      p.poly([[10, 3], [14, 3], [14, 7], [10, 7]], main);
+      p.line(2, 11, 13, 11, light);
+      p.line(6, 7, 13, 7, light);
+      p.line(10, 3, 13, 3, light);
+      break;
   }
   p.outline();
   return p.px;

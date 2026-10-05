@@ -18,6 +18,7 @@ import { CAVE_BIOMES, CAVE_BLOCKS, CAVE_TEXTURES, CAVE_TREES } from './caves';
 import { STATION_BLOCKS, STATION_SHAPES, STATION_TEXTURES } from './stations';
 import { FARM_BLOCKS, FARM_TEXTURES } from './farming';
 import { ORE_BLOCKS, ORE_TEXTURES } from './ores';
+import { WOOD_BLOCKS, WOOD_TEXTURES } from './woods';
 import type { BiomeDef, BlockDef, Box4, Hex, RealmDef, ShapeDef, TextureDef, TreeDef } from './types';
 
 /** A voxel is a uint16: block id in the low 12 bits, a 4-bit meta nibble on top. */
@@ -49,6 +50,9 @@ export const FLUID_LAVA = 2;
 export const VARIANT_NONE = 0;
 export const VARIANT_VERTICAL2 = 1;
 export const VARIANT_HORIZONTAL6 = 2;
+/** Doors: meta 0..5 closed (horizontal6 facings), 6..11 open. */
+export const VARIANT_DOOR = 3;
+export const DOOR_OPEN = 6;
 
 /** Horizontal facing order used by `horizontal6` shapes (meta nibble). */
 export const FACING_AXES = [0, 0, 2, 2, 3, 3] as const;
@@ -89,9 +93,9 @@ function transformBox(box: Box4, mode: number, variant: number): Box4 {
   };
   if (mode === VARIANT_VERTICAL2) {
     if (variant === 1) mirror(1);
-  } else if (mode === VARIANT_HORIZONTAL6) {
-    const axis = FACING_AXES[variant]!;
-    const sign = FACING_SIGNS[variant]!;
+  } else if (mode === VARIANT_HORIZONTAL6 || mode === VARIANT_DOOR) {
+    const axis = FACING_AXES[variant % 6]!;
+    const sign = FACING_SIGNS[variant % 6]!;
     if (axis !== 0) swap(0, axis);
     if (sign < 0) mirror(axis);
   }
@@ -191,25 +195,27 @@ export class Registry {
         errors.push(`duplicate shape "${s.name}"`);
         continue;
       }
-      const mode = s.variants === 'vertical2' ? VARIANT_VERTICAL2 : s.variants === 'horizontal6' ? VARIANT_HORIZONTAL6 : VARIANT_NONE;
-      const nVar = mode === VARIANT_VERTICAL2 ? 2 : mode === VARIANT_HORIZONTAL6 ? 6 : 1;
+      const mode = s.variants === 'vertical2' ? VARIANT_VERTICAL2 : s.variants === 'horizontal6' ? VARIANT_HORIZONTAL6 : s.variants === 'door' ? VARIANT_DOOR : VARIANT_NONE;
+      const nVar = mode === VARIANT_VERTICAL2 ? 2 : mode === VARIANT_HORIZONTAL6 ? 6 : mode === VARIANT_DOOR ? 12 : 1;
       const kind = s.kind === 'plant' ? SHAPE_KIND_PLANT : s.kind === 'fluid' ? SHAPE_KIND_FLUID : SHAPE_KIND_BOXES;
       const collision = s.collision === 'none' ? COLLISION_NONE : s.collision === 'full' ? COLLISION_FULL : COLLISION_SHAPE;
       const boxes = s.boxes ?? [];
       if (kind === SHAPE_KIND_BOXES && (boxes.length === 0 || boxes.length > MAX_BOXES_PER_SHAPE)) {
         errors.push(`shape "${s.name}" needs 1..${MAX_BOXES_PER_SHAPE} boxes`);
       }
+      if (mode === VARIANT_DOOR && (!s.openBoxes?.length || s.openBoxes.length > MAX_BOXES_PER_SHAPE)) errors.push(`door shape "${s.name}" needs openBoxes`);
       shapeBaseByName.set(s.name, { base: this.shapes.length, mode });
       for (let v = 0; v < nVar; v++) {
         const arr = new Float32Array(MAX_BOXES_PER_SHAPE * 8);
-        boxes.forEach((b, bi) => {
+        const set = mode === VARIANT_DOOR && v >= DOOR_OPEN ? s.openBoxes ?? [] : boxes;
+        set.forEach((b, bi) => {
           const tb = transformBox(b, mode, v);
           for (let k = 0; k < 4; k++) {
             arr[bi * 8 + k] = tb[0][k]!;
             arr[bi * 8 + 4 + k] = tb[1][k]!;
           }
         });
-        this.shapes.push({ name: nVar > 1 ? `${s.name}#${v}` : s.name, kind, collision, boxes: arr, boxCount: boxes.length });
+        this.shapes.push({ name: nVar > 1 ? `${s.name}#${v}` : s.name, kind, collision, boxes: arr, boxCount: set.length });
       }
     }
     if (this.shapes.length > 1024) errors.push('too many shape variants (max 1024)');
@@ -358,7 +364,7 @@ export class Registry {
     const id = voxel & ID_MASK;
     const mode = this.variantMode[id]!;
     const meta = (voxel >>> META_SHIFT) & 15;
-    const v = mode === VARIANT_VERTICAL2 ? meta & 1 : mode === VARIANT_HORIZONTAL6 ? Math.min(meta, 5) : 0;
+    const v = mode === VARIANT_VERTICAL2 ? meta & 1 : mode === VARIANT_HORIZONTAL6 ? Math.min(meta, 5) : mode === VARIANT_DOOR ? Math.min(meta, 11) : 0;
     return this.shapeBase[id]! + v;
   }
 
@@ -404,8 +410,8 @@ export class Registry {
   }
 }
 
-export const ALL_BLOCKS: BlockDef[] = [...BLOCKS, ...TERRAIN_BLOCKS, ...FUNCTIONAL_BLOCKS, ...STRUCTURE_BLOCKS, ...EMBER_BLOCKS, ...WILDS_BLOCKS, ...CAVE_BLOCKS, ...STATION_BLOCKS, ...FARM_BLOCKS, ...ORE_BLOCKS];
-export const ALL_TEXTURES: TextureDef[] = [...TEXTURES, ...TERRAIN_TEXTURES, ...FUNCTIONAL_TEXTURES, ...STRUCTURE_TEXTURES, ...EMBER_TEXTURES, ...WILDS_TEXTURES, ...CAVE_TEXTURES, ...STATION_TEXTURES, ...FARM_TEXTURES, ...ORE_TEXTURES];
+export const ALL_BLOCKS: BlockDef[] = [...BLOCKS, ...TERRAIN_BLOCKS, ...FUNCTIONAL_BLOCKS, ...STRUCTURE_BLOCKS, ...EMBER_BLOCKS, ...WILDS_BLOCKS, ...CAVE_BLOCKS, ...STATION_BLOCKS, ...FARM_BLOCKS, ...ORE_BLOCKS, ...WOOD_BLOCKS];
+export const ALL_TEXTURES: TextureDef[] = [...TEXTURES, ...TERRAIN_TEXTURES, ...FUNCTIONAL_TEXTURES, ...STRUCTURE_TEXTURES, ...EMBER_TEXTURES, ...WILDS_TEXTURES, ...CAVE_TEXTURES, ...STATION_TEXTURES, ...FARM_TEXTURES, ...ORE_TEXTURES, ...WOOD_TEXTURES];
 export const ALL_BIOMES: BiomeDef[] = [...BIOMES, ...WILDS_BIOMES, ...CAVE_BIOMES, ...EMBER_BIOMES];
 export const REG = new Registry(ALL_BLOCKS, [...SHAPES, ...STATION_SHAPES], ALL_TEXTURES, ALL_BIOMES, REALMS, [...TREES, ...EMBER_TREES, ...WILDS_TREES, ...CAVE_TREES]);
 

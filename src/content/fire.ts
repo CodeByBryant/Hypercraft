@@ -6,6 +6,7 @@
 
 export const FLAMMABLE_TAGS: Record<string, [number, number]> = {
   planks: [5, 20],
+  wooden: [5, 20],
   log: [5, 5],
   leaves: [30, 60],
   wool: [30, 60],

@@ -120,13 +120,13 @@ plant('lumen_shroom', 'mushroom', ['#c8d8e8', '#4ad8ff'], { emission: 9 });
 plant('spore_puff', 'bud', ['#3a4a6a', '#6a8aaa', '#c8f0ff'], { emission: 4 });
 // Crystal Fields
 cube('quartz_sand', 'speckle', ['#e8e0e8', '#d0c8d8', '#ffffff'], { density: 0.1, hardness: 0.5 });
-log('quartz_pillar', ['#f0e8f8', '#d8c8e8'], ['#ffffff', '#e8d8f8', '#b89ad8'], 'crystal');
+log('quartz_pillar', ['#f0e8f8', '#d8c8e8'], ['#ffffff', '#e8d8f8', '#b89ad8'], 'crystal', { tags: ['pillar'] });
 leaves('prism_tip', ['#c8a8ff', '#ffffff'], { pattern: 'crystal', emission: 10 });
 plant('crystal_grass', 'crystal', ['#d8c8f0', '#b8a8e0', '#ffffff'], { emission: 2 });
 plant('prism_flower', 'flower', ['#8a7aa8', '#8a7aa8', '#ff8aff'], { emission: 4 });
 // Petrified Forest
 cube('petrified_soil', 'speckle', ['#a88a6a', '#94785a', '#d8b88a'], { density: 0.08, hardness: 0.7 });
-log('petrified_log', ['#8a7a6a', '#a8604a'], ['#c8907a', '#a87060', '#e8c8a8'], 'bands', { hardness: 4 });
+log('petrified_log', ['#8a7a6a', '#a8604a'], ['#c8907a', '#a87060', '#e8c8a8'], 'bands', { hardness: 4, tags: ['pillar'] });
 plant('stone_fern', 'plant', ['#7a7a6a', '#a8a890'], { density: 0.5 });
 plant('agate_bud', 'bud', ['#6a5a4a', '#a8603a', '#e8a8c8']);
 // Highland Moor

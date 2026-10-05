@@ -50,7 +50,7 @@ export const STRUCTURE_BLOCKS: BlockDef[] = [
   { name: 'hay_bale', render: 'opaque', solid: true, textures: { all: 'hay_bale' }, hardness: 0.6 },
   { name: 'bookshelf', render: 'opaque', solid: true, textures: { top: 'planks', bottom: 'planks', side: 'bookshelf' }, hardness: 1.5 },
   { name: 'lantern', render: 'opaque', solid: true, shape: 'lantern', opaque: false, textures: { all: 'lantern' }, emission: 15, hardness: 1 },
-  { name: 'oak_fence', displayName: 'Fence', render: 'opaque', solid: true, shape: 'post', opaque: false, textures: { all: 'planks' }, hardness: 2 },
+  { name: 'oak_fence', displayName: 'Tesseract Fence', render: 'opaque', solid: true, shape: 'post', opaque: false, textures: { all: 'planks' }, hardness: 2, tags: ['wooden', 'fence'] },
   { name: 'mob_spawner', displayName: 'Mob Spawner', render: 'cutout', solid: true, opaque: false, textures: { all: 'mob_spawner' }, emission: 3, hardness: 5 },
   { name: 'sea_bricks', render: 'opaque', solid: true, textures: { all: 'sea_bricks' }, hardness: 3 },
   { name: 'sea_lantern', render: 'opaque', solid: true, textures: { all: 'sea_lantern' }, emission: 15, hardness: 0.3 },

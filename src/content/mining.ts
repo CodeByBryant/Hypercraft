@@ -5,6 +5,8 @@
 import type { DropDef, MiningDef } from './types';
 import { FARM_MINING, LEAF_SAPLING } from './farming';
 import { ORE_MINING } from './ores';
+import { WOOD_MINING } from './woods';
+import { ALL_BLOCKS, ALL_TEXTURES } from './registry';
 
 export const MINING: Record<string, MiningDef> = {};
 
@@ -151,6 +153,21 @@ set(['frosted_ice'], { drops: 'none' });
 // carry ember wart.
 set(['emberglass'], { drops: [{ item: 'emberglass_dust', count: [2, 4] }] });
 set(['ember_fern'], { shears: true, drops: [{ item: 'ember_wart', chance: 0.4 }] });
+
+// Wood families: every log, plank, slab, stair, fence and door is for axes.
+for (const [name, def] of Object.entries(WOOD_MINING)) set([name], def);
+// Stone and crystal "trunks" (tagged pillar) are for pickaxes.
+set(ALL_BLOCKS.filter((b) => b.tags?.includes('pillar')).map((b) => b.name), { tool: 'pickaxe', tier: 0 });
+set(['nest_twigs'], { tool: 'axe', drops: [{ item: 'stick', count: [2, 4] }] });
+
+// Every leafy block (leaves and fruit textures) works like leaves: hoe, shears keep it,
+// otherwise a stick now and then (and below, its sapling). Caps, warts and crystal tips that
+// are tagged leaves keep dropping themselves.
+const LEAFY = new Set(ALL_TEXTURES.filter((t) => t.pattern === 'leaves' || t.pattern === 'fruit').map((t) => t.name));
+for (const b of ALL_BLOCKS) {
+  if (!b.tags?.includes('leaves') || MINING[b.name] || !LEAFY.has(b.textures.all ?? '')) continue;
+  set([b.name], { tool: 'hoe', shears: true, drops: [{ item: 'stick', count: [1, 2], chance: 0.04 }] });
+}
 
 // Phase 7 farming: crops, fruit, bushes, seeds from grass; leaves drop saplings.
 for (const [name, def] of Object.entries(FARM_MINING)) set([name], def);

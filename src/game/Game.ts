@@ -4,7 +4,7 @@
 //   input -> camera/physics -> fixed 20 Hz ticks (time, weather, fluids) -> streaming ->
 //   light BFS (budgeted) -> GPU sync (budgeted) -> picking -> hazards -> render -> HUD.
 
-import { REG, makeVoxel, voxelId, voxelMeta, hexToRgb, FLUID_LAVA, VARIANT_HORIZONTAL6, VARIANT_VERTICAL2, FLUID_WATER, FACING_AXES, FACING_SIGNS } from '../content/registry';
+import { REG, makeVoxel, voxelId, voxelMeta, hexToRgb, FLUID_LAVA, VARIANT_HORIZONTAL6, VARIANT_VERTICAL2, VARIANT_DOOR, FLUID_WATER, FACING_AXES, FACING_SIGNS } from '../content/registry';
 import { Particles } from '../env/Particles';
 import { Environment, TICKS_PER_DAY } from '../env/Environment';
 import { Input } from '../input/Input';
@@ -59,6 +59,7 @@ import { BUSHES, PLANTS } from '../content/farming';
 import { ARROWS } from '../content/ores';
 import { THROWN, ANCHOR_COOLDOWN, ROPE_SPEED } from '../content/tools4d';
 import { anaSheetCells } from './Tools4D';
+import { DOOR_OTHER, DOOR_PART, STRIP_ID, doorPartner, isDoor, toggledDoor } from './WoodBlocks';
 import type { Container } from './items/ItemStack';
 import { XpOrbs } from './XpOrbs';
 import { Vision4D } from './Vision4D';
@@ -91,6 +92,7 @@ const isBed = (v: number): boolean => v !== VOID_VOXEL && BED_IDS[voxelId(v)]! >
 const SWORD_KIND = toolCode('sword');
 const HOE_KIND = toolCode('hoe');
 const PICKAXE_KIND = toolCode('pickaxe');
+const AXE_KIND = toolCode('axe');
 /** 4D Vision colours: stations, containers, beds, spawners. */
 const KEY_COLORS: [number, number, number][] = [
   [1, 0.8, 0.3],
@@ -1551,7 +1553,7 @@ export class Game {
       // Like the Nether: beds blow up here.
       const bv = this.world.getBlock(x, y, z, w);
       this.world.setBlock(x, y, z, w, 0);
-      this.removeBedPartner(x, y, z, w, bv);
+      this.removePartner(x, y, z, w, bv);
       this.explode(x + 0.5, y + 0.5, z + 0.5, w + 0.5, 3.5);
       say('The bed explodes! Beds don’t work in this realm');
       return false;
@@ -2974,7 +2976,7 @@ export class Game {
             const hard = REG.hardness[id]!;
             if (hard < 0 || hard >= 30 || REG.fluid[id] !== 0) continue;
             if (!this.world.setBlock(bx, by, bz, bw, 0)) continue;
-            if (BED_IDS[id]) this.removeBedPartner(bx, by, bz, bw, v);
+            if (BED_IDS[id] || DOOR_PART[id]) this.removePartner(bx, by, bz, bw, v);
             if (Math.random() < 0.3) for (const st of rollDrops(id, -1, Math.random)) counts.set(st.id, (counts.get(st.id) ?? 0) + st.count);
           }
     for (const [id, n] of counts) {
@@ -3109,7 +3111,7 @@ export class Game {
     const heldId = held ? held.id : -1;
     const drops = rollDrops(id, heldId, Math.random, enchLevel(held, 'silk_touch') > 0, enchLevel(held, 'fortune'));
     if (!this.world.setBlock(t.x, t.y, t.z, t.w, 0)) return false;
-    this.removeBedPartner(t.x, t.y, t.z, t.w, t.voxel);
+    this.removePartner(t.x, t.y, t.z, t.w, t.voxel);
     for (const d of drops) this.dropAtCell(t.x, t.y, t.z, t.w, d);
     this.mobs.noise([t.x + 0.5, t.y + 0.5, t.z + 0.5, t.w + 0.5]); // Lurkers hear mining
     this.hunger.exhaust(0.005);
@@ -3137,7 +3139,7 @@ export class Game {
       if (v === 0 || v === VOID_VOXEL) continue;
       const id = voxelId(v);
       const h = REG.hardness[id]!;
-      if (h < 0 || h > hard + 1.5 || REG.fluid[id] !== 0 || BED_IDS[id]) continue;
+      if (h < 0 || h > hard + 1.5 || REG.fluid[id] !== 0 || BED_IDS[id] || DOOR_PART[id]) continue;
       if (drops && !canHarvest(id, held.id)) continue;
       const out = drops ? rollDrops(id, held.id, Math.random, enchLevel(held, 'silk_touch') > 0, enchLevel(held, 'fortune')) : [];
       if (!this.world.setBlock(c[0], c[1], c[2], c[3], 0)) continue;
@@ -3431,6 +3433,10 @@ export class Game {
         this.useBed(t.x, t.y, t.z, t.w);
         return;
       }
+      if (isDoor(t.voxel)) {
+        this.toggleDoor(t.x, t.y, t.z, t.w);
+        return;
+      }
       if (this.blockEntities.hasEntity(tid)) {
         const fk = this.blockEntities.furnaceKind(tid);
         this.onOpenScreen?.(fk ? { kind: 'furnace', pos, furnace: fk } : this.blockEntities.isBrewing(tid) ? { kind: 'brewing', pos } : { kind: 'chest', pos });
@@ -3444,6 +3450,7 @@ export class Game {
       return;
     }
     const def = IREG.def(held.id);
+    if (this.hasTarget && this.stripLog(held)) return;
     if (this.hasTarget && this.farmUse(held)) return;
     const armorSlot = IREG.armorSlot[held.id]!;
     if (armorSlot >= 0) {
@@ -3581,7 +3588,7 @@ export class Game {
   /** Middle click: select (or, in creative, create) the targeted block's item in the hotbar. */
   private pickBlock(): void {
     const tid = voxelId(this.target.voxel);
-    const item = IREG.blockItem[BED_IDS[tid] === 2 ? BED_OTHER[tid]! : tid]!;
+    const item = IREG.blockItem[BED_IDS[tid] === 2 ? BED_OTHER[tid]! : DOOR_PART[tid] === 2 ? DOOR_OTHER[tid]! : tid]!;
     if (item < 0) return;
     for (let i = 0; i < HOTBAR_SIZE; i++) {
       if (this.inv.get(i)?.id === item) {
@@ -3638,7 +3645,7 @@ export class Game {
     const id = voxelId(t.voxel);
     if (REG.hardness[id]! < 0 && this.player.mode === 'survival') return false;
     if (!this.world.setBlock(t.x, t.y, t.z, t.w, 0)) return false;
-    this.removeBedPartner(t.x, t.y, t.z, t.w, t.voxel);
+    this.removePartner(t.x, t.y, t.z, t.w, t.voxel);
     const held = this.held;
     if (held && IREG.tags[held.id]!.has('ana_pick')) this.anaSheet(t.x, t.y, t.z, t.w, id, false);
     return true;
@@ -3659,10 +3666,52 @@ export class Game {
     return pv !== VOID_VOXEL && voxelId(pv) === BED_OTHER[id] && voxelMeta(pv) % 6 === m ? p : null;
   }
 
-  /** A bed half was removed: remove the other half too (the removed half made the drop). */
-  private removeBedPartner(x: number, y: number, z: number, w: number, v: number): void {
-    const p = this.bedPartner(x, y, z, w, v);
+  /** A bed or door half was removed: remove the other half too (the removed half made the drop). */
+  private removePartner(x: number, y: number, z: number, w: number, v: number): void {
+    const p = this.bedPartner(x, y, z, w, v) ?? doorPartner(this.world, x, y, z, w, v);
     if (p) this.world.setBlock(p[0], p[1], p[2], p[3], 0);
+  }
+
+  /** Open or close the door at (x, y, z, w) (both halves). Not onto the player standing in it. */
+  toggleDoor(x: number, y: number, z: number, w: number): boolean {
+    const v = this.world.getBlock(x, y, z, w);
+    if (!isDoor(v)) return false;
+    const nv = toggledDoor(v);
+    const p = doorPartner(this.world, x, y, z, w, v);
+    if (this.player.mode !== 'spectator' && (this.shapeHitsPlayer(x, y, z, w, nv) || (p && this.shapeHitsPlayer(p[0], p[1], p[2], p[3], nv)))) return false;
+    this.world.setBlock(x, y, z, w, nv);
+    if (p) this.world.setBlock(p[0], p[1], p[2], p[3], makeVoxel(DOOR_OTHER[voxelId(v)]!, voxelMeta(nv)));
+    return true;
+  }
+
+  /** Would voxel `v` placed at (x, y, z, w) overlap the player's body? */
+  private shapeHitsPlayer(x: number, y: number, z: number, w: number, v: number): boolean {
+    const pl = this.player;
+    const up = pl.up;
+    const sh = REG.shapes[REG.shapeIndex(v)]!;
+    const c = [x, y, z, w];
+    for (let b = 0; b < sh.boxCount; b++) {
+      let hit = true;
+      for (let i = 0; i < 4 && hit; i++) {
+        const lo = i === up ? pl.pos[i]! : pl.pos[i]! - 0.3;
+        const hi = i === up ? pl.pos[i]! + pl.height : pl.pos[i]! + 0.3;
+        if (hi <= c[i]! + sh.boxes[b * 8 + i]! + 1e-3 || lo >= c[i]! + sh.boxes[b * 8 + 4 + i]! - 1e-3) hit = false;
+      }
+      if (hit) return true;
+    }
+    return false;
+  }
+
+  /** An axe used on a log strips off its bark (a stripped log, same orientation). */
+  private stripLog(held: ItemStack): boolean {
+    if (IREG.toolKind[held.id] !== AXE_KIND) return false;
+    const t = this.target;
+    const to = STRIP_ID[voxelId(t.voxel)]!;
+    if (to < 0) return false;
+    if (!this.world.setBlock(t.x, t.y, t.z, t.w, makeVoxel(to, voxelMeta(t.voxel)))) return false;
+    this.particles.burst(t.p[0]!, t.p[1]!, t.p[2]!, t.p[3]!, this.player.cam, 'poof', '#b08a5a', 6, 1.2, 0.2);
+    this.wearHeld(1);
+    return true;
   }
 
   /** Place `voxelOrId` against the targeted facet (in the 4D neighbour across that facet). */
@@ -3687,7 +3736,7 @@ export class Game {
       // Top slab if placed on the upper half of a side face or under a ceiling.
       const fy = t.p[1]! - Math.floor(t.p[1]!);
       meta = t.axis === 1 ? (t.sign < 0 ? 1 : 0) : fy > 0.5 ? 1 : 0;
-    } else if (mode === VARIANT_HORIZONTAL6) {
+    } else if (mode === VARIANT_HORIZONTAL6 || mode === VARIANT_DOOR) {
       if (REG.climbable[id] && t.axis !== 1) {
         // Ladders hug the face we clicked: facing toward the clicked block.
         meta = facingIndex(t.axis, -t.sign);
@@ -3700,6 +3749,16 @@ export class Game {
     if (REG.blocks[id]!.tags?.includes('sapling') && !this.farming.isSoil(this.world.getBlock(x, y - 1, z, w) & 0xfff)) return false;
     // Do not place solid blocks inside the player.
     if (REG.collision[id] !== COLLISION_NONE && this.player.mode !== 'spectator' && this.intersectsPlayer(x, y, z, w)) return false;
+    if (DOOR_PART[id] === 1) {
+      // Doors are two cells tall, on solid ground: the upper half goes on top (closed).
+      const tv = this.world.getBlock(x, y + 1, z, w);
+      if (tv === VOID_VOXEL || (tv !== 0 && !REG.replaceable[tv & 0xfff])) return false;
+      if (REG.collision[this.world.getBlock(x, y - 1, z, w) & 0xfff] === COLLISION_NONE) return false;
+      if (this.player.mode !== 'spectator' && this.intersectsPlayer(x, y + 1, z, w)) return false;
+      if (!this.world.setBlock(x, y, z, w, v)) return false;
+      this.world.setBlock(x, y + 1, z, w, makeVoxel(DOOR_OTHER[id]!, meta));
+      return true;
+    }
     if (BED_IDS[id] === 1) {
       // Beds are two cells: the head goes one cell further along the facing (where you look).
       const h = [x, y, z, w];

@@ -19,6 +19,7 @@ export interface Hc {
   placeTarget(name: string): boolean;
   target(): null | { x: number; y: number; z: number; w: number; axis: number; sign: number; name: string };
   blockAt(x: number, y: number, z: number, w: number): string;
+  metaAt(x: number, y: number, z: number, w: number): number;
   skyHeight(x: number, z: number, w: number): number;
   setTime(t: number): void;
   setWeather(w: string): void;

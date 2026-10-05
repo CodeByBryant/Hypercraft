@@ -19,17 +19,18 @@ interface Style {
   window: number;
   fence: number;
   bed: string;
+  door: string;
   stilts?: boolean;
 }
 
 const STYLES: Record<string, () => Style> = {
-  meadow: () => ({ wall: id('planks'), frame: id('log'), floor: id('planks'), roof: id('thatch'), base: id('cobblestone'), path: id('dirt_path'), window: id('glass'), fence: id('oak_fence'), bed: 'red_bed' }),
-  orchard: () => ({ wall: id('plaster'), frame: id('log'), floor: id('planks'), roof: id('thatch'), base: id('cobblestone'), path: id('dirt_path'), window: id('glass'), fence: id('oak_fence'), bed: 'red_bed' }),
-  marsh: () => ({ wall: id('spruce_planks'), frame: id('dark_oak_log'), floor: id('spruce_planks'), roof: id('thatch'), base: id('dark_oak_log'), path: id('dirt_path'), window: id('glass'), fence: id('oak_fence'), bed: 'blue_bed', stilts: true }),
-  taiga: () => ({ wall: id('spruce_planks'), frame: id('spruce_log'), floor: id('spruce_planks'), roof: id('spruce_planks'), base: id('mossy_cobblestone'), path: id('dirt_path'), window: id('glass'), fence: id('oak_fence'), bed: 'blue_bed' }),
-  snow: () => ({ wall: id('spruce_planks'), frame: id('spruce_log'), floor: id('spruce_planks'), roof: id('packed_snow'), base: id('stone_bricks'), path: id('dirt_path'), window: id('glass'), fence: id('oak_fence'), bed: 'white_bed' }),
-  savanna: () => ({ wall: id('acacia_planks'), frame: id('acacia_log'), floor: id('acacia_planks'), roof: id('thatch'), base: id('terracotta_orange'), path: id('dirt_path'), window: id('glass'), fence: id('oak_fence'), bed: 'red_bed' }),
-  desert: () => ({ wall: id('cut_sandstone'), frame: id('sandstone'), floor: id('sandstone'), roof: id('cut_sandstone'), base: id('sandstone'), path: id('sandstone'), window: id('glass'), fence: id('oak_fence'), bed: 'white_bed' }),
+  meadow: () => ({ wall: id('planks'), frame: id('log'), floor: id('planks'), roof: id('thatch'), base: id('cobblestone'), path: id('dirt_path'), window: id('glass'), fence: id('oak_fence'), bed: 'red_bed', door: 'oak_door' }),
+  orchard: () => ({ wall: id('plaster'), frame: id('log'), floor: id('planks'), roof: id('thatch'), base: id('cobblestone'), path: id('dirt_path'), window: id('glass'), fence: id('oak_fence'), bed: 'red_bed', door: 'oak_door' }),
+  marsh: () => ({ wall: id('spruce_planks'), frame: id('dark_oak_log'), floor: id('spruce_planks'), roof: id('thatch'), base: id('dark_oak_log'), path: id('dirt_path'), window: id('glass'), fence: id('oak_fence'), bed: 'blue_bed', door: 'dark_oak_door', stilts: true }),
+  taiga: () => ({ wall: id('spruce_planks'), frame: id('spruce_log'), floor: id('spruce_planks'), roof: id('spruce_planks'), base: id('mossy_cobblestone'), path: id('dirt_path'), window: id('glass'), fence: id('oak_fence'), bed: 'blue_bed', door: 'spruce_door' }),
+  snow: () => ({ wall: id('spruce_planks'), frame: id('spruce_log'), floor: id('spruce_planks'), roof: id('packed_snow'), base: id('stone_bricks'), path: id('dirt_path'), window: id('glass'), fence: id('oak_fence'), bed: 'white_bed', door: 'spruce_door' }),
+  savanna: () => ({ wall: id('acacia_planks'), frame: id('acacia_log'), floor: id('acacia_planks'), roof: id('thatch'), base: id('terracotta_orange'), path: id('dirt_path'), window: id('glass'), fence: id('oak_fence'), bed: 'red_bed', door: 'acacia_door' }),
+  desert: () => ({ wall: id('cut_sandstone'), frame: id('sandstone'), floor: id('sandstone'), roof: id('cut_sandstone'), base: id('sandstone'), path: id('sandstone'), window: id('glass'), fence: id('oak_fence'), bed: 'white_bed', door: 'palm_door' }),
 };
 
 type Kind = 'house' | 'smithy' | 'library' | 'temple' | 'mason' | 'fletcher' | 'farm' | 'shrine';
@@ -228,9 +229,9 @@ function building(b: Builder, s: Style, kind: Kind, vid: string): void {
   // Roof: a 4D hip roof, each layer one smaller in a, b and c.
   for (let k = 0; k < 4; k++) b.box(-4 + k, tall + 2 + k, -7 + k, -4 + k, 4 - k, tall + 2 + k, 1 - k, 4 - k, kind === 'shrine' ? id('tesseract_bricks') : s.roof);
   // Door (front wall) and, half the time, a second door on the ana wall (reach it kata/ana).
-  b.box(0, 1, 0, 0, 0, 2, 0, 0, 0);
+  b.door(0, 1, 0, 0, s.door, 1, -1);
   b.set(0, 0, 1, 0, s.path, IF_SOFT);
-  if (b.chance(0.5)) b.box(0, 1, -3, 3, 0, 2, -3, 3, 0);
+  if (b.chance(0.5)) b.door(0, 1, -3, 3, s.door, 2, -1);
   // Windows on the side walls and the back.
   for (const [a, bb, c] of [
     [-3, -3, 0],
