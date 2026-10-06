@@ -6,6 +6,7 @@ import { Game } from './game/Game';
 import { loadSettings, type Settings } from './game/Settings';
 import { Hud } from './ui/Hud';
 import { InventoryScreen } from './ui/InventoryScreen';
+import { AdvancementsScreen } from './ui/AdvancementsScreen';
 import { IREG } from './content/itemRegistry';
 import { Menus } from './ui/Menus';
 import { installTestApi } from './debug/testApi';
@@ -94,6 +95,7 @@ function startGame(info: WorldInfo, persistence: Persistence | null, settings: S
   const hud = new Hud(uiRoot, game);
   const menus = new Menus(uiRoot);
   const invScreen = new InventoryScreen(uiRoot, game);
+  const advScreen = new AdvancementsScreen(uiRoot, game);
   game.message = (t) => hud.showMessage(t);
   // Realm travel (portals, respawning on the Surface): save, then reload into the new state.
   game.onTravel = (state) => {
@@ -135,11 +137,26 @@ function startGame(info: WorldInfo, persistence: Persistence | null, settings: S
   game.touchMode = usingTouch();
   // Inventory / crafting / chest / furnace screens: the world keeps running, player input stops.
   game.onOpenScreen = (r) => {
-    if (game.paused || invScreen.isOpen || game.vitals.dead) return;
+    if (game.paused || invScreen.isOpen || advScreen.isOpen || game.vitals.dead) return;
     game.input.enabled = false;
     touch.setVisible(false);
     invScreen.open(r);
     if (document.pointerLockElement) document.exitPointerLock();
+  };
+  // The advancements screen (L): the same dance as the inventory.
+  game.onOpenAdvancements = () => {
+    if (game.paused || invScreen.isOpen || advScreen.isOpen || game.vitals.dead) return;
+    game.input.enabled = false;
+    touch.setVisible(false);
+    advScreen.open();
+    if (document.pointerLockElement) document.exitPointerLock();
+  };
+  advScreen.onClose = () => {
+    game.input.clearPressed();
+    if (game.paused || game.vitals.dead) return;
+    game.input.enabled = true;
+    touch.setVisible(usingTouch() && showTouchInTest);
+    if (!usingTouch() && !test) game.input.requestLock();
   };
   invScreen.onClose = () => {
     game.input.clearPressed();

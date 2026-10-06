@@ -431,6 +431,15 @@ export function installTestApi(game: Game, screen?: InventoryScreen): void {
     setVoidDefeated: (on: boolean) => void (game.voidBoss.defeated = on),
     /** Run the Sovereign's light drain once (phase III), returning how many torches went out. */
     voidDrain: () => game.voidBoss.drain(),
+    /** Advancements: done ids, counters and progress; grant one by id. */
+    advancements: () => ({ done: [...game.adv.done.keys()], stats: { ...game.adv.stats }, progress: game.adv.progress(), biomes: game.adv.biomes.size }),
+    grantAdvancement: (id: string) => game.adv.grant(id),
+    advEvent: (name: string) => game.adv.event(name as never),
+    /** Open the advancements screen (key L) and return whether it opened. */
+    openAdvancements(): boolean {
+      game.onOpenAdvancements?.();
+      return document.querySelector('.adv-screen.open') !== null;
+    },
     /** Phase Wings: gliding state, horizontal speed (m/s), vertical speed, rocket seconds left. */
     glide: () => {
       const p = game.player;

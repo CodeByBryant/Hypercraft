@@ -15,6 +15,7 @@ import { EFFECT_BY_NAME, roman } from '../content/effects';
 import { bowPower } from '../game/combat';
 import { ATLAS_RANGE } from '../game/Game';
 import { STRUCTURES } from '../content/structures';
+import type { AdvancementDef } from '../content/advancements';
 
 const STRUCT_NAMES = new Map(STRUCTURES.map((s) => [s.name, s.displayName]));
 
@@ -67,6 +68,9 @@ export class Hud {
   private readonly bossFill: HTMLDivElement;
   private readonly bossWarn: HTMLDivElement;
   private readonly glideHud: HTMLDivElement;
+  private readonly advToast: HTMLDivElement;
+  private advQueue: AdvancementDef[] = [];
+  private advShown = 0;
   private readonly sleepLeave: HTMLButtonElement;
   private readonly loading: HTMLDivElement;
   private readonly loadingText: HTMLDivElement;
@@ -154,6 +158,9 @@ export class Hud {
     this.bossWarn = el('div', 'boss-warning', this.root);
     // Phase Wings: speed while gliding.
     this.glideHud = el('div', 'glide-hud', this.root);
+    // Advancement toasts (one at a time, a few seconds each).
+    this.advToast = el('div', 'adv-toast', this.root);
+    game.onAdvancement = (a) => this.advQueue.push(a);
     // Standing in a portal: the view swirls violet as the trip approaches.
     this.portalFx = el('div', 'portal-fx', this.root);
     // On fire: flames lick up from the bottom of the screen.
@@ -305,6 +312,21 @@ export class Hud {
       if (this.bossName.textContent !== text) this.bossName.textContent = text;
       this.bossFill.style.width = `${Math.max(0, Math.round((boss.health / boss.def.health) * 1000) / 10)}%`;
       this.bossBar.classList.toggle('enraged', boss.phase >= 2);
+    }
+    // Advancement toasts: show the next one for 4.5 seconds.
+    if (this.advShown > 0) {
+      this.advShown -= dt;
+      if (this.advShown <= 0) this.advToast.style.display = 'none';
+    } else if (this.advQueue.length) {
+      const a = this.advQueue.shift()!;
+      this.advToast.replaceChildren();
+      const ic = el('div', 'adv-icon', this.advToast);
+      if (IREG.has(a.icon)) g.icons.apply(ic, IREG.id(a.icon), 32);
+      const tx = el('div', '', this.advToast);
+      el('div', 'adv-toast-head', tx).textContent = 'Advancement made!';
+      el('div', 'adv-toast-title', tx).textContent = a.title;
+      this.advToast.style.display = 'flex';
+      this.advShown = 4.5;
     }
     const gp = g.player;
     if (gp.gliding) {

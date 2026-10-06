@@ -70,6 +70,8 @@ import { ARRIVAL_POS, gatewayAt } from '../content/void';
 import { GATE, fillFrame, gateProgress } from './VoidGate';
 import { VoidBoss } from './VoidBoss';
 import { ROCKET_TIME } from '../physics/glide';
+import { Advancements } from './Advancements';
+import type { AdvancementDef } from '../content/advancements';
 
 /** How the player arrives in a realm: through a portal (find or build its twin) or a respawn. */
 export interface Arrival {
@@ -278,6 +280,13 @@ export class Game {
   readonly bosses: BossDirector;
   /** The Void Sovereign's fight (Hollow Void). */
   voidBoss!: VoidBoss;
+  /** Advancements (key L): what is done and the counters behind the numeric goals. */
+  readonly adv = new Advancements();
+  /** The HUD shows a toast for each goal reached; main.ts opens the screen. */
+  onAdvancement: ((a: AdvancementDef) => void) | null = null;
+  onOpenAdvancements: (() => void) | null = null;
+  private advTimer = 0;
+  private readonly advCounts = new Map<string, number>();
   /** Fire spread and burn-out (every lit or spreading fire). */
   readonly fire: FireSystem;
   /** Night vision toggle (creative and spectator only; N, or the touch button). */
@@ -552,6 +561,7 @@ export class Game {
       playerFwd: this.player.cam.fwd,
       inflict: (effect, seconds, amp) => void this.applyEffect(effect, seconds, amp),
       puff: (x, y, z, w, color) => this.particles.burst(x, y, z, w, this.player.cam, 'spark', color, 12, 1.4, 0.4, true),
+      bred: () => this.adv.event('breed'),
       get playerTargetable() {
         const m = game.player.mode;
         return game.loaded && !game.vitals.dead && (m === 'survival' || m === 'adventure');
@@ -580,6 +590,7 @@ export class Game {
       },
       shoot: (from, vel, damage, item, byPlayer) => this.projectiles.spawn(from, vel, damage, item, byPlayer),
       mobDied: (m) => {
+        if (m.playerHit > 0) this.adv.killed(m.def.name, m.def.hostile);
         const h = m.height * 0.5;
         this.particles.burst(m.pos[0]!, m.pos[1]! + h, m.pos[2]!, m.pos[3]!, this.player.cam, 'poof', '#e8e8e8', 14, 1.6, m.width);
         if (m.def.boss) {
@@ -615,6 +626,7 @@ export class Game {
       dropItem: (x, y, z, w, st) => this.dropAtCell(x, y, z, w, st),
       blind: (seconds) => void this.applyEffect('blindness', seconds, 0),
     });
+    this.adv.onUnlock = (a) => this.advancementMade(a);
     this.projHost = {
       playerPos: this.player.pos,
       get playerHeight() {
@@ -730,6 +742,7 @@ export class Game {
     const wd = st.data ?? {};
     if (Array.isArray(wd.portals)) this.portals = wd.portals as PortalRecord[];
     this.voidBoss.load(wd.voidSovereign);
+    this.adv.load(wd.advancements);
     if (Array.isArray(wd.graves)) this.graves = (wd.graves as Game['graves']).filter((g) => typeof g.realm === 'string' && Array.isArray(g.pos) && g.pos.length === 4).slice(-MAX_GRAVES);
     if (wd.arrival && typeof wd.arrival === 'object') {
       this.arrival = wd.arrival as Arrival;
@@ -760,7 +773,7 @@ export class Game {
     const away = dead && this.world.realm.name !== 'surface';
     return {
       realm: away ? 'surface' : this.world.realm.name,
-      data: away ? { portals: this.portals, graves: this.graves, voidSovereign: this.voidBoss.save(), arrival: { kind: 'respawn' } } : { portals: this.portals, graves: this.graves, voidSovereign: this.voidBoss.save() },
+      data: away ? { portals: this.portals, graves: this.graves, voidSovereign: this.voidBoss.save(), advancements: this.adv.save(), arrival: { kind: 'respawn' } } : { portals: this.portals, graves: this.graves, voidSovereign: this.voidBoss.save(), advancements: this.adv.save() },
       player: {
         pos: dead ? (away ? this.surfaceRespawnPoint() : this.respawnPoint()) : Array.from(p.pos),
         F: Array.from(p.cam.F),
@@ -891,6 +904,7 @@ export class Game {
     this.glideControl(dt);
     p.update(this.world, this.move, dt);
     this.glideAftermath();
+    this.updateAdvancements(dt);
     if (this.phaseStepCd > 0) this.phaseStepCd -= dt;
     if (p.hanging) this.ropeWear();
     if (this.anchorCd > 0) this.anchorCd -= dt;
@@ -1134,6 +1148,7 @@ export class Game {
     }
     if (input.wheel !== 0) this.hotbarIndex = (((this.hotbarIndex + input.wheel) % HOTBAR_SIZE) + HOTBAR_SIZE) % HOTBAR_SIZE;
     if (input.pressed('inventory')) this.onOpenScreen?.({ kind: 'inventory' });
+    if (input.pressed('advancements')) this.onOpenAdvancements?.();
     if (input.pressed('drop')) this.dropHeld(input.held('sprint'));
 
     if (input.pressed('debug')) this.showDebug = !this.showDebug;
@@ -1557,6 +1572,7 @@ export class Game {
     // Trading teaches you something too (Minecraft: 3-6 experience per trade).
     this.orbs.spawn(m.pos[0]!, m.pos[1]! + 1, m.pos[2]!, m.pos[3]!, 3 + Math.floor(Math.random() * 4));
     if (up) this.message?.(`${m.def.displayName} is now ${LEVEL_NAMES[v.data.level]}`);
+    this.adv.event('trade');
     return true;
   }
 
@@ -1644,6 +1660,7 @@ export class Game {
       return false;
     }
     this.sleeping = { t: 0, skipped: false };
+    this.adv.event('sleep');
     this.resetMining();
     this.bowDraw = 0;
     if (moved) say('Respawn point set');
@@ -1693,6 +1710,7 @@ export class Game {
       return;
     }
     this.sleeping = { t: 0, skipped: false };
+    this.adv.event('sleep');
     this.resetMining();
     this.bowDraw = 0;
     this.message?.('You curl up in the sleeping bag');
@@ -1745,6 +1763,7 @@ export class Game {
     }
     const c = lit[0]!;
     this.particles.burst(c[0] + 0.5, c[1] + 0.8, c[2] + 0.5, c[3] + 0.5, this.player.cam, 'spark', '#6affc0', 40, 3, 1, true);
+    this.adv.event('void_gate');
     this.message?.('The Void Gate opens · step into it');
   }
 
@@ -1796,6 +1815,51 @@ export class Game {
     this.loaded = false;
     this.player.frozen = true;
     this.streamer.invalidate();
+  }
+
+  // ------------------------------------------------------------------ advancements
+
+  /** A goal was reached: a toast, a line in the chat area, and a little experience. */
+  private advancementMade(a: AdvancementDef): void {
+    if (a.criterion.type === 'start') return;
+    this.message?.(`Advancement made: ${a.title}`);
+    this.onAdvancement?.(a);
+    const p = this.player.pos;
+    if (a.xp > 0 && !this.demo) this.orbs.spawn(p[0]!, p[1]! + 1, p[2]!, p[3]!, a.xp);
+  }
+
+  /** Once a second: what you hold, where you are; every frame: slice tilt, kata/ana walking, gliding. */
+  private updateAdvancements(dt: number): void {
+    if (!this.loaded || this.demo) return;
+    const p = this.player;
+    // Counters.
+    this.adv.maxStat('slice_tilt', (p.cam.hiddenAxisTilt() * 180) / Math.PI);
+    const H = p.cam.H;
+    let along = 0, sp = 0;
+    for (let k = 0; k < 4; k++) {
+      if (k === p.up) continue;
+      along += p.vel[k]! * H[k]!;
+      sp += p.vel[k]! * p.vel[k]!;
+    }
+    if (!p.flying && !p.gliding) this.adv.addStat('w_walk', Math.abs(along) * dt);
+    if (p.gliding) this.adv.addStat('glide', Math.sqrt(sp) * dt);
+    this.advTimer -= dt;
+    if (this.advTimer > 0) return;
+    this.advTimer = 1;
+    this.adv.start();
+    const counts = this.advCounts;
+    counts.clear();
+    for (let i = 0; i <= OFFHAND; i++) {
+      const st = this.inv.get(i);
+      if (!st) continue;
+      const name = IREG.name(st.id);
+      counts.set(name, (counts.get(name) ?? 0) + st.count);
+      for (const t of IREG.tags[st.id]!) counts.set(`#${t}`, (counts.get(`#${t}`) ?? 0) + st.count);
+    }
+    this.adv.have(counts);
+    this.adv.realm(this.world.realm.name);
+    const bi = this.world.biomeAt(Math.floor(p.pos[0]!), Math.floor(p.pos[2]!), Math.floor(p.pos[3]!));
+    if (bi >= 0) this.adv.biome(REG.biomes[bi]!.name);
   }
 
   // ------------------------------------------------------------------ Phase Wings
@@ -1979,6 +2043,7 @@ export class Game {
     const p = this.player.pos;
     if (this.inv.add(st) > 0) this.throwStack(st);
     this.orbs.spawn(p[0]!, p[1]! + 0.9, p[2]!, p[3]!, 1 + Math.floor(Math.random() * 3));
+    this.adv.event('fish');
     this.message?.(`You caught ${IREG.displayName(st.id)}`);
     this.hunger.exhaust(0.02);
     if (this.player.mode === 'survival') this.wearHeld(1);
@@ -2717,6 +2782,7 @@ export class Game {
     const offSlice = phase || this.reachTarget === m;
     if (!this.mobs.damage(m, dmg, from, offSlice ? null : this.eyePos, p.cam.H, true, 1 + enchLevel(held, 'knockback'))) return false;
     if (phase) {
+      this.adv.event('phase_strike');
       this.phaseCd = 1;
       this.particles.burst(m.pos[0]!, m.pos[1]! + m.height * 0.5, m.pos[2]!, m.pos[3]!, p.cam, 'spark', '#c86aff', 14, 2, m.width, true);
     }
@@ -2814,10 +2880,14 @@ export class Game {
       this.vitals.hurtCooldown = 0.5;
       this.particles.burst(p.pos[0]!, p.pos[1]! + 1, p.pos[2]!, p.pos[3]!, p.cam, 'spark', '#9ad8ff', 16, 2.5, 0.5, true);
       this.message?.('Phase Step: the blow passes through you');
+      this.adv.event('phase_step');
       void this.shove(Math.random() < 0.5 ? -2 : 2, 'Phase Step');
       return false;
     }
-    if (this.blocking && from && (kind === 'melee' || kind === 'projectile' || kind === 'explosion') && this.shieldBlocks(from, amount, attacker)) return false;
+    if (this.blocking && from && (kind === 'melee' || kind === 'projectile' || kind === 'explosion') && this.shieldBlocks(from, amount, attacker)) {
+      this.adv.event('block');
+      return false;
+    }
     const dmg = this.reduceDamage(amount, kind);
     // Thorns: a chance to hurt whatever hit you in melee.
     if (attacker && kind === 'melee') {
@@ -3570,6 +3640,7 @@ export class Game {
     const drops = rollDrops(id, heldId, Math.random, enchLevel(held, 'silk_touch') > 0, enchLevel(held, 'fortune'));
     if (!this.world.setBlock(t.x, t.y, t.z, t.w, 0)) return false;
     this.removePartner(t.x, t.y, t.z, t.w, t.voxel);
+    this.adv.mined(REG.blocks[id]!.name);
     for (const d of drops) this.dropAtCell(t.x, t.y, t.z, t.w, d);
     this.mobs.noise([t.x + 0.5, t.y + 0.5, t.z + 0.5, t.w + 0.5]); // Lurkers hear mining
     this.hunger.exhaust(0.005);
@@ -3686,14 +3757,20 @@ export class Game {
     }
     this.enchSeed = (Math.random() * 0x7fffffff) | 0;
     this.particles.burst(pos[0]! + 0.5, pos[1]! + 1.2, pos[2]! + 0.5, pos[3]! + 0.5, this.player.cam, 'spark', '#c8a0ff', 24, 2, 0.6, true);
+    this.adv.event('enchant');
     return true;
   }
 
   /** Pay for an anvil job (false: not enough levels, or too expensive in survival). */
   payAnvil(cost: number): boolean {
-    if (this.player.mode === 'creative') return true;
+    if (this.player.mode === 'creative') {
+      this.adv.event('anvil');
+      return true;
+    }
     if (cost >= 40 || this.xp.level < cost) return false;
-    return this.xp.spendLevels(cost);
+    const ok = this.xp.spendLevels(cost);
+    if (ok) this.adv.event('anvil');
+    return ok;
   }
 
   /** Experience back from a grindstone. */
@@ -3743,6 +3820,7 @@ export class Game {
       const at = this.plantTarget(held);
       if (!at) return IREG.def(held.id).use === 'seeds';
       this.world.setBlock(at[0], at[1], at[2], at[3], at[4]);
+      this.adv.event('plant');
       if (survival) {
         held.count--;
         this.inv.set(this.hotbarIndex, held.count > 0 ? held : null);
@@ -3859,6 +3937,7 @@ export class Game {
       this.burning = 0;
     }
     for (const [name, secs, amp, chance] of f.effects ?? []) if (Math.random() < chance) this.applyEffect(name, secs, amp);
+    this.adv.ate(IREG.name(st.id));
     if (IREG.name(st.id) === 'whisper_fruit') this.whisperTeleport();
     if (this.player.mode === 'creative') return;
     st.count--;
@@ -3999,6 +4078,7 @@ export class Game {
         return;
       }
       p.rocket = ROCKET_TIME;
+      this.adv.event('rocket');
       const e = this.eyePos, f = p.cam.fwd;
       this.particles.burst(e[0]! - f[0]! * 0.5, e[1]! - 0.4, e[2]! - f[2]! * 0.5, e[3]! - f[3]! * 0.5, p.cam, 'spark', '#9affc8', 18, 3, 0.6, true);
       if (survival) {

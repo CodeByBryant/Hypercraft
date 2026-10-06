@@ -98,6 +98,8 @@ export interface MobHost {
   playerFwd?: Float64Array;
   /** A melee hit also puts an effect on the player (Whisper Swarms slow you). */
   inflict?(effect: string, seconds: number, amp: number): void;
+  /** Two animals bred (an advancement). */
+  bred?(): void;
   /** A puff of particles (a Walker blinking). */
   puff?(x: number, y: number, z: number, w: number, color: string): void;
 }
@@ -1480,6 +1482,7 @@ export class MobManager {
     const c = this.spawnBaby(a.def.name, (a.pos[0]! + b.pos[0]!) / 2, Math.max(a.pos[1]!, b.pos[1]!) + 0.1, (a.pos[2]! + b.pos[2]!) / 2, (a.pos[3]! + b.pos[3]!) / 2);
     if (!c) return;
     a.kept = b.kept = true;
+    h.bred?.();
     for (let k = 0; k < 6; k++) h.hearts?.(c.pos[0]!, c.pos[1]! + c.height, c.pos[2]!, c.pos[3]!);
     h.dropXp?.(c.pos[0]!, c.pos[1]! + 0.5, c.pos[2]!, c.pos[3]!, 1 + Math.floor(Math.random() * 7));
   }

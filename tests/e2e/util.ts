@@ -105,6 +105,10 @@ export interface Hc {
   voidBoss(): { defeated: boolean; pylons: number; lances: number; warning: string; shifted: boolean; phase: number; health: number; id: number };
   setVoidDefeated(on: boolean): void;
   voidDrain(): number;
+  advancements(): { done: string[]; stats: Record<string, number>; progress: { done: number; total: number }; biomes: number };
+  grantAdvancement(id: string): boolean;
+  advEvent(name: string): void;
+  openAdvancements(): boolean;
   glide(): { gliding: boolean; speed: number; vy: number; rocket: number; wear: number; phaseStepCd: number };
   hurtKind(amount: number, kind: string): boolean;
   // Phase 7
