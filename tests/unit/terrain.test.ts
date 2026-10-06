@@ -102,4 +102,30 @@ describe('livable terrain (0.7.1 playtest: biomes too small, no cave entrances, 
     }
     expect(worlds).toBeGreaterThanOrEqual(2);
   }, 120_000);
+
+  it('waterfalls: a spring in a cliff face and a falling column of water down to its foot', () => {
+    let falls = 0, checked = 0;
+    for (const seed of [31337, 99, 2024, 4242]) {
+      const g = new SurfaceGenerator(seed, realm);
+      const H = realm.heightChunks * 16;
+      const sp = g.spawnPoint();
+      for (let k = 0; k < 40 && falls < 3; k++) {
+        const cx = Math.floor(sp[0]! / 16) + ((k * 7) % 11) * 5 - 25, cz = Math.floor(sp[2]! / 16) + ((k * 5) % 13) * 5 - 30, cw = Math.floor(sp[3]! / 16);
+        const blocks = new Uint16Array(COLUMN_LAYER * H);
+        g.generate(cx, cz, cw, blocks, new Uint8Array(COLUMN_LAYER * 4));
+        checked++;
+        for (let i = 0; i < COLUMN_LAYER; i++)
+          for (let y = 8; y < H - 2; y++) {
+            const v = blocks[i + y * COLUMN_LAYER]!;
+            if ((v & 0xfff) !== REG.id('water') || v >>> 12 !== 8) continue;
+            // The top of a fall: falling water with air or a source beside it at the top.
+            if ((blocks[i + (y + 1) * COLUMN_LAYER]! >>> 12) === 8 || (blocks[i + (y + 1) * COLUMN_LAYER]! & 0xfff) === REG.id('water')) continue;
+            let n = 0;
+            while ((blocks[i + (y - n) * COLUMN_LAYER]! & 0xfff) === REG.id('water') && blocks[i + (y - n) * COLUMN_LAYER]! >>> 12 === 8) n++;
+            if (n >= 5) falls++;
+          }
+      }
+    }
+    expect(falls, `checked ${checked} columns`).toBeGreaterThan(0);
+  }, 180_000);
 });

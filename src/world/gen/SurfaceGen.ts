@@ -611,6 +611,7 @@ export class SurfaceGenerator {
     // 4. Lakes, sinkholes, ore veins, geodes, fossils, spires, floating islands.
     this.lakes(X0, Z0, W0, heights, blocks);
     this.sinkholes(X0, Z0, W0, heights, blocks);
+    this.waterfalls(X0, Z0, W0, heights, riverOf, blocks);
     this.oreVeins(cx, cz, cw, blocks, mountOf);
     this.geodes(X0, Z0, W0, blocks);
     if (has.has(this.idx.bone!)) this.fossils(X0, Z0, W0, heights, biomeOf, blocks);
@@ -732,6 +733,45 @@ export class SurfaceGenerator {
                 for (let y = level + 1; y <= h; y++) blocks[i + y * L] = 0;
                 heights[i] = floorY;
               }
+        }
+  }
+
+  /**
+   * Waterfalls: where the terrain drops 7+ blocks sideways (gorge walls, cliffs, hillsides
+   * over a valley), now and then a spring sits in the rock face just below the top and a
+   * falling column of water runs down the wall to the foot. They are generated as they would
+   * have flowed (the fluid sim only wakes on block changes), so a fall is there from the start.
+   */
+  private waterfalls(X0: number, Z0: number, W0: number, heights: Int16Array, riverOf: Uint8Array, blocks: Uint16Array): void {
+    const L = COLUMN_LAYER, sea = this.sea;
+    const DX = [1, -1, 0, 0], DZ = [0, 0, 1, -1];
+    const FALLING = makeVoxel(B.water, 8);
+    for (let w = 0; w < 16; w++)
+      for (let z = 0; z < 16; z++)
+        for (let x = 0; x < 16; x++) {
+          const i = x + (z << 4) + (w << 8);
+          const h = heights[i]!;
+          if (h <= sea + 4 || riverOf[i]) continue;
+          if (hash4f(X0 + x, 5, Z0 + z, W0 + w, this.seed ^ SALT_LAKE) > 0.06) continue;
+          for (let d = 0; d < 4; d++) {
+            const nx = x + DX[d]!, nz = z + DZ[d]!;
+            if (nx < 0 || nx > 15 || nz < 0 || nz > 15) continue;
+            const j = nx + (nz << 4) + (w << 8);
+            const hn = heights[j]!;
+            const ys = h - 2;
+            if (h - hn < 7 || ys <= hn + 2) continue;
+            // The spring is solid rock with air in front of it, rock behind and above.
+            const spring = blocks[i + ys * L]!;
+            if (!REG.solid[spring] || REG.fluid[spring] || blocks[j + ys * L] !== 0) continue;
+            if (!REG.solid[blocks[i + (ys + 1) * L]!]) continue;
+            // The fall: air cells down the wall to its foot (stop at anything else).
+            let y = ys;
+            while (y > hn && blocks[j + y * L] === 0) y--;
+            if (ys - y < 5) continue;
+            blocks[i + ys * L] = B.water;
+            for (let k = ys; k > y; k--) blocks[j + k * L] = FALLING;
+            break;
+          }
         }
   }
 
