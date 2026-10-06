@@ -173,7 +173,8 @@ groups). Other items are data:
   enchantability: 14, material: 'iron_ingot', color: '#e0e0e0', shade: '#9a9a9a' }
 ```
 
-Levels: 0 wood/gold, 1 stone/copper, 2 iron/azurite, 3 verdant/hyperite.
+Levels: 0 wood/gold, 1 stone/copper, 2 iron/azurite, 3 verdant/hyperite, 4 starlight (Phase 8:
+its ingots are smelted from starlight shards; a full set of its armour gives the Phase Step).
 
 ## Mining (`src/content/mining.ts`)
 
@@ -217,7 +218,7 @@ All names are validated at startup (`Crafting` constructor) and by unit tests.
   * `ball`: centre `at` and radius `r`;
   * `capsule`: ends `at` and `to`, and radius `r`.
 * Optional part fields:
-  * `anim`: `leg`, `head`, `wing`, `tail` or `pulse`;
+  * `anim`: `leg`, `head`, `wing`, `tail`, `wave` or `pulse`;
   * `phase`: an offset in radians;
   * `glow`.
 * `width` (hitbox half-width in x, z and w) and `height`: collision and projectile hits.
@@ -238,6 +239,7 @@ All names are validated at startup (`Crafting` constructor) and by unit tests.
 | `projectile: { item, cooldown, damage }` | ranged attack |
 | `blast: { radius, fuse }` | exploder |
 | `lays: { item, every: [min, max] }` | drops an item every so often |
+| `inflicts: { effect, seconds, amp? }` | a melee hit also puts this effect on the player (Whisper Swarms slow you) |
 
 The compiled registry (`mobRegistry.ts`) precomputes a bounding radius per mob (the parts
 plus 0.35 blocks of animation slack) and linear part colours. It validates everything at
@@ -275,7 +277,10 @@ hyperplane.
 * **`placement`**: one of `surface`, `beach`, `underwater`, `underground` (the start height
   is drawn from `y`), or `sheet` (on an Ana Sheet). Two more are for the Ember Depths:
   `lava` sits on the lava sea (bridges, the Regent's Caldera), and `cavern` hangs in the open
-  air between floor and ceiling.
+  air between floor and ceiling. One more is for the Hollow Void: `island` stands on top of a
+  floating island. Its `spacing` is the island lattice cell (128); the generator decides which
+  island hosts which structure (`StructureTerrain.islandHost`, one roll per island) and `chance`
+  is the share of islands that get one.
 * **`realm`**: which realm's generator places it (default `surface`).
 * **The grid.** Each structure gets one attempt per `spacing`³ cell of (x, z, w). The
   attempt happens with probability `chance`, and the start is jittered inside the cell.
@@ -402,6 +407,24 @@ their own (`WorldGenerator.caveBiomeAt` and `surfaces` answer for any position).
 the block on the underside of every mass. Ember mobs spawn from the `day` table of the biome at
 the floor they spawn on.
 
+**The Hollow Void** (`void`, Phase 8) is the third realm: islands floating in black space.
+Its extra fields:
+
+| field | meaning |
+| ----- | ------- |
+| `voidSky: true` | an open black-violet sky with stars and aurora curtains defined on world directions (`uAurora` in the ray marcher); no sun, moon, clouds or weather |
+| `islandSpawns: true` | hostile mobs spawn on any island top, with no light check |
+| `dayCycle: false` | the clock stands still |
+| `bedsExplode` | beds explode, as in the Ember Depths |
+| `coordinateScale: 1` | no portal: a Void Gate (`Game.beginTravel`) and Gateway Spires link realms and islands |
+
+The geometry (lattice cell, island radii, the arena, the six spires, the pylons, the gate
+positions) is constants in `src/content/void.ts`, shared by the generator
+(`src/world/gen/VoidGen.ts`), the game and the tests. An island is a 3-ball in (x, z, w) with one
+island layer per (x, z, w) column, so `sample()` and `generate()` share one shape function and
+heights, biomes, spawning and structures need no special case. Void biomes are ordinary
+`BiomeDef`s with `realm: 'void'`. `docs/how-to/add-a-realm.md` shows the steps.
+
 **Portal records** (saved in `SavedState.data.portals`):
 
 ```ts
@@ -415,6 +438,30 @@ with `min[thin] === max[thin]`: it is a rectangle in the plane of y and the rema
 horizontal axis, framed only within that plane. A realm trip saves the destination state with
 `data.arrival = { kind: 'portal', axis, thin? }` (or `{ kind: 'respawn' }`), which the next
 load consumes; the arrival portal copies that shape.
+
+## Advancements (`src/content/advancements.ts`)
+
+```ts
+A('void/vault', 'void', 'Vault Raider', 'Find Phase Wings in a Sky Vault', 'phase_wings',
+  { type: 'have', items: ['phase_wings'] }, 50, 'void/sovereign')
+// A(id, category, title, description, icon, criterion, xp, parent?)
+```
+
+* Eight categories (the ids start with `surface`, `mining`, `husbandry`, `combat`, `magic`,
+  `fourd`, `ember` or `void`); the first entry of a category is its root, every other one names
+  a parent in the same category. Ids and titles are unique; `icon` is an item name.
+* **Criteria** (one per advancement): `start`; `have` (`items`, which may include `#tag`s, and
+  an optional `count`); `mine` (`blocks`); `kill` (`mobs`, or `*hostile`); `eat` (`items`); `realm`
+  (`realm`); `biome` (`count`); `event` (`name`); `stat` (`stat`, `value`).
+* Events and counters are the names in `EVENTS` and `STATS` in the same file; the unit test
+  rejects ones nothing uses. `docs/how-to/add-an-advancement.md` is the recipe.
+* **Saved** in `SavedState.data.advancements`:
+
+  ```ts
+  { done: { 'surface/root': 1696600000000, ... },   // id -> when it was earned (ms since the epoch)
+    stats: { slice_tilt: 45, w_walk: 130, glide: 900 },
+    biomes: ['meadow', 'birch_forest', ...] }
+  ```
 
 ## Runtime / wire formats
 
@@ -438,6 +485,10 @@ load consumes; the arrival portal copies that shape.
   * since Phase 7, `hunger: { food, sat, exh }`, `xp` (total points), `effects` (each with
     its name, seconds left and level), `absorption` and `enchSeed` (the enchanting table's
     offers stay put until you enchant).
+  * since Phase 8, `SavedState.data.advancements` (above) and `data.voidSovereign: { defeated }`
+    (the Void Sovereign's fall; the throne, the exit gate and the six Gateway Spires follow
+    from it). A trip through a Void Gate saves `data.arrival = { kind: 'void' }`, which puts you
+    on the central island's arrival platform.
 
   Since Phase 5, persistent mobs (villagers) are saved in their column's `extra.mobs`, and
   since Phase 6 bosses too, with their arena (`SavedMob.home`). Since Phase 7 animals you keep

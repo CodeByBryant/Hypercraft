@@ -20,7 +20,7 @@ Loot for its chests goes in `src/content/loot.ts`.
 
 | field | meaning |
 | ----- | ------- |
-| `placement` | `surface`, `beach`, `underwater`, `underground` (needs `y: [min, max]`) or `sheet` (on an Ana Sheet) |
+| `placement` | `surface`, `beach`, `underwater`, `underground` (needs `y: [min, max]`), `sheet` (on an Ana Sheet), `lava` or `cavern` (Ember Depths) or `island` (Hollow Void: on top of a floating island, picked by the generator through `StructureTerrain.islandHost`; `spacing` is the island lattice cell and `chance` the share of islands that get one) |
 | `spacing` | one attempt per `spacing`³ cell of the horizontal 3-space (x, z, w) |
 | `chance` | chance that a cell's attempt happens, before the biome and terrain checks |
 | `radius` | the furthest any block can be from the start, horizontally. Columns only look at starts within this radius, so **keep every write inside it** (the unit tests check this) |

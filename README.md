@@ -3,11 +3,12 @@
 A 4D voxel survival sandbox for the browser. The world is made of tesseracts; you see a true
 3D cross-section of it, and every system is built around a fourth spatial axis.
 
-**Status: Phase 6 (the Ember Depths, 4D portals, the Magma Regent) complete.** Phase reports
+**Status: Phase 8 (the Hollow Void, the Void Sovereign, Phase Wings, advancements) complete.** Phase reports
 (what works, what's broken, what's next): [Phase 1 — engine](docs/phases/phase-1.md) ·
 [Phase 2 — surface terrain](docs/phases/phase-2.md) · [Phase 3 — items](docs/phases/phase-3.md) ·
 [Phase 4 — mobs](docs/phases/phase-4.md) · [Phase 5 — structures](docs/phases/phase-5.md) ·
-[Phase 6 — Ember Depths](docs/phases/phase-6.md) · [Phase 7 — survival systems and 4D tools](docs/phases/phase-7.md).
+[Phase 6 — Ember Depths](docs/phases/phase-6.md) · [Phase 7 — survival systems and 4D tools](docs/phases/phase-7.md) ·
+[Phase 8 — Hollow Void, Void Sovereign, advancements](docs/phases/phase-8.md).
 
 | Axis-aligned slice | 30° XW tilt | 45° XW + 45° ZW tilt |
 |---|---|---|
@@ -19,6 +20,8 @@ A 4D voxel survival sandbox for the browser. The world is made of tesseracts; yo
 | a village road, lamp post and houses | the same village, tilted through W | oblique cuts through 4D houses on stilts |
 | ![](docs/screenshots/phase-6/portal-1-axis-aligned.png) | ![](docs/screenshots/phase-6/portal-2-xw-30.png) | ![](docs/screenshots/phase-6/portal-3-xw45-zw45.png) |
 | a lit 4D portal (a 3D hyper-frame, normal along x) | tilted: the frame is cut obliquely | the membrane's 3D box cut by a doubly tilted slice |
+| ![](docs/screenshots/phase-8/void-1-axis-aligned.png) | ![](docs/screenshots/phase-8/void-2-xw-30.png) | ![](docs/screenshots/phase-8/void-3-xw45-zw45.png) |
+| the Hollow Void's central island under the aurora | tilted: an island is a 3-ball, its outline moves | doubly tilted: the island's cut changes shape again |
 
 ## Run it
 
@@ -39,7 +42,7 @@ particles unless `&particles=1`; used by tests).
 | Mouse or **arrow keys** | look |
 | **W A S D** | move in the slice |
 | **Q / E** | move **kata / ana** along the current hidden axis |
-| Space (double-tap in creative) | jump (toggle flying) |
+| Space (double-tap in creative) | jump (toggle flying); **in the air, falling, with Phase Wings on: glide** |
 | Shift / Ctrl (or R) | sneak / sprint |
 | **Z / X** | rotate the slice: right ↔ hidden |
 | **F / V** | rotate the slice: forward ↔ hidden |
@@ -51,6 +54,7 @@ particles unless `&particles=1`; used by tests).
 | RMB with a fishing rod / sleeping bag / axe / on a door or grave | cast and reel in / sleep at night / strip a log / open and close / take your things back |
 | Shift + RMB | with a W-Anchor: mark where you stand |
 | **Tab** or **I** | inventory, crafting and recipe book |
+| **L** | advancements |
 | **B** (Ctrl+B) | drop the held item (the whole stack) |
 | 1–9, wheel | hotbar |
 | F3 (or `) | debug overlay |
@@ -134,12 +138,26 @@ Down there the terrain fills the whole height, ledges and overhangs and floating
 the roof, with biomes that change as you climb: 25 of them, citadels you climb by walking through W, and the Magma Regent
 in its caldera on the lava sea. Its lava pillars erupt along W, so sidestep in your slice.
 
+**The Hollow Void**: find a Stronghold underground on the Surface (a held **Void Eye** points
+to the nearest, like an atlas) and fill the six frames around its Void Gate: one air cell with
+a frame on each of its six horizontal faces, two of them kata and ana of your slice. Eyes are
+phase dust plus hypercinder, so the Ember Depths come first. On the other side there is no sun
+and no sea: islands float in black space under an aurora. An island is a ball in (x, z, w), so
+its shore grows and shrinks as you tilt the slice. The central island holds the **Void
+Sovereign** and six Gateway Spires that carry you to far landing islands once it falls: its
+eight pylons stand in its slice and kata/ana of it, its lances come down along W, and it
+phase shifts off your slice where nothing can touch it. Out on the islands: Void Cities (towers
+linked by bridges along W only), Sky Vaults (every one holds **Phase Wings**, an elytra for 4D:
+rotate the slice mid-flight to bank through W), Starlight Gardens and Crystal Shrines. Void
+Walkers freeze only while you look at them in your own slice. Starlight armour grants **Phase
+Step**. Press **L** for the 61 advancements.
+
 **Beds**: craft one from 3 wool over 3 planks, or use one in a village house. Right click it at
 night (or in a thunderstorm) to sleep until morning. Any bed you use becomes your respawn
 point, by day too. Monsters within 8 blocks stop you from sleeping; the message says which one
 and where, even if it is kata or ana of your slice.
 
-**Structures and villages**: 32 structures generate on a 4D grid: villages in seven styles,
+**Structures and villages**: 43 structures generate on a 4D grid across the three realms: villages in seven styles,
 temples, dungeons, hypermines, vaults, shipwrecks, ruins and more. Villages are crosses of
 streets along ±X, ±Z and ±W, so walk kata/ana to see the rest. Right click a villager to trade
 (the currency is Verdant). Trading levels villagers up and unlocks better offers. Atlases point

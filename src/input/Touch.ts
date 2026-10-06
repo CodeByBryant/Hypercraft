@@ -30,6 +30,7 @@ interface Pt {
 export interface TouchHooks {
   onPause(): void;
   onInventory?(): void;
+  onAdvancements?(): void;
   onToggleFly?(): void;
   onToggleNightVision?(): void;
 }
@@ -116,6 +117,7 @@ export class TouchControls {
     // would let the tap's own click land on the screen that just opened.
     this.clickButton(top, '☰', 'pause', () => hooks.onPause());
     if (hooks.onInventory) this.clickButton(top, '🎒 Inv', 'inv', () => hooks.onInventory!());
+    if (hooks.onAdvancements) this.clickButton(top, '🏆', 'adv', () => hooks.onAdvancements!());
     this.flyBtn = this.button(top, 'Fly', 'fly', () => {
       hooks.onToggleFly?.();
       return false;

@@ -126,6 +126,7 @@ function startGame(info: WorldInfo, persistence: Persistence | null, settings: S
   const touch = new TouchControls(uiRoot, game.input, {
     onPause: () => pause(),
     onInventory: () => game.onOpenScreen?.({ kind: 'inventory' }),
+    onAdvancements: () => game.onOpenAdvancements?.(),
     onToggleFly: () => {
       if (game.player.mode === 'creative' || game.player.mode === 'spectator') game.player.flying = !game.player.flying;
     },

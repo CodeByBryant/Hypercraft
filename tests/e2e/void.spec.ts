@@ -56,6 +56,8 @@ test('void gate: six frames, six eyes, a gate and a trip to the Hollow Void', as
       atlas = hc.atlas();
     }
     const found = atlas?.target?.name ?? null;
+    // The HUD line follows the atlas by a frame or two.
+    for (let i = 0; i < 30 && /Reading/.test(hc.readout()); i++) await hc.frames(2);
     const readout = hc.readout();
     const states: string[] = [];
     for (const [dx, dz, dw] of faces) {
@@ -73,6 +75,17 @@ test('void gate: six frames, six eyes, a gate and a trip to the Hollow Void', as
   expect(r.states[5]).toBe('void_gate');
   expect(r.eyes).toBe(6);
   expect(r.left).toBe(0);
+  // R6-style look at the lit gate: a pit with six frames around it, two of them kata/ana of the view.
+  await page.evaluate(([x, y, z, w]) => {
+    const hc = window.__hc;
+    hc.setMode('spectator');
+    hc.setFlying(true);
+    hc.setView({ yaw: 0, pitch: -50 });
+    hc.teleport(x! + 0.5, y! + 4, z! - 3, w! + 0.5);
+  }, [r.x, r.y, r.z, r.w]);
+  await page.evaluate(() => window.__hc.idle(120_000));
+  await shot(page, 'void-0-gate-lit');
+  await page.evaluate(() => window.__hc.setMode('survival'));
 
   // Step in: the view swirls, then the game travels to the Hollow Void.
   const loaded = page.waitForEvent('load', { timeout: 180_000 });
@@ -443,7 +456,7 @@ test('phase wings: jump in the air to glide, steer through W, a rocket pushes, t
   test.setTimeout(600_000);
   const errors: string[] = [];
   await boot(page, 'res=180&rd=3&seed=voidwings&realm=void', errors);
-  const r = await page.evaluate(async () => {
+  const r1 = await page.evaluate(async () => {
     const hc = window.__hc;
     hc.setMode('survival');
     hc.setMobSpawning(false);
@@ -465,12 +478,20 @@ test('phase wings: jump in the air to glide, steer through W, a rocket pushes, t
     const opened = hc.glide();
     const p0 = hc.state().pos;
     await hc.frames(120);
-    const level = hc.glide();
+    return { falling, opened, level: hc.glide(), p0, p1: hc.state().pos };
+  });
+  await shot(page, 'void-10-glide');
+  const r2 = await page.evaluate(async () => {
+    const hc = window.__hc;
     const p1 = hc.state().pos;
     // Bank through W: rotate the slice 45 degrees toward w (the heading now leans into the fourth dimension).
     hc.setView({ yaw: 45, pitch: 0, xw: 45 });
     await hc.frames(120);
-    const p2 = hc.state().pos;
+    return { p1, p2: hc.state().pos };
+  });
+  await shot(page, 'void-11-glide-xw45');
+  const r3 = await page.evaluate(async () => {
+    const hc = window.__hc;
     // A rocket: a shove along the heading.
     hc.give('starlight_rocket', 2);
     hc.select(0);
@@ -478,9 +499,19 @@ test('phase wings: jump in the air to glide, steer through W, a rocket pushes, t
     const here = hc.state().pos;
     hc.useOn(Math.floor(here[0]!), Math.floor(here[1]!), Math.floor(here[2]!), Math.floor(here[3]!));
     await hc.frames(30);
-    const boosted = hc.glide();
-    return { falling, opened, level, dist: Math.hypot(p1[0]! - p0[0]!, p1[2]! - p0[2]!, p1[3]! - p0[3]!), dw1: p1[3]! - p0[3]!, dw2: p2[3]! - p1[3]!, before, boosted, alive: !hc.vitals().dead };
+    return { before, boosted: hc.glide(), alive: !hc.vitals().dead };
   });
+  const r = {
+    falling: r1.falling,
+    opened: r1.opened,
+    level: r1.level,
+    dist: Math.hypot(r1.p1[0]! - r1.p0[0]!, r1.p1[2]! - r1.p0[2]!, r1.p1[3]! - r1.p0[3]!),
+    dw1: r1.p1[3]! - r1.p0[3]!,
+    dw2: r2.p2[3]! - r2.p1[3]!,
+    before: r3.before,
+    boosted: r3.boosted,
+    alive: r3.alive,
+  };
   expect(r.falling.gliding).toBe(false);
   expect(r.falling.vy).toBeLessThan(-1.5);
   expect(r.opened.gliding).toBe(true);

@@ -1,5 +1,51 @@
 # Changelog
 
+## 0.8.0 — Phase 8: the Hollow Void, the Void Sovereign, Phase Wings, advancements (2026-10-06)
+
+### Added
+- **Realm C, the Hollow Void**: floating islands in black space under an aurora, with no sun, no
+  sea and nothing under the islands but the fall. Islands are balls in (x, z, w), so the shore
+  grows and shrinks as you tilt the slice or step kata and ana. Six biomes, 30 blocks, a
+  central island with an arrival platform and a return gate, and six landing islands 1024
+  blocks out on each horizontal axis.
+- **The way in.** A **Stronghold** lies under every 384-block cell of the Surface. Its **Void
+  Gate** is a single air cell with a frame on each of its six horizontal faces (±x, ±z and ±w:
+  two of them kata and ana of your slice). Six **Void Eyes** (phase dust + hypercinder, so the
+  Ember Depths come first) light it. A held Eye points at the nearest Stronghold like an atlas.
+- **Void mobs**: the Void Walker (frozen while you look at it, but only in your slice and within
+  about 26° of your view: from one kata or ana of you it moves whatever you do), the Whisper
+  Swarm, the Starlight Serpent and the Sky Vault Sentinel. Islands spawn their own mobs.
+- **Void structures**: Void City (towers joined by bridges that run along W only), Sky Vault
+  (every one holds a pair of Phase Wings, guarded by sentinels), Starlight Garden, Crystal
+  Shrine. A new `island` placement puts a structure on top of an island.
+- **The Void Sovereign** (`src/game/VoidBoss.ts`): wakes when you come within 32 blocks of
+  its throne. Eight pylons heal it, four in its slice and four kata and ana of it; three
+  phases with starlight fans, a **phase shift** off your slice along the hidden axis,
+  Whisper Swarms, void lances that come down along W (announced on the radar), and a light
+  drain. Nothing in the arena can be broken or placed while it lives. The world remembers its
+  fall: the exit gate opens and the six Gateway Spires light.
+- **Phase Wings** (chest slot): in the air, falling, press jump to glide. It is Minecraft's
+  elytra with "horizontal" meaning x, z **and** w, and your 4D view direction as the heading:
+  rotate the slice mid-flight to bank through W. Starlight Rockets give a shove along the
+  heading.
+- **The Starlight tier**: starlight ingots (smelted from shards) make the best tools and armour
+  yet. A full set gives **Phase Step**: the first blow every ten seconds passes through you
+  and you slip two blocks along W.
+- **Advancements v1** (key **L**): 61 goals in eight categories (Surface, Mining, Husbandry,
+  Combat, Magic, The Fourth Dimension, Ember Depths, Hollow Void), a tree per category, a toast
+  when you earn one and a little experience. Saved with the world. Everything is data in
+  `src/content/advancements.ts`; `docs/how-to/add-an-advancement.md` is the recipe.
+- Docs: `docs/phases/phase-8.md`, `docs/how-to/add-an-advancement.md`; the realm, structure and
+  mob how-tos and `docs/data-formats.md` cover the new fields (`voidSky`, `islandSpawns`, the
+  `island` placement, the `walker`, `sentinel` and `sovereign` AIs, `inflicts`, `wave`).
+
+### Changed
+- Every land biome of the Surface lists the Stronghold, so newly generated areas can hold one
+  (columns you already generated do not gain one).
+- On touch screens a 🏆 button next to the inventory opens the advancements screen (key **L** on
+  a keyboard). The touch e2e spec picks hotbar slots by `:not(.offhand)` again; since Phase 7
+  the off-hand slot is the hotbar's first child and the old selector hit the wrong slot.
+
 ## 0.7.1 — The livable world (2026-10-06)
 
 Playtest feedback after Phase 7: the world had grown wide without the basics that make it

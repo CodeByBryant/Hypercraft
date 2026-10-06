@@ -59,6 +59,7 @@ Here is what that means in practice:
   * `head`: bobs;
   * `wing`: flaps along y;
   * `tail`: sways along x;
+  * `wave`: undulates through x and w, so the body is an S in your slice (the Starlight Serpent);
   * `pulse`: a slimes' breathing role. It is only a tag for now.
 
   Add `phase` (radians) to offset limbs from each other. Exploders pulse through their own
@@ -80,6 +81,9 @@ Here is what that means in practice:
 | `swimmer` | Swims in water and chases you only while you are in water. |
 | `mimic` | Sits motionless in a block cell, like an ore, until you come within 3 blocks. |
 | `lurker` | Blind. It hunts the last loud noise: mining, sprinting, fighting, explosions. |
+| `walker` | The Void Walker. It **freezes while you watch it**: only when it is in your slice, in plain sight and within about 26° of your view direction (`src/game/mobs/gaze.ts`; one kata or ana of you it is never watched, however you turn). Unwatched and far it blinks next to you, then strikes. |
+| `sentinel` | Never moves. Dormant until woken: a vault chest opened nearby, a hit, or you coming within a few blocks. Then it fans three `projectile` shots at a time. |
+| `sovereign` | The Void Sovereign's movement: it hovers, steps through W after you and returns home if you leave. The fight itself (pylons, phases, lances) is `src/game/VoidBoss.ts`. |
 
 Other flags:
 
@@ -89,6 +93,7 @@ Other flags:
 | `fireproof` | Immune to lava. |
 | `lays: { item, every }` | Drops an item every few seconds (hyperchickens lay eggs). |
 | `scale: [min, max]` | Random size per spawned mob. |
+| `inflicts: { effect, seconds, amp? }` | A melee hit also puts this status effect on the player (Whisper Swarms slow you). |
 
 ## 2. Make it spawn: `src/content/biomes.ts`
 

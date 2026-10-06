@@ -1,6 +1,7 @@
 # How to add a realm
 
-The Surface and the Ember Depths (Phase 6) are the two realms so far. A realm is a data
+The Surface, the Ember Depths (Phase 6) and the Hollow Void (Phase 8) are the three realms so
+far. A realm is a data
 entry, a generator, biomes, and optionally structures, mobs and a portal link. The renderer,
 streaming, lighting and saves are realm-agnostic.
 
@@ -24,6 +25,8 @@ streaming, lighting and saves are realm-agnostic.
 | `coordinateScale` | the portal link: one block here is `coordinateScale` Surface blocks along x, z **and** w (y is not scaled) |
 | `waterEvaporates`, `bedsExplode` | Nether-style rules |
 | `cavernSpawns` | mobs spawn on any cavern floor above the sea, whatever the light, instead of under the sky |
+| `voidSky` | an open black sky with stars and aurora curtains, no sun, moon, clouds or weather (the Hollow Void; `Environment`, `uAurora` in the ray marcher) |
+| `islandSpawns` | hostile mobs spawn on any island top, whatever the light (there is no day) |
 
 ## 2. The generator (`src/world/gen/`)
 
@@ -40,6 +43,12 @@ Implement `WorldGenerator` (`generators.ts`) and register it in `GENERATORS`:
 * `nearestStructure(...)` (optional) serves atlases; `caveBiomeAt(...)` (optional) serves cave
   biomes, and in enclosed realms the 3D biome at any position (fog, particles, mob spawns, F3);
   `surfaces(...)` (optional) lists every surface of a column with its biome (`findBiome`).
+
+A realm of floating islands (`src/world/gen/VoidGen.ts`) keeps exactly one island layer per
+(x, z, w) column: islands are 3-balls in those three axes, so each column has one top height,
+one biome and an underside. Everything that asks for a column's height (`sample`, spawning,
+structures, atlases) then works unchanged. A single shape function serves `generate()`,
+`sample()` and the structure host, and the unit tests compare them block by block.
 
 To get structures, construct a `StructureGen(this)`. The generator must satisfy
 `StructureTerrain` (`structures/Placement.ts`): `seed`, `height`, `sea`, `realm`, `garden`
@@ -82,10 +91,20 @@ How a trip works:
    portal of that realm (within 128 blocks on the Surface, 16 in the Ember Depths), or builds
    a new one on free ground nearby.
 
+## 4b. Realms without portals
+
+Not every link is a portal. The Hollow Void is reached through a **Void Gate** in a Stronghold
+(`src/game/VoidGate.ts`: a pure check of six frames and Eyes around one air cell). Lighting it
+makes the cell a `void_gate`; stepping in calls `Game.beginTravel('void', ARRIVAL_POS, { kind:
+'void' })`, and a return gate on the arrival platform brings you to your Surface respawn point
+(`{ kind: 'respawn' }`). Within the realm, Gateway Spires (`gatewayAt` in `src/content/void.ts`,
+a pure function) teleport between islands without a reload. To add such a link, add an `Arrival`
+kind in `Game.arrive()` and decide where the player stands.
+
 ## 5. Test it
 
-* Unit: see `tests/unit/ember.test.ts`. It checks determinism, that every biome is reachable,
+* Unit: see `tests/unit/ember.test.ts` and `tests/unit/void.test.ts`. It checks determinism, that every biome is reachable,
   bedrock and the sea, structures within their radius, and mob definitions.
 * E2E: `?test=1&realm=<name>` boots a test world straight into the realm. `__hc.findBiome(n)`,
-  `__hc.locate([...])` and `__hc.travel(x, y, z, w)` get you anywhere. `tests/e2e/ember.spec.ts`
-  and `portal.spec.ts` are the examples.
+  `__hc.locate([...])` and `__hc.travel(x, y, z, w)` get you anywhere. `tests/e2e/ember.spec.ts`,
+  `portal.spec.ts` and `void.spec.ts` are the examples.

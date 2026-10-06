@@ -3,8 +3,8 @@ import { mkdirSync } from 'node:fs';
 import { boot } from './util';
 
 // Touch controls on a phone-sized screen (landscape), driven with real touch events:
-// hotbar taps, closing the inventory and crafting screens with the ✕ button, tapping a mob to
-// hit it, tap-to-place, and long-press mining under the finger.
+// hotbar taps, closing the inventory, advancements and crafting screens with the ✕ button,
+// tapping a mob to hit it, tap-to-place, and long-press mining under the finger.
 
 test.use({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true, deviceScaleFactor: 1 });
 
@@ -51,9 +51,11 @@ test('touch: hotbar, closing screens, tap to hit and place, long-press mining', 
   const hc = () => page.evaluate(() => (window.__hc as unknown as { game: { hotbarIndex: number } }).game.hotbarIndex);
 
   // Hotbar: tapping a slot selects it (the touch layer used to swallow these taps).
-  await page.tap('.hotbar .slot:nth-child(4)');
+  // (The off-hand slot is the first child of the hotbar, so count the main slots only.)
+  const slot = (n: number) => page.locator('.hotbar .slot:not(.offhand)').nth(n);
+  await slot(3).tap();
   await expect.poll(hc).toBe(3);
-  await page.tap('.hotbar .slot:nth-child(7)');
+  await slot(6).tap();
   await expect.poll(hc).toBe(6);
   await shot(page, 'touch-hud');
 
@@ -70,6 +72,13 @@ test('touch: hotbar, closing screens, tap to hit and place, long-press mining', 
   await shot(page, 'touch-inventory');
   await page.tap('.inv-close');
   await expect.poll(() => page.evaluate(() => window.__hc.screenOpen())).toBe(false);
+  await expect(page.locator('.touch')).toBeVisible();
+
+  // Advancements: the 🏆 button opens the list, × closes it.
+  await page.tap('.tbtn.adv');
+  await expect(page.locator('.adv-screen.open')).toBeVisible();
+  await page.tap('.adv-close');
+  await expect(page.locator('.adv-screen.open')).toHaveCount(0);
   await expect(page.locator('.touch')).toBeVisible();
 
   // Crafting table: place one ahead, tap it to open, ✕ to close.
