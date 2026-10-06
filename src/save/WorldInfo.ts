@@ -37,6 +37,8 @@ export interface WorldInfo {
   mode: SavedGameMode;
   difficulty: Difficulty;
   hardcore: boolean;
+  /** Keep your inventory and experience when you die (no grave). */
+  keepInventory?: boolean;
   cheats: boolean;
   created: number;
   lastPlayed: number;

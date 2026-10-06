@@ -168,6 +168,7 @@ export class Menus {
     ) as HTMLSelectElement;
     const hardcore = h('input', { type: 'checkbox' }) as HTMLInputElement;
     const cheats = h('input', { type: 'checkbox', checked: true }) as HTMLInputElement;
+    const keepInv = h('input', { type: 'checkbox' }) as HTMLInputElement;
     const preview = h('span', { class: 'dim' });
     const updatePreview = () => {
       const t = seed.value.trim();
@@ -207,6 +208,7 @@ export class Menus {
       h('div', { class: 'label' }, 'Seed ideas', ideas),
       h('div', { class: 'row' }, h('label', {}, 'Game mode', mode), h('label', {}, 'Difficulty', diff)),
       h('div', { class: 'row' }, h('label', { class: 'check' }, hardcore, 'Hardcore (one life)'), h('label', { class: 'check' }, cheats, 'Allow cheats (G/T/Y keys)')),
+      h('div', { class: 'row' }, h('label', { class: 'check' }, keepInv, 'Keep inventory when you die (no grave)')),
       h('div', { class: 'row' },
         h('button', {
           class: 'primary',
@@ -220,6 +222,7 @@ export class Menus {
               mode: (hardcore.checked ? 'survival' : mode.value) as SavedGameMode,
               difficulty: (hardcore.checked ? 'hard' : diff.value) as Difficulty,
               hardcore: hardcore.checked,
+              keepInventory: keepInv.checked && !hardcore.checked,
               cheats: cheats.checked && !hardcore.checked,
               created: Date.now(),
               lastPlayed: Date.now(),

@@ -54,7 +54,14 @@ export interface BrewingData {
   brew: number;
 }
 
-export type BlockEntityData = ChestData | FurnaceData | SpawnerData | BrewingData;
+/** A grave: the whole inventory (slot for slot) and the experience of someone who died. */
+export interface GraveData {
+  type: 'grave';
+  slots: (SavedStack | null)[];
+  xp: number;
+}
+
+export type BlockEntityData = ChestData | FurnaceData | SpawnerData | BrewingData | GraveData;
 
 /** Can a brewing stand brew these three bottles with this ingredient? */
 export function brewable(slots: (SavedStack | null)[]): boolean {
@@ -89,6 +96,9 @@ export class BlockEntities {
   private readonly spawners = new Map<string, [number, number, number, number]>();
   private readonly spawnerId: number;
   private readonly brewingId: number;
+  private readonly graveId: number;
+  /** A broken grave's experience: set by the game (orbs at the grave). */
+  onGraveXp: ((x: number, y: number, z: number, w: number, points: number) => void) | null = null;
   /** Loaded mob spawners (F3, tests). */
   get spawnerCount(): number {
     return this.spawners.size;
@@ -108,6 +118,7 @@ export class BlockEntities {
     this.chestId = REG.id('chest');
     this.spawnerId = REG.id('mob_spawner');
     this.brewingId = REG.id('brewing_stand');
+    this.graveId = REG.id('grave');
     for (const [kind, unlit, lit] of [
       ['furnace', 'furnace', 'lit_furnace'],
       ['blast_furnace', 'blast_furnace', 'lit_blast_furnace'],
@@ -117,6 +128,33 @@ export class BlockEntities {
       this.furnaceBlocks.set(u, { kind, lit: false, swap: l });
       this.furnaceBlocks.set(l, { kind, lit: true, swap: u });
     }
+  }
+
+  isGrave(id: number): boolean {
+    return id === this.graveId;
+  }
+
+  /** Put a grave at a cell holding `slots` and `xp` (the cell must be free). */
+  placeGrave(x: number, y: number, z: number, w: number, slots: (SavedStack | null)[], xp: number): boolean {
+    if (!this.world.setBlock(x, y, z, w, this.graveId)) return false;
+    const col = this.col(x, z, w);
+    if (!col) return false;
+    this.map(col)[this.localKey(x, y, z, w)] = { type: 'grave', slots, xp };
+    this.touch(col);
+    return true;
+  }
+
+  /** Take what a grave holds (and forget it); the block stays for the caller to remove. */
+  takeGrave(x: number, y: number, z: number, w: number): GraveData | null {
+    const col = this.col(x, z, w);
+    if (!col) return null;
+    const m = this.map(col);
+    const k = this.localKey(x, y, z, w);
+    const d = m[k];
+    if (!d || d.type !== 'grave') return null;
+    delete m[k];
+    this.touch(col);
+    return d;
   }
 
   /** Does this block id carry an entity? */
@@ -187,6 +225,18 @@ export class BlockEntities {
         this.touch(col);
       }
       return [];
+    }
+    if (o === this.graveId && n !== o) {
+      // A broken grave spills everything it held (and its experience).
+      const g = this.takeGrave(x, y, z, w);
+      if (!g) return [];
+      if (g.xp > 0) this.onGraveXp?.(x + 0.5, y + 0.5, z + 0.5, w + 0.5, g.xp);
+      const out: ItemStack[] = [];
+      for (const s of g.slots) {
+        const st = loadStack(s);
+        if (st) out.push(st);
+      }
+      return out;
     }
     if (n !== o && (this.furnaceBlocks.has(n) || n === this.brewingId)) this.active.set(`${x},${y},${z},${w}`, [x, y, z, w]);
     if (!this.hasEntity(o) || this.hasEntity(n)) return [];

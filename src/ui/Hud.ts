@@ -96,6 +96,7 @@ export class Hud {
   private lastXp = '';
   private lastEffects = '';
   private readonly threat: HTMLDivElement;
+  private readonly graveHint: HTMLDivElement;
   private readonly hitL: HTMLDivElement;
   private readonly hitR: HTMLDivElement;
   private lastHealth = -1;
@@ -118,6 +119,7 @@ export class Hud {
     this.debug = el('pre', 'debug', this.root);
     this.debug.style.display = 'none';
     this.threat = el('div', 'threat', this.root);
+    this.graveHint = el('div', 'grave-hint', this.root);
     this.vitalsBox = el('div', 'vitals', this.root);
     // Left column: golden hearts, armour, hearts; right column: air, hunger (Minecraft's layout).
     const left = el('div', 'vcol', this.vitalsBox);
@@ -341,6 +343,7 @@ export class Hud {
     this.slowTimer = 0.1;
     this.updateVitals();
     this.updateThreat();
+    this.updateGrave();
     this.updateCompass();
     this.updateRadar();
     const p = g.player;
@@ -448,6 +451,17 @@ export class Hud {
           ctx.fillRect(x0 + x, y, 1, 1);
         }
       }
+    }
+  }
+
+  /** Where your grave is, after a death. */
+  private updateGrave(): void {
+    const g = this.game;
+    const m = g.player.mode;
+    const text = (m === 'survival' || m === 'adventure') && !g.vitals.dead ? g.graveHint() ?? '' : '';
+    if (this.graveHint.textContent !== text) {
+      this.graveHint.textContent = text;
+      this.graveHint.style.display = text ? 'block' : 'none';
     }
   }
 

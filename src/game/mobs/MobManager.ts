@@ -57,7 +57,7 @@ export const ENTITY_TEX_W = 256;
 export const ENTITY_TEX_H = Math.ceil((PART_BASE + MAX_GPU_MOBS * MAX_MOB_PARTS * PART_TEXELS) / ENTITY_TEX_W);
 
 const MAX_MOBS = 96;
-const CAP_HOSTILE = 14;
+const CAP_HOSTILE = 10;
 const CAP_PASSIVE = 28;
 /** Share of land columns that arrive with a herd of animals standing in them. */
 const HERD_CHANCE = 0.2;
@@ -70,6 +70,8 @@ export interface MobHost {
   playerTargetable: boolean;
   playerInWater: boolean;
   daylight: number;
+  /** Days survived (the first night is gentler: no ana stalkers). */
+  day?: number;
   /** 0 peaceful, 1 easy, 2 normal, 3 hard. */
   difficulty: number;
   dropItem(x: number, y: number, z: number, w: number, st: ItemStack): void;
@@ -375,8 +377,10 @@ export class MobManager {
     for (let attempt = 0; attempt < 8; attempt++) {
       // Half the attempts land in the player's slice (so there is something to see), the rest
       // anywhere on a 4D shell around the player (mobs live kata and ana of you too).
-      const inSlice = attempt % 2 === 0;
-      const d = inSlice ? 12 + Math.random() * 24 : 14 + Math.random() * 30;
+      // (0.7.1: a third of the attempts, not half, and never closer than 24 blocks, so a night
+      // is something you see coming instead of a pack that appears next to you.)
+      const inSlice = attempt % 3 === 0;
+      const d = inSlice ? 24 + Math.random() * 18 : 24 + Math.random() * 30;
       randomHorizontal(dir, inSlice ? H : null);
       const x = Math.floor(p[0]! + d * dir[0]!), z = Math.floor(p[2]! + d * dir[2]!), w = Math.floor(p[3]! + d * dir[3]!);
       const biome = biomeAt(x, z, w);
@@ -413,7 +417,7 @@ export class MobManager {
           if (top !== 0 && REG.collision[top] !== COLLISION_NONE) continue;
           if (REG.collision[below] === COLLISION_NONE) continue;
           const light = this.world.getLight(x, y, z, w);
-          const dark = (light & 15) < 1 && ((light >> 4) / 15) * h.daylight < 0.45;
+          const dark = (light & 15) < 1 && ((light >> 4) / 15) * h.daylight < 0.3;
           table = dark ? biome.mobs.night : biome.mobs.day;
         }
       }
@@ -421,6 +425,7 @@ export class MobManager {
       const pick = this.weighted(table);
       const cm = MOB_REG.get(pick.mob);
       if (cm.def.hostile && (h.difficulty === 0 || hostile >= CAP_HOSTILE)) continue;
+      if (cm.def.ai === 'stalker' && (h.day ?? 99) < 1) continue;
       if (!cm.def.hostile && passive >= CAP_PASSIVE) continue;
       const n = pick.group ? pick.group[0] + Math.floor(Math.random() * (pick.group[1] - pick.group[0] + 1)) : 1;
       for (let k = 0; k < n; k++) {

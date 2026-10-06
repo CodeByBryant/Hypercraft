@@ -23,6 +23,9 @@ export interface Hc {
   fishing(): null | { t: number; biteAt: number; bite: number; pos: number[] };
   fishBite(): void;
   herdMobs(): string[];
+  graves(): { realm: string; pos: number[] }[];
+  graveHint(): string | null;
+  setKeepInventory(on: boolean): void;
   skyHeight(x: number, z: number, w: number): number;
   setTime(t: number): void;
   setWeather(w: string): void;

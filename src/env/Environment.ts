@@ -1,7 +1,7 @@
 // Day/night cycle, moon phases, weather and biome-tinted sky/fog.
 //
-// Time runs in ticks (20 per second, 24000 per day: 0 sunrise, 6000 noon, 12000 sunset,
-// 18000 midnight). The sun is a 4D direction whose orbit plane is tilted slightly out of
+// Time runs in ticks (20 per second, 24000 per day = 20 minutes: 0 sunrise, 6000 noon,
+// ~13900 sunset, ~19000 midnight; the sun is up 58% of the day, see DAY_FRACTION). The sun is a 4D direction whose orbit plane is tilted slightly out of
 // the XY plane into Z and W, so how much of it is visible depends on the slice orientation
 // (see the sky notes in docs/rendering-4d.md).
 
@@ -9,6 +9,16 @@ import { Rng } from '../math/rng';
 import { hexToRgb } from '../content/registry';
 import type { BiomeDef, RealmDef, WeatherKind } from '../content/types';
 import type { SkyState } from '../render/Renderer';
+
+/**
+ * The day is Minecraft-shaped: the sun is up for 58% of the 20 minutes (about 10 minutes of
+ * full light, then dusk), then the night. 0.58 of a day is where the sun sets.
+ */
+export const DAY_FRACTION = 0.58;
+/** Sun angle (0 sunrise, pi sunset, 2 pi the next sunrise) for a fraction of the day. */
+export function sunAngle(tod: number): number {
+  return tod < DAY_FRACTION ? (Math.PI * tod) / DAY_FRACTION : Math.PI + (Math.PI * (tod - DAY_FRACTION)) / (1 - DAY_FRACTION);
+}
 
 export const TICKS_PER_DAY = 24000;
 
@@ -185,7 +195,7 @@ export class Environment {
 
     // Sun and moon (4D directions).
     const tod = this.timeOfDay / TICKS_PER_DAY;
-    const ang = tod * Math.PI * 2;
+    const ang = sunAngle(tod);
     const sd = s.sunDir;
     sd[0] = Math.cos(ang);
     sd[1] = Math.sin(ang);

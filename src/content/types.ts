@@ -441,7 +441,8 @@ export type ItemUse =
   | 'dagger'
   | 'crossbow'
   // Playtest QOL.
-  | 'fishing';
+  | 'fishing'
+  | 'sleeping_bag';
 
 /** Melee weapons beyond the tool kinds (Phase 7.7): spears, the 4D Whip. */
 export interface WeaponDef {

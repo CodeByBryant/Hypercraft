@@ -6,7 +6,7 @@
 
 import { REG, makeVoxel, voxelId, voxelMeta, hexToRgb, FLUID_LAVA, VARIANT_HORIZONTAL6, VARIANT_VERTICAL2, VARIANT_DOOR, FLUID_WATER, FACING_AXES, FACING_SIGNS } from '../content/registry';
 import { Particles } from '../env/Particles';
-import { Environment, TICKS_PER_DAY } from '../env/Environment';
+import { Environment, TICKS_PER_DAY, DAY_FRACTION } from '../env/Environment';
 import { Input } from '../input/Input';
 import { Player, type MoveInput } from '../physics/Player';
 import { Renderer, type RenderParams } from '../render/Renderer';
@@ -26,7 +26,7 @@ import { Inventory, HOTBAR_SIZE } from './items/Inventory';
 import { ItemEntities } from './items/ItemEntities';
 import { BlockEntities } from './items/BlockEntities';
 import { breakInfo, canHarvest, rollDrops, wearFor } from './items/Mining';
-import { countIn, enchLevel, removeFrom, withCount, type ItemStack } from './items/ItemStack';
+import { countIn, enchLevel, loadStack, removeFrom, stackOf, withCount, type ItemStack } from './items/ItemStack';
 import { LOVE_TIME, MobManager, type Mob, type MobHost } from './mobs/MobManager';
 import { Projectiles, type ProjectileHost } from './mobs/Projectiles';
 import { MAX_AIR, MAX_HEALTH, Vitals } from './Vitals';
@@ -61,6 +61,7 @@ import { THROWN, ANCHOR_COOLDOWN, ROPE_SPEED } from '../content/tools4d';
 import { anaSheetCells } from './Tools4D';
 import { DOOR_OTHER, DOOR_PART, STRIP_ID, doorPartner, isDoor, toggledDoor } from './WoodBlocks';
 import { LOOT } from '../content/lootRegistry';
+import { MAX_GRAVES, STARTER_KIT } from '../content/survival';
 import type { Container } from './items/ItemStack';
 import { XpOrbs } from './XpOrbs';
 import { Vision4D } from './Vision4D';
@@ -160,8 +161,8 @@ const REACH_ATTACK = [3.5, 5];
 /** How far an atlas looks for structures (blocks, 4D distance in x, z, w). */
 export const ATLAS_RANGE = 1600;
 /** Beds work from dusk to just before dawn (Minecraft: ticks 12542..23459 of its day). */
-const SLEEP_FROM = 12500;
-const SLEEP_UNTIL = 23450;
+const SLEEP_FROM = Math.round(DAY_FRACTION * TICKS_PER_DAY) + 300;
+const SLEEP_UNTIL = TICKS_PER_DAY - 400;
 /** Seconds to fall asleep (the screen fades out) and to wake up once the night has passed. */
 const SLEEP_FADE = 2.2;
 const WAKE_FADE = 1.3;
@@ -306,6 +307,10 @@ export class Game {
   private readonly ropeFrom = new Float64Array(4);
   /** W-Anchor recall cooldown (seconds). */
   anchorCd = 0;
+  /** Graves you left (newest last), by realm: where your things wait after a death. */
+  graves: { realm: string; pos: [number, number, number, number] }[] = [];
+  /** The last cell you stood on safely (a grave goes there after a fall into the void or lava). */
+  private lastSafe: [number, number, number, number] | null = null;
   /** A cast fishing line: the bobber's water cell, seconds waiting, when it bites, the bite window left. */
   fishing: { pos: [number, number, number, number]; t: number; biteAt: number; bite: number } | null = null;
   /** Crossbow: loaded, waiting for the use button to be let go. */
@@ -443,6 +448,7 @@ export class Game {
       this.scaler.fixedHeight = opts.settings.resolution;
     }
     this.blockEntities = new BlockEntities(this.world);
+    this.blockEntities.onGraveXp = (x, y, z, w, pts) => this.orbs.spawn(x, y, z, w, pts);
 
     this.fire = new FireSystem({
       world: this.world,
@@ -474,6 +480,10 @@ export class Game {
       // Breaking a chest or furnace spills its contents.
       const spill = this.blockEntities.onBlockChanged(x, y, z, w, o, n);
       for (const st of spill) this.dropAtCell(x, y, z, w, st);
+      if (this.blockEntities.isGrave(o & 0xfff) && !this.blockEntities.isGrave(n & 0xfff)) {
+        const gi = this.graves.findIndex((q) => q.realm === this.world.realm.name && q.pos[0] === x && q.pos[1] === y && q.pos[2] === z && q.pos[3] === w);
+        if (gi >= 0) this.graves.splice(gi, 1);
+      }
     });
     this.world.columnAdded = (c) => {
       this.renderer.gpu.onColumnAdded(c);
@@ -523,6 +533,9 @@ export class Game {
     const game = this;
     this.mobHost = {
       world: this.world,
+      get day() {
+        return game.env.day;
+      },
       playerPos: this.player.pos,
       playerHidden: this.player.cam.H,
       get playerTargetable() {
@@ -627,6 +640,10 @@ export class Game {
     this.particles.density = particleDensity(opts.settings);
     this.env.setTime(1500);
     if (opts.world.state) this.restore(opts.world.state);
+    else if (!opts.test && !this.demo && opts.world.mode === 'survival') {
+      // A new survival world starts with the means to get through the first night.
+      for (const [name, n] of STARTER_KIT) if (IREG.has(name)) this.inv.add(stackOf(name, n));
+    }
     else if (this.player.mode === 'creative') this.giveKit();
     if (this.demo) {
       this.player.mode = 'spectator';
@@ -682,6 +699,7 @@ export class Game {
     if (Array.isArray(bed) && bed.length === 4 && bed.every((v) => Number.isInteger(v))) this.bed = bed as [number, number, number, number];
     const wd = st.data ?? {};
     if (Array.isArray(wd.portals)) this.portals = wd.portals as PortalRecord[];
+    if (Array.isArray(wd.graves)) this.graves = (wd.graves as Game['graves']).filter((g) => typeof g.realm === 'string' && Array.isArray(g.pos) && g.pos.length === 4).slice(-MAX_GRAVES);
     if (wd.arrival && typeof wd.arrival === 'object') {
       this.arrival = wd.arrival as Arrival;
       delete wd.arrival;
@@ -711,7 +729,7 @@ export class Game {
     const away = dead && this.world.realm.name !== 'surface';
     return {
       realm: away ? 'surface' : this.world.realm.name,
-      data: away ? { portals: this.portals, arrival: { kind: 'respawn' } } : { portals: this.portals },
+      data: away ? { portals: this.portals, graves: this.graves, arrival: { kind: 'respawn' } } : { portals: this.portals, graves: this.graves },
       player: {
         pos: dead ? (away ? this.surfaceRespawnPoint() : this.respawnPoint()) : Array.from(p.pos),
         F: Array.from(p.cam.F),
@@ -726,7 +744,7 @@ export class Game {
           bed: this.bed,
           nightVision: this.nightVision,
           hunger: dead ? { food: MAX_FOOD, sat: 5, exh: 0 } : this.hunger.save(),
-          xp: dead ? 0 : this.xp.save(),
+          xp: dead && !this.info.keepInventory ? 0 : this.xp.save(),
           effects: dead ? [] : this.effects.save(),
           absorption: dead ? 0 : this.vitals.absorption,
           enchSeed: this.enchSeed,
@@ -1577,32 +1595,70 @@ export class Game {
     const b = this.bed;
     const moved = !b || b[0] !== x || b[1] !== y || b[2] !== z || b[3] !== w;
     this.bed = [x, y, z, w];
-    const tod = this.env.timeOfDay;
-    const storm = this.env.weather === 'thunder' || this.env.weather === 'phase_storm';
-    if ((tod < SLEEP_FROM || tod > SLEEP_UNTIL) && !storm) {
+    if (!this.isSleepTime()) {
       say(moved ? 'Respawn point set · you can only sleep at night or in a thunderstorm' : 'You can only sleep at night or in a thunderstorm');
       return false;
     }
-    const p = this.player;
-    if (p.mode === 'survival' || p.mode === 'adventure') {
-      const c = [x + 0.5, y + 0.5, z + 0.5, w + 0.5];
-      for (const m of this.mobs.list) {
-        if (!m.def.hostile) continue;
-        // Minecraft's rule: 8 blocks horizontally (here x, z and w) and 5 vertically.
-        const dx = m.pos[0]! - c[0]!, dz = m.pos[2]! - c[2]!, dw = m.pos[3]! - c[3]!;
-        if (dx * dx + dz * dz + dw * dw > 64 || Math.abs(m.pos[1]! - c[1]!) > 5) continue;
-        let dh = 0;
-        for (let k = 0; k < 4; k++) dh += (m.pos[k]! - this.eyePos[k]!) * p.cam.H[k]!;
-        const where = Math.abs(dh) < 0.5 ? 'in your slice' : `${Math.round(Math.abs(dh))} m ${dh > 0 ? 'ana' : 'kata'} of your slice`;
-        say(`You may not rest now: a ${m.def.displayName} is nearby (${where})`);
-        return false;
-      }
+    const blocked = this.sleepBlockedBy(x + 0.5, y + 0.5, z + 0.5, w + 0.5);
+    if (blocked) {
+      say(blocked);
+      return false;
     }
     this.sleeping = { t: 0, skipped: false };
     this.resetMining();
     this.bowDraw = 0;
     if (moved) say('Respawn point set');
     return true;
+  }
+
+  private isSleepTime(): boolean {
+    const tod = this.env.timeOfDay;
+    const storm = this.env.weather === 'thunder' || this.env.weather === 'phase_storm';
+    return (tod >= SLEEP_FROM && tod <= SLEEP_UNTIL) || storm;
+  }
+
+  /** A hostile mob close to a place to rest (Minecraft's rule: 8 blocks around, 5 up and down), as a message. */
+  private sleepBlockedBy(cx: number, cy: number, cz: number, cw: number): string | null {
+    const p = this.player;
+    if (p.mode !== 'survival' && p.mode !== 'adventure') return null;
+    for (const m of this.mobs.list) {
+      if (!m.def.hostile) continue;
+      const dx = m.pos[0]! - cx, dz = m.pos[2]! - cz, dw = m.pos[3]! - cw;
+      if (dx * dx + dz * dz + dw * dw > 64 || Math.abs(m.pos[1]! - cy) > 5) continue;
+      let dh = 0;
+      for (let k = 0; k < 4; k++) dh += (m.pos[k]! - this.eyePos[k]!) * p.cam.H[k]!;
+      const where = Math.abs(dh) < 0.5 ? 'in your slice' : `${Math.round(Math.abs(dh))} m ${dh > 0 ? 'ana' : 'kata'} of your slice`;
+      return `You may not rest now: a ${m.def.displayName} is nearby (${where})`;
+    }
+    return null;
+  }
+
+  /** Sleeping bag: sleep right here through the night (it does not set your respawn point). */
+  private useSleepingBag(held: ItemStack): void {
+    if (this.world.realm.bedsExplode) {
+      this.message?.('You cannot sleep in this realm');
+      return;
+    }
+    if (!this.world.realm.dayCycle) {
+      this.message?.('You can’t sleep here: this realm has no nights');
+      return;
+    }
+    if (!this.isSleepTime()) {
+      this.message?.('You can only sleep at night or in a thunderstorm');
+      return;
+    }
+    const p = this.player.pos;
+    const blocked = this.sleepBlockedBy(p[0]!, p[1]!, p[2]!, p[3]!);
+    if (blocked) {
+      this.message?.(blocked);
+      return;
+    }
+    this.sleeping = { t: 0, skipped: false };
+    this.resetMining();
+    this.bowDraw = 0;
+    this.message?.('You curl up in the sleeping bag');
+    if (this.player.mode === 'survival') this.wearHeld(1);
+    void held;
   }
 
   /** 0..1 darkness of the sleep fade (the HUD draws it). */
@@ -2252,7 +2308,7 @@ export class Game {
     if (!s.skipped && s.t >= SLEEP_FADE) {
       s.skipped = true;
       const tod = this.env.timeOfDay;
-      if (tod >= TICKS_PER_DAY / 2) this.env.ticks += TICKS_PER_DAY - tod;
+      if (tod >= DAY_FRACTION * TICKS_PER_DAY) this.env.ticks += TICKS_PER_DAY - tod;
       if (this.env.weather !== 'clear') this.env.setWeather('clear', false);
       this.message?.(`Good morning! Day ${this.env.day + 1}`);
     }
@@ -2893,27 +2949,125 @@ export class Game {
     } else if (!vulnerable) this.effects.tick(dt);
     for (let k = 0; k < 4; k++) this.lastPos[k] = p.pos[k]!;
     this.wasOnGround = p.onGround;
+    if (p.onGround && !p.inWater && !p.inLava && !v.dead && this.loaded) this.lastSafe = [Math.floor(p.pos[0]!), Math.floor(p.pos[1]!), Math.floor(p.pos[2]!), Math.floor(p.pos[3]!)];
     if (v.dead && !this.deathHandled) {
       this.deathHandled = true;
       this.bowDraw = 0;
       this.resetMining();
-      // Spill the inventory where you fell.
       const x = Math.floor(p.pos[0]!), y = Math.floor(p.pos[1]! + 0.5), z = Math.floor(p.pos[2]!), w = Math.floor(p.pos[3]!);
-      for (let i = 0; i < this.inv.size; i++) {
-        const s = this.inv.get(i);
-        if (!s) continue;
-        this.inv.set(i, null);
-        if (enchLevel(s, 'curse_of_vanishing') > 0) continue; // gone
-        this.dropAtCell(x, y, z, w, s);
+      if (this.info.keepInventory && !this.info.hardcore) {
+        // Keep inventory: you keep your things and your experience.
+        this.message?.('You kept your inventory');
+      } else {
+        this.leaveGrave(x, y, z, w);
+        this.xp.clear();
       }
-      // Some of your experience spills too (7 per level, at most 100); the rest is lost.
-      const keep = this.xp.deathDrop();
-      if (keep > 0) this.orbs.spawn(x + 0.5, y + 0.5, z + 0.5, w + 0.5, keep);
-      this.xp.clear();
       this.effects.clear();
       this.using = null;
       this.onDeath?.(v.deathCause);
     }
+  }
+
+  /**
+   * Death: everything you carried goes into a grave where you fell (or, falling into lava or
+   * the void, where you last stood safely), with some of your experience; a pointer on the
+   * HUD leads back to it. With no room for a grave, things spill like they used to.
+   */
+  private leaveGrave(x: number, y: number, z: number, w: number): void {
+    const slots = this.inv.save().map((st, i) => {
+      const s = this.inv.get(i);
+      return s && enchLevel(s, 'curse_of_vanishing') > 0 ? null : st; // gone with the curse
+    });
+    const xp = this.xp.deathDrop();
+    const spot = this.graveSpot(x, y, z, w) ?? (this.lastSafe ? this.graveSpot(...this.lastSafe) : null);
+    this.inv.clear();
+    if (!spot) {
+      for (const st of slots) {
+        const s = loadStack(st);
+        if (s) this.dropAtCell(x, y, z, w, s);
+      }
+      if (xp > 0) this.orbs.spawn(x + 0.5, y + 0.5, z + 0.5, w + 0.5, xp);
+      return;
+    }
+    this.blockEntities.placeGrave(spot[0], spot[1], spot[2], spot[3], slots, xp);
+    this.graves.push({ realm: this.world.realm.name, pos: spot });
+    while (this.graves.length > MAX_GRAVES) this.graves.shift();
+    this.message?.(`Your things are in a grave at ${spot[0]}, ${spot[1]}, ${spot[2]}, ${spot[3]}`);
+  }
+
+  /** A free cell on solid ground near (x, y, z, w) for a grave, or null. */
+  private graveSpot(x: number, y: number, z: number, w: number): [number, number, number, number] | null {
+    let best: [number, number, number, number] | null = null, bd = 1e9;
+    for (let dw = -4; dw <= 4; dw++)
+      for (let dz = -4; dz <= 4; dz++)
+        for (let dx = -4; dx <= 4; dx++)
+          for (let dy = -3; dy <= 3; dy++) {
+            const d = dx * dx + dz * dz + dw * dw + dy * dy * 2;
+            if (d >= bd) continue;
+            const cur = this.world.getBlock(x + dx, y + dy, z + dz, w + dw);
+            if (cur === VOID_VOXEL) continue;
+            const id = cur & 0xfff;
+            if ((id !== 0 && !REG.replaceable[id]) || REG.fluid[id] !== 0) continue;
+            const below = this.world.getBlock(x + dx, y + dy - 1, z + dz, w + dw);
+            if (below === VOID_VOXEL || !REG.solid[below & 0xfff] || REG.fluid[below & 0xfff] !== 0) continue;
+            bd = d;
+            best = [x + dx, y + dy, z + dz, w + dw];
+          }
+    return best;
+  }
+
+  /** Use a grave: everything goes back to its slots (what no longer fits drops), and the grave goes. */
+  private openGrave(x: number, y: number, z: number, w: number): void {
+    const g = this.blockEntities.takeGrave(x, y, z, w);
+    this.world.setBlock(x, y, z, w, 0);
+    const i = this.graves.findIndex((q) => q.realm === this.world.realm.name && q.pos[0] === x && q.pos[1] === y && q.pos[2] === z && q.pos[3] === w);
+    if (i >= 0) this.graves.splice(i, 1);
+    if (!g) return;
+    let spilled = 0;
+    g.slots.forEach((st, slot) => {
+      const s = loadStack(st);
+      if (!s) return;
+      if (!this.inv.get(slot) && (!this.inv.accepts || this.inv.accepts(slot, s))) this.inv.set(slot, s);
+      else if (this.inv.add(s) > 0) {
+        this.throwStack(s);
+        spilled++;
+      }
+    });
+    const p = this.player.pos;
+    if (g.xp > 0) this.orbs.spawn(p[0]!, p[1]! + 0.9, p[2]!, p[3]!, g.xp);
+    this.message?.(spilled ? 'You took your things back (some did not fit)' : 'You took your things back');
+  }
+
+  /** HUD: which way and how far your nearest grave is, or null. */
+  graveHint(): string | null {
+    const e = this.eyePos, cam = this.player.cam;
+    let best: [number, number, number, number] | null = null, bd = 1e18;
+    for (const g of this.graves) {
+      if (g.realm !== this.world.realm.name) continue;
+      let d2 = 0;
+      for (let k = 0; k < 4; k++) d2 += (g.pos[k]! + 0.5 - e[k]!) ** 2;
+      if (d2 < bd) {
+        bd = d2;
+        best = g.pos;
+      }
+    }
+    if (!best) return null;
+    let df = 0, dr = 0, dh = 0;
+    for (let k = 0; k < 4; k++) {
+      const dk = best[k]! + 0.5 - e[k]!;
+      df += dk * cam.F[k]!;
+      dr += dk * cam.R[k]!;
+      dh += dk * cam.H[k]!;
+    }
+    const up = this.player.up;
+    const dy = best[up]! + 0.5 - e[up]!;
+    const arrows = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'];
+    const a = Math.atan2(dr, df); // 0 straight ahead, positive to the right
+    const arrow = Math.hypot(df, dr) < 1.5 ? '•' : arrows[(Math.round(a / (Math.PI / 4)) + 8) % 8]!;
+    const parts = [`✝ Grave ${Math.round(Math.sqrt(bd))} m ${arrow}`];
+    if (Math.abs(dh) >= 0.6) parts.push(`${Math.round(Math.abs(dh))} ${dh > 0 ? 'ana' : 'kata'}`);
+    if (Math.abs(dy) >= 3) parts.push(`${Math.round(Math.abs(dy))} ${dy > 0 ? 'up' : 'down'}`);
+    return parts.join(' · ');
   }
 
   /** Flames on burning mobs, smoke over fires near the player. */
@@ -3047,7 +3201,7 @@ export class Game {
             }
             if (id === this.tntLitId) continue;
             const hard = REG.hardness[id]!;
-            if (hard < 0 || hard >= 30 || REG.fluid[id] !== 0) continue;
+            if (hard < 0 || hard >= 30 || REG.fluid[id] !== 0 || this.blockEntities.isGrave(id)) continue;
             if (!this.world.setBlock(bx, by, bz, bw, 0)) continue;
             if (BED_IDS[id] || DOOR_PART[id]) this.removePartner(bx, by, bz, bw, v);
             if (Math.random() < 0.3) for (const st of rollDrops(id, -1, Math.random)) counts.set(st.id, (counts.get(st.id) ?? 0) + st.count);
@@ -3510,6 +3664,10 @@ export class Game {
         this.toggleDoor(t.x, t.y, t.z, t.w);
         return;
       }
+      if (this.blockEntities.isGrave(tid)) {
+        this.openGrave(t.x, t.y, t.z, t.w);
+        return;
+      }
       if (this.blockEntities.hasEntity(tid)) {
         const fk = this.blockEntities.furnaceKind(tid);
         this.onOpenScreen?.(fk ? { kind: 'furnace', pos, furnace: fk } : this.blockEntities.isBrewing(tid) ? { kind: 'brewing', pos } : { kind: 'chest', pos });
@@ -3590,6 +3748,10 @@ export class Game {
         this.inv.set(this.hotbarIndex, held);
         if (this.inv.add(filled) > 0) this.throwStack(filled);
       }
+      return;
+    }
+    if (use === 'sleeping_bag') {
+      this.useSleepingBag(held);
       return;
     }
     if (use === 'fishing') {
@@ -3974,6 +4136,18 @@ export class Game {
       mx[2] = t.z + t.bmax[2]! - e[2]!;
       mx[3] = t.w + t.bmax[3]! - e[3]!;
       lines.addBox(mn, mx, cam, 0.05, 0.05, 0.08, 0.9);
+    }
+    // Your graves, outlined (also through walls) when within 64 blocks.
+    for (const g of this.graves) {
+      if (g.realm !== this.world.realm.name) continue;
+      let d2 = 0;
+      for (let k = 0; k < 4; k++) d2 += (g.pos[k]! + 0.5 - e[k]!) ** 2;
+      if (d2 > 64 * 64) continue;
+      for (let k = 0; k < 4; k++) {
+        mn[k] = g.pos[k]! - e[k]!;
+        mx[k] = mn[k]! + 1;
+      }
+      lines.addBox(mn, mx, cam, 0.95, 0.95, 1, 0.8);
     }
     // The fishing bobber: a small red box on the water, bright and dipping on a bite.
     const fb = this.fishing;
