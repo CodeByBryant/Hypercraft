@@ -12,6 +12,7 @@ import type { BiomeDef, MobSpawn } from '../../content/types';
 import type { Frame4 } from '../../math/frame';
 import type { World } from '../../world/World';
 import { Pathfinder } from './Pathfinder';
+import { gazePins } from './gaze';
 import { hash4f } from '../../math/rng';
 import { rayBall, rayBox, rayCapsule } from './intersect';
 import type { ItemStack } from '../items/ItemStack';
@@ -92,6 +93,13 @@ export interface MobHost {
   shoot(from: Float64Array, vel: Float64Array, damage: number, item: number, byPlayer: boolean): void;
   /** A mob died (not by exploding): death effects. */
   mobDied?(m: Mob): void;
+  /** The player's eye and view direction (Void Walkers freeze while watched). */
+  playerEye?: Float64Array;
+  playerFwd?: Float64Array;
+  /** A melee hit also puts an effect on the player (Whisper Swarms slow you). */
+  inflict?(effect: string, seconds: number, amp: number): void;
+  /** A puff of particles (a Walker blinking). */
+  puff?(x: number, y: number, z: number, w: number, color: string): void;
 }
 
 export class Mob {
@@ -277,9 +285,22 @@ export class MobManager {
       m.face(0, 1, 0);
       m.awake = false;
     }
+    if (cm.def.ai === 'sentinel') m.awake = false; // dormant until disturbed
     if (cm.def.lays) m.layTimer = cm.def.lays.every[0] + Math.random() * (cm.def.lays.every[1] - cm.def.lays.every[0]);
     this.list.push(m);
     return m;
+  }
+
+  /** Wake every sentinel within `r` blocks (4D) of a point: someone opened a vault chest. */
+  wakeNear(x: number, y: number, z: number, w: number, r: number): number {
+    let n = 0;
+    for (const m of this.list) {
+      if (m.def.ai !== 'sentinel' || m.awake) continue;
+      if (Math.hypot(m.pos[0]! - x, m.pos[1]! - y, m.pos[2]! - z, m.pos[3]! - w) > r) continue;
+      m.awake = true;
+      n++;
+    }
+    return n;
   }
 
   /** Saved form of a persistent mob (villagers). */
@@ -695,6 +716,7 @@ export class MobManager {
       const weak = m.effects?.amp('weakness') ?? -1, strong = m.effects?.amp('strength') ?? -1;
       const dmg = Math.max(0, (m.def.damage ?? 2) * mult * damageScale * Math.max(0.5, m.scale) + (strong >= 0 ? 3 * (strong + 1) : 0) - (weak >= 0 ? 4 : 0));
       h.hurtPlayer(dmg, m.pos, m.def.displayName, 'melee', m);
+      if (m.def.inflicts) h.inflict?.(m.def.inflicts.effect, m.def.inflicts.seconds, m.def.inflicts.amp ?? 0);
       // Ana Stalkers hit you out of your slice: a shove kata or ana (Kata Grip and Anchor resist).
       if (m.def.ai === 'stalker' && Math.random() < 0.6) h.shovePlayer?.(Math.random() < 0.5 ? -2 : 2, m.def.displayName);
     }
@@ -715,6 +737,51 @@ export class MobManager {
     const x = Math.floor(p[0]! + (dx / l) * 1.5), y = Math.floor(p[1]! + 0.2), z = Math.floor(p[2]! + (dz / l) * 1.5), w = Math.floor(p[3]! + (dw / l) * 1.5);
     const block = REG.id(s.block);
     for (let k = 0; k < 2; k++) if (this.world.getBlock(x, y + k, z, w) === 0) this.world.setBlock(x, y + k, z, w, block);
+  }
+
+  /**
+   * A Void Walker steps through the dark to a standing spot 5-7 blocks from the player, anywhere
+   * around them in 4D (so often kata or ana of the slice). Nothing happens if there is no floor.
+   */
+  private blink(m: Mob, p: Float64Array, h: MobHost): void {
+    const dir = this.tmp;
+    for (let attempt = 0; attempt < 6; attempt++) {
+      randomHorizontal(dir, null);
+      const d = 5 + Math.random() * 2;
+      const x = Math.floor(p[0]! + d * dir[0]!), z = Math.floor(p[2]! + d * dir[2]!), w = Math.floor(p[3]! + d * dir[3]!);
+      if (!this.findFloor(x, Math.floor(p[1]!) + 4, z, w, 10)) continue;
+      h.puff?.(m.pos[0]!, m.pos[1]! + m.height * 0.5, m.pos[2]!, m.pos[3]!, '#8a5aff');
+      m.pos[0] = x + 0.5;
+      m.pos[1] = this.floorY;
+      m.pos[2] = z + 0.5;
+      m.pos[3] = w + 0.5;
+      m.vel.fill(0);
+      m.path = [];
+      h.puff?.(m.pos[0], m.pos[1] + m.height * 0.5, m.pos[2], m.pos[3], '#8a5aff');
+      return;
+    }
+  }
+
+  /** A fan of `n` shots at the player: the middle one aimed, the others spread along the mob's right. */
+  private volley(m: Mob, p: Float64Array, h: MobHost, d4: number, range: number, n: number, speed = 18): void {
+    const pr = m.def.projectile!;
+    if (m.attackCd > 0 || d4 > range || !this.lineOfSight(m, p)) return;
+    m.attackCd = pr.cooldown;
+    const from = Float64Array.from([m.pos[0]!, m.pos[1]! + m.height * 0.8, m.pos[2]!, m.pos[3]!]);
+    const aim = new Float64Array(4);
+    let l = 0;
+    for (let k = 0; k < 4; k++) {
+      aim[k] = p[k]! + (k === 1 ? 1.0 : 0) - from[k]!;
+      l += aim[k]! * aim[k]!;
+    }
+    l = Math.sqrt(l) || 1;
+    const dmg = pr.damage * (h.difficulty === 1 ? 0.5 : h.difficulty === 3 ? 1.5 : 1);
+    for (let i = 0; i < n; i++) {
+      const v = new Float64Array(4);
+      const spread = (i - (n - 1) / 2) * 0.14;
+      for (let k = 0; k < 4; k++) v[k] = (aim[k]! / l + m.R[k]! * spread) * speed;
+      h.shoot(from, v, dmg, IREG.id(pr.item), false);
+    }
   }
 
   /** Fire the mob's projectile at the player (bone archers, magma drakes). */
@@ -965,6 +1032,56 @@ export class MobManager {
         this.meleeReach(m, p, h);
         break;
       }
+      case 'walker': {
+        // The Void Walker: tall, silent and fast, but only while you are not looking. Watched (in
+        // your slice, within about 26 degrees of your view, in plain sight) it freezes solid; the
+        // moment you look away, or it slips kata/ana of you out of view, it moves again. Unwatched
+        // and still far off, it blinks to a spot 5-7 blocks from you (usually off your slice, so you
+        // do not see it come) and strikes hard.
+        if (!h.playerTargetable || d4 > 30 * (h.playerStealth ?? 1)) {
+          this.wander(m, dt, sp * 0.4);
+          break;
+        }
+        const at = this.pb;
+        at[0] = m.pos[0]!;
+        at[1] = m.pos[1]! + m.height * 0.6;
+        at[2] = m.pos[2]!;
+        at[3] = m.pos[3]!;
+        const watched = h.playerEye !== undefined && h.playerFwd !== undefined && gazePins(h.playerEye, h.playerFwd, h.playerHidden, at) && this.lineOfSight(m, p);
+        if (watched) {
+          this.brake(m);
+          m.face(p[0]! - m.pos[0]!, p[2]! - m.pos[2]!, p[3]! - m.pos[3]!, m.near ? h.playerHidden : undefined);
+          m.mode = 'idle';
+          break;
+        }
+        if (m.mode !== 'chase') {
+          m.mode = 'chase';
+          m.timer = 1.5 + Math.random() * 2.5;
+        }
+        m.timer -= dt;
+        if (m.timer <= 0 && d4 > 9) {
+          this.blink(m, p, h);
+          m.timer = 6 + Math.random() * 5;
+          break;
+        }
+        this.chase(m, dt, p, sp);
+        this.meleeReach(m, p, h);
+        break;
+      }
+      case 'sentinel': {
+        // Sky Vault Sentinels never move. Dormant until disturbed (a vault chest opened nearby, a
+        // hit, or you walking right up to one), then they fan starlight at you while you are in range.
+        this.brake(m);
+        m.vel[1] = 0;
+        if (!m.awake) {
+          if (d4 < 4 && h.playerTargetable) m.awake = true;
+          break;
+        }
+        if (!h.playerTargetable || d4 > 30) break;
+        m.face(p[0]! - m.pos[0]!, p[2]! - m.pos[2]!, p[3]! - m.pos[3]!, m.near ? h.playerHidden : undefined);
+        this.volley(m, p, h, d4, 26, 3);
+        break;
+      }
       case 'swimmer': {
         if (m.inWater) {
           if (def.hostile && seePlayer && h.playerInWater) {
@@ -1182,7 +1299,7 @@ export class MobManager {
       m.hurt = 0.45;
       const dx = m.pos[0]! - from[0]!, dz = m.pos[2]! - from[2]!, dw = m.pos[3]! - from[3]!;
       const l = Math.hypot(dx, dz, dw) || 1;
-      const kb = (m.def.boss ? 0 : m.def.ai === 'golem' || m.def.ai === 'brute' ? 1.2 : 3.6) * kbMul;
+      const kb = (m.def.boss || m.def.ai === 'sentinel' ? 0 : m.def.ai === 'golem' || m.def.ai === 'brute' ? 1.2 : 3.6) * kbMul;
       m.vel[0] = (dx / l) * kb;
       m.vel[2] = (dz / l) * kb;
       m.vel[3] = (dw / l) * kb;
@@ -1535,6 +1652,19 @@ export class MobManager {
       }
       case 'pulse':
         break;
+      case 'wave': {
+        // A body that undulates in x and, out of phase, along its own w (the slice shows an S).
+        const amp = 0.28 * (0.45 + 0.55 * moving);
+        const f = (z: number) => Math.sin(m.age * 3.2 + z * 1.6 + ph) * amp;
+        const g = (z: number) => Math.cos(m.age * 2.6 + z * 1.3 + ph) * amp * 0.8;
+        a[0] = a[0]! + f(pt.at[2]!);
+        a[3] = a[3]! + g(pt.at[2]!);
+        if (pt.to) {
+          b[0] = b[0]! + f(pt.to[2]!);
+          b[3] = b[3]! + g(pt.to[2]!);
+        }
+        break;
+      }
     }
     // Exploder fuse: the body pulses through its own W axis (the cross-section flickers).
     if (m.mode === 'fuse' && m.def.blast) {

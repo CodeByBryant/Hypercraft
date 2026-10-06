@@ -569,7 +569,7 @@ export interface MobPart {
   /** Glows (ignores light). */
   glow?: boolean;
   /** Procedural animation role. */
-  anim?: 'leg' | 'head' | 'wing' | 'tail' | 'pulse';
+  anim?: 'leg' | 'head' | 'wing' | 'tail' | 'pulse' | 'wave';
   /** Animation phase offset (radians). */
   phase?: number;
 }
@@ -589,7 +589,9 @@ export type MobAI =
   | 'lurker'
   | 'villager'
   | 'brute'
-  | 'regent';
+  | 'regent'
+  | 'walker'
+  | 'sentinel';
 
 export interface MobDef {
   name: string;
@@ -645,6 +647,8 @@ export interface MobDef {
   arthropod?: boolean;
   /** Husbandry (Phase 7): items it follows and breeds with. */
   breed?: string[];
+  /** A melee hit also puts this effect on the player (Whisper Swarms slow you). */
+  inflicts?: { effect: string; seconds: number; amp?: number };
 }
 
 // ------------------------------------------------------------------ loot (Phase 5)

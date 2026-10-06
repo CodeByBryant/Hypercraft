@@ -195,3 +195,54 @@ test('hollow void: the central island, the aurora, a gateway out and home throug
   expect(await page.evaluate(() => window.__hc.realm())).toBe('surface');
   expect(errors).toEqual([]);
 });
+
+test('void mobs: a Walker freezes under your gaze and only moves when you look away', async ({ page }) => {
+  test.setTimeout(600_000);
+  const errors: string[] = [];
+  await boot(page, 'res=270&rd=3&seed=voidmobs&realm=void', errors);
+  const r = await page.evaluate(async () => {
+    const hc = window.__hc;
+    hc.setMode('survival');
+    hc.setMobSpawning(false);
+    hc.clearMobs();
+    hc.setHealth(20);
+    hc.setView({ yaw: 45, pitch: 0 });
+    // Walk away from the platform edge onto open ground first (toward the island's centre).
+    hc.teleport(-20, 65.2, -20, 0.5);
+    await hc.frames(20);
+    const id = hc.spawnMobAhead('void_walker', 14);
+    const dist = (): number => {
+      const m = hc.mobs().find((x) => x.id === id)!;
+      const p = hc.state().pos;
+      return Math.hypot(m.pos[0]! - p[0]!, m.pos[2]! - p[2]!, m.pos[3]! - p[3]!);
+    };
+    await hc.frames(10);
+    const d0 = dist();
+    await hc.frames(90);
+    const watched = dist();
+    // Look away: it comes for you.
+    hc.setView({ yaw: 45 + 180, pitch: 0 });
+    await hc.frames(150);
+    const unwatched = dist();
+    return { d0, watched, unwatched, alive: !hc.vitals().dead };
+  });
+  expect(Math.abs(r.watched - r.d0)).toBeLessThan(0.6); // frozen while watched
+  expect(r.unwatched).toBeLessThan(r.watched - 3); // moves when you look away
+  expect(errors).toEqual([]);
+
+  // R6-style line-up of the four Void mobs for the docs.
+  await page.evaluate(() => {
+    const hc = window.__hc;
+    hc.clearMobs();
+    hc.setView({ yaw: 45, pitch: 8 });
+    hc.teleport(-20, 65.2, -20, 0.5);
+    hc.spawnMobAhead('void_walker', 9, -3);
+    hc.spawnMobAhead('whisper_swarm', 6, 0.5);
+    hc.spawnMobAhead('starlight_serpent', 11, 4);
+    hc.spawnMobAhead('sky_sentinel', 8, 4);
+    hc.freezeMobs(true);
+    hc.setMode('spectator');
+  });
+  await page.evaluate(() => window.__hc.idle(240_000));
+  await shot(page, 'void-5-mobs');
+});

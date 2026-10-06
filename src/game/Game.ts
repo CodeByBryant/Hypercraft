@@ -543,6 +543,10 @@ export class Game {
       },
       playerPos: this.player.pos,
       playerHidden: this.player.cam.H,
+      playerEye: this.eyePos,
+      playerFwd: this.player.cam.fwd,
+      inflict: (effect, seconds, amp) => void this.applyEffect(effect, seconds, amp),
+      puff: (x, y, z, w, color) => this.particles.burst(x, y, z, w, this.player.cam, 'spark', color, 12, 1.4, 0.4, true),
       get playerTargetable() {
         const m = game.player.mode;
         return game.loaded && !game.vitals.dead && (m === 'survival' || m === 'adventure');
@@ -3791,6 +3795,8 @@ export class Game {
         return;
       }
       if (this.blockEntities.hasEntity(tid)) {
+        // Opening a chest in the Void's vaults wakes the sentinels guarding it.
+        if (this.world.realm.islandSpawns && this.mobs.wakeNear(t.x, t.y, t.z, t.w, 16) > 0) this.message?.('The sentinels stir…');
         const fk = this.blockEntities.furnaceKind(tid);
         this.onOpenScreen?.(fk ? { kind: 'furnace', pos, furnace: fk } : this.blockEntities.isBrewing(tid) ? { kind: 'brewing', pos } : { kind: 'chest', pos });
         return;

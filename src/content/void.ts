@@ -12,6 +12,7 @@
 // to landing islands 1024 blocks out; every landing has a spire back. The central spires wake when
 // the Void Sovereign falls.
 
+import { VOID_SPAWNS } from './voidMobs';
 import type { BiomeDef, BlockDef, Hex, ItemDef, LootTable, MiningDef, RecipeDef, TextureDef, TexturePattern } from './types';
 
 // ---------------------------------------------------------------- fixed geometry
@@ -373,3 +374,6 @@ export const VOID_BIOMES: BiomeDef[] = [
     hazards: ['loose fragments'],
   }),
 ];
+
+// Natural spawns on the islands (voidMobs.ts).
+for (const b of VOID_BIOMES) b.mobs = { night: VOID_SPAWNS[b.name] ?? [] };

@@ -5,6 +5,7 @@ import { IREG } from './itemRegistry';
 import { REG, hexToRgb } from './registry';
 import { MOBS } from './mobs';
 import { ANIMALS } from './animals';
+import { VOID_MOBS } from './voidMobs';
 import type { MobDef } from './types';
 
 export const MAX_MOB_PARTS = 16;
@@ -36,8 +37,10 @@ export class MobRegistry {
         if (p.kind === 'box' && !p.size) errors.push(`mob "${def.name}": box part ${i} needs size`);
         if (p.kind !== 'box' && !p.r) errors.push(`mob "${def.name}": ${p.kind} part ${i} needs r`);
         if (p.kind === 'capsule' && !p.to) errors.push(`mob "${def.name}": capsule part ${i} needs to`);
-        radius = Math.max(radius, Math.hypot(...p.at) + ext + 0.35);
-        if (p.to) radius = Math.max(radius, Math.hypot(...p.to) + ext + 0.35);
+        // Undulating parts (the Starlight Serpent) sway up to ~0.5 off their rest position.
+        const sway = p.anim === 'wave' ? 0.5 : 0;
+        radius = Math.max(radius, Math.hypot(...p.at) + ext + 0.35 + sway);
+        if (p.to) radius = Math.max(radius, Math.hypot(...p.to) + ext + 0.35 + sway);
         const [r, g, b] = hexToRgb(p.color);
         colors[i * 3] = r;
         colors[i * 3 + 1] = g;
@@ -71,4 +74,4 @@ export class MobRegistry {
   }
 }
 
-export const MOB_REG = new MobRegistry([...MOBS, ...ANIMALS]);
+export const MOB_REG = new MobRegistry([...MOBS, ...ANIMALS, ...VOID_MOBS]);
