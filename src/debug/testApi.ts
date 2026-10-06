@@ -337,6 +337,8 @@ export function installTestApi(game: Game, screen?: InventoryScreen): void {
     arrows: () => game.projectiles.list.map((a) => ({ pos: Array.from(a.pos), stuck: a.stuck, byPlayer: a.byPlayer })),
     vitals: () => ({ health: game.vitals.health, air: game.vitals.air, dead: game.vitals.dead, cause: game.vitals.deathCause }),
     hurt: (amount: number, cause = 'Test') => game.hurtPlayer(amount, null, cause),
+    /** Hurt with a damage kind (melee, projectile, fall...): armour sets and bonuses react to kinds. */
+    hurtKind: (amount: number, kind: string) => game.hurtPlayer(amount, null, 'Test', kind as never),
     setHealth(hp: number): void {
       game.vitals.health = hp;
       game.vitals.hurtCooldown = 0;
@@ -429,6 +431,13 @@ export function installTestApi(game: Game, screen?: InventoryScreen): void {
     setVoidDefeated: (on: boolean) => void (game.voidBoss.defeated = on),
     /** Run the Sovereign's light drain once (phase III), returning how many torches went out. */
     voidDrain: () => game.voidBoss.drain(),
+    /** Phase Wings: gliding state, horizontal speed (m/s), vertical speed, rocket seconds left. */
+    glide: () => {
+      const p = game.player;
+      let sp = 0;
+      for (let i = 0; i < 4; i++) if (i !== p.up) sp += p.vel[i]! * p.vel[i]!;
+      return { gliding: p.gliding, speed: Math.sqrt(sp), vy: p.vel[p.up]!, rocket: p.rocket, wear: game.inv.get(37)?.damage ?? -1, phaseStepCd: game.phaseStepCd };
+    },
     traveling: () => game.traveling,
     /** Night vision is on (and allowed in this game mode). */
     nightVision: () => game.nightVisionOn,

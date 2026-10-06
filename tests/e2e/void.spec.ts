@@ -438,3 +438,83 @@ test('void sovereign: it wakes in the arena, the arena is locked, pylons break, 
   expect(done.broke).toBe(true); // the arena is just ground again
   expect(errors).toEqual([]);
 });
+
+test('phase wings: jump in the air to glide, steer through W, a rocket pushes, the Starlight set phases a hit away', async ({ page }) => {
+  test.setTimeout(600_000);
+  const errors: string[] = [];
+  await boot(page, 'res=180&rd=3&seed=voidwings&realm=void', errors);
+  const r = await page.evaluate(async () => {
+    const hc = window.__hc;
+    hc.setMode('survival');
+    hc.setMobSpawning(false);
+    hc.clearMobs();
+    hc.setHealth(20);
+    hc.clearInventory();
+    hc.wear(1, 'phase_wings');
+    hc.setView({ yaw: 45, pitch: 0 });
+    hc.travel(-30, 150, -30, 0.5); // high over the island: a long way to fall
+    await hc.ready(180_000);
+    await hc.idle(240_000);
+    await hc.frames(25);
+    const falling = hc.glide();
+    // Jump in the air: the wings open.
+    hc.key('Space', true);
+    await hc.frames(3);
+    hc.key('Space', false);
+    await hc.frames(2);
+    const opened = hc.glide();
+    const p0 = hc.state().pos;
+    await hc.frames(120);
+    const level = hc.glide();
+    const p1 = hc.state().pos;
+    // Bank through W: rotate the slice 45 degrees toward w (the heading now leans into the fourth dimension).
+    hc.setView({ yaw: 45, pitch: 0, xw: 45 });
+    await hc.frames(120);
+    const p2 = hc.state().pos;
+    // A rocket: a shove along the heading.
+    hc.give('starlight_rocket', 2);
+    hc.select(0);
+    const before = hc.glide().speed;
+    const here = hc.state().pos;
+    hc.useOn(Math.floor(here[0]!), Math.floor(here[1]!), Math.floor(here[2]!), Math.floor(here[3]!));
+    await hc.frames(30);
+    const boosted = hc.glide();
+    return { falling, opened, level, dist: Math.hypot(p1[0]! - p0[0]!, p1[2]! - p0[2]!, p1[3]! - p0[3]!), dw1: p1[3]! - p0[3]!, dw2: p2[3]! - p1[3]!, before, boosted, alive: !hc.vitals().dead };
+  });
+  expect(r.falling.gliding).toBe(false);
+  expect(r.falling.vy).toBeLessThan(-1.5);
+  expect(r.opened.gliding).toBe(true);
+  expect(r.level.speed).toBeGreaterThan(8);
+  expect(r.level.vy).toBeGreaterThan(-14);
+  expect(r.dist).toBeGreaterThan(25);
+  expect(Math.abs(r.dw1)).toBeLessThan(2); // straight ahead in the slice: no drift through W
+  expect(Math.abs(r.dw2)).toBeGreaterThan(8); // rotated: it banks through W
+  expect(r.boosted.rocket).toBeGreaterThan(0);
+  expect(r.boosted.speed).toBeGreaterThan(r.before + 5);
+  expect(r.boosted.wear).toBeGreaterThan(0); // the wings wore
+  expect(r.alive).toBe(true);
+
+  // Phase Step: a full Starlight set phases the first blow away; ten seconds later the next lands.
+  const step = await page.evaluate(async () => {
+    const hc = window.__hc;
+    hc.clearInventory();
+    ['helmet', 'chestplate', 'leggings', 'boots'].forEach((p, k) => hc.wear(k, `starlight_${p}`));
+    hc.travel(-30.5, 66, -29.5, 0.5);
+    await hc.ready(120_000);
+    await hc.idle(120_000);
+    hc.setHealth(20);
+    const first = hc.hurtKind(6, 'melee');
+    const hp1 = hc.vitals().health;
+    const cd = hc.glide().phaseStepCd;
+    await hc.frames(60);
+    const second = hc.hurtKind(6, 'melee');
+    const hp2 = hc.vitals().health;
+    return { first, hp1, cd, second, hp2 };
+  });
+  expect(step.first).toBe(false);
+  expect(step.hp1).toBe(20);
+  expect(step.cd).toBeGreaterThan(8);
+  expect(step.second).toBe(true); // still on cooldown: this one lands (armour soaks some)
+  expect(step.hp2).toBeLessThan(20);
+  expect(errors).toEqual([]);
+});

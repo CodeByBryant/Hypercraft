@@ -1544,3 +1544,20 @@ select {
   color: #9aa6c8;
   margin: 6px 0 2px;
 }
+
+.glide-hud {
+  position: absolute;
+  bottom: 96px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  padding: 2px 10px;
+  color: #d8f0ff;
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  background: rgba(30, 20, 70, 0.6);
+  border: 1px solid #7a5aff;
+  border-radius: 4px;
+  pointer-events: none;
+}

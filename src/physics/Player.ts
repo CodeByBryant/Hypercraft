@@ -8,6 +8,7 @@
 
 import { REG, COLLISION_FULL, COLLISION_SHAPE, FLUID_LAVA, FLUID_WATER } from '../content/registry';
 import { Frame4 } from '../math/frame';
+import { GLIDE_TICK, glideTick, kineticDamage, rocketTick } from './glide';
 import { VOID_VOXEL } from '../world/constants';
 import type { World } from '../world/World';
 
@@ -65,6 +66,13 @@ export class Player {
   fallStart = 0;
   /** Height of the most recent fall (set on landing; Phase 4 turns it into damage). */
   lastFall = 0;
+  /** Phase Wings (Phase 8): gliding. The game turns it on (jump in the air while falling) and off. */
+  gliding = false;
+  /** Seconds of Starlight Rocket boost left. */
+  rocket = 0;
+  /** Hit points of damage from striking a wall or the ground while gliding; the game applies and clears it. */
+  glideImpact = 0;
+  private glideAcc = 0;
   private wasGrounded = false;
   readonly up: number;
   readonly gravity: number;
@@ -274,6 +282,12 @@ export class Player {
     this.sneaking = input.sneak && !this.flying && !this.hanging;
     this.sprinting = input.sprint && input.forward > 0 && !this.sneaking;
     this.sampleFluids(world);
+    // Gliding replaces walking: the wings turn your fall into flight until you touch something.
+    if (this.gliding && (this.flying || this.inWater || this.inLava || this.onClimbable || this.hanging || this.onGround || this.slow < 1)) this.gliding = false;
+    if (this.gliding) {
+      this.glide(world, dt);
+      return;
+    }
 
     // Wish direction in the horizontal frame (F forward, R right, H ana).
     const cam = this.cam;
@@ -347,7 +361,20 @@ export class Player {
     }
     this.vel[up] = vy;
 
-    // Integrate with axis-separated collision in substeps (no tunnelling).
+    this.integrate(world, dt);
+    // Fall tracking (used by Phase 4 damage; exposed in F3).
+    const yNow = this.pos[up]!;
+    const grounded = this.onGround || this.inWater || this.flying || this.onClimbable || this.slow < 1;
+    if (grounded) {
+      if (!this.wasGrounded) this.lastFall = Math.max(0, this.fallStart - yNow); // landing
+      this.fallStart = yNow;
+    } else if (this.vel[up]! > 0) this.fallStart = yNow;
+    this.wasGrounded = grounded;
+  }
+
+  /** Integrate with axis-separated collision in substeps (no tunnelling). */
+  private integrate(world: World, dt: number): void {
+    const up = this.up;
     let maxd = 0;
     for (let i = 0; i < 4; i++) maxd = Math.max(maxd, Math.abs(this.vel[i]! * dt));
     const steps = Math.max(1, Math.ceil(maxd / 0.4));
@@ -367,14 +394,46 @@ export class Player {
       // hidden axis in tilted slices (the view would drift kata/ana on its own).
       this.moveHorizontal(world, sdt, wasGround);
     }
-    // Fall tracking (used by Phase 4 damage; exposed in F3).
-    const yNow = this.pos[up]!;
-    const grounded = this.onGround || this.inWater || this.flying || this.onClimbable || this.slow < 1;
-    if (grounded) {
-      if (!this.wasGrounded) this.lastFall = Math.max(0, this.fallStart - yNow); // landing
-      this.fallStart = yNow;
-    } else if (this.vel[up]! > 0) this.fallStart = yNow;
-    this.wasGrounded = grounded;
+  }
+
+  /** Horizontal speed (over x, z and w) in blocks per second. */
+  private speedH(): number {
+    let s = 0;
+    for (let i = 0; i < 4; i++) if (i !== this.up) s += this.vel[i]! * this.vel[i]!;
+    return Math.sqrt(s);
+  }
+
+  /**
+   * One frame of gliding (Phase Wings): 20 Hz ticks of the flight model along the 4D view
+   * direction, then the usual collision. Striking a wall costs hit points by the speed lost;
+   * touching the ground ends the glide (and costs some if you came in fast).
+   */
+  private glide(world: World, dt: number): void {
+    const up = this.up;
+    this.sneaking = false;
+    this.sprinting = false;
+    this.glideAcc += dt;
+    let ticks = 0;
+    while (this.glideAcc >= GLIDE_TICK && ticks < 4) {
+      this.glideAcc -= GLIDE_TICK;
+      ticks++;
+      if (this.rocket > 0) rocketTick(this.vel, this.cam.fwd);
+      glideTick(this.vel, this.cam.fwd, up, this.gravity);
+    }
+    if (ticks === 4) this.glideAcc = 0;
+    if (this.rocket > 0) this.rocket = Math.max(0, this.rocket - dt);
+    const before = this.speedH();
+    const vyBefore = this.vel[up]!;
+    this.integrate(world, dt);
+    if (this.hitWall) this.glideImpact = Math.max(this.glideImpact, kineticDamage(before, this.speedH()));
+    if (this.onGround) {
+      this.glideImpact = Math.max(this.glideImpact, kineticDamage(Math.max(0, -vyBefore), 0));
+      this.gliding = false;
+    }
+    // No ordinary fall damage on top: the glide has its own.
+    this.fallStart = this.pos[up]!;
+    this.lastFall = 0;
+    this.wasGrounded = false;
   }
 
   private readonly delta = new Float64Array(4);

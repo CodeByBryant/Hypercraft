@@ -592,6 +592,32 @@ export function paintIcon(def: IconDef): Uint8ClampedArray {
       p.poly([[11, 8], [15, 5], [15, 11]], shade);
       p.set(4, 7, accent);
       break;
+    case 'wings': {
+      // Phase Wings: two swept wings joined at the back (main = membrane, shade = bones, accent = glints).
+      p.poly([[8, 3], [7, 5], [1, 4], [2, 8], [4, 12], [8, 13]], main);
+      p.poly([[8, 3], [9, 5], [15, 4], [14, 8], [12, 12], [8, 13]], main);
+      p.line(8, 3, 1, 4, shade);
+      p.line(8, 3, 15, 4, shade);
+      p.line(8, 5, 3, 10, shade);
+      p.line(8, 5, 13, 10, shade);
+      p.line(8, 4, 8, 13, shade);
+      p.set(4, 6, accent);
+      p.set(12, 6, accent);
+      p.set(6, 9, accent);
+      p.set(10, 9, accent);
+      break;
+    }
+    case 'rocket': {
+      // A Starlight Rocket: a slanted tube with a crystal head and a spark trail.
+      p.poly([[4, 12], [3, 11], [10, 4], [12, 6]], main);
+      p.poly([[10, 4], [13, 1], [15, 3], [12, 6]], accent);
+      p.line(3, 11, 11, 3, shade);
+      p.set(2, 13, accent);
+      p.set(1, 14, light);
+      p.set(4, 14, accent);
+      p.set(2, 15, light);
+      break;
+    }
     case 'eye': {
       // A Void Eye: a glowing eye (main = iris glow, shade = dark rim, accent = highlight).
       p.disc(8, 8, 6.2, shade);

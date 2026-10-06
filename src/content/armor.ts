@@ -3,9 +3,11 @@
 // softens big hits, durability = per-slot base x the material's multiplier.
 //
 // In 4D your body is a hyper-capsule, so a set covers it along all four axes; nothing about the
-// formulas changes. Two sets have bonuses (all four pieces worn):
+// formulas changes. Three sets have bonuses (all four pieces worn):
 //   * Ancient Slag (from the Ember Depths, upgraded at a smithing table): fire immunity, and you
 //     swim through lava like water.
+//   * Starlight (from the Hollow Void): Phase Step, the first hit you take every 10 s is phased
+//     away and shoves you two blocks along W.
 //   * Reefshell (helmet only, like a turtle shell): breathe for 10 s after you dive.
 // The 4D Glasses sit in the helmet slot: no armour, but every mob near you is drawn as a 4D
 // wireframe whether or not your slice passes through it.
@@ -45,6 +47,8 @@ export const ARMOR_MATERIALS: ArmorMaterial[] = [
   { name: 'verdant', displayName: 'Verdant', points: [3, 7, 6, 3], toughness: 1.5, durability: 28, enchantability: 16, material: 'verdant', color: '#3fe880', shade: '#1fa850', craftable: true },
   { name: 'hyperite', displayName: 'Hyperite', points: [3, 8, 6, 3], toughness: 2, durability: 33, enchantability: 10, material: 'hyperite', color: '#6ff8ff', shade: '#2fb4c8', craftable: true },
   { name: 'slag', displayName: 'Ancient Slag', points: [3, 8, 6, 3], toughness: 3, knockback: 0.1, durability: 37, enchantability: 15, material: 'ancient_slag_ingot', color: '#6a4430', shade: '#3a2418', craftable: false, set: 'slag' },
+  // Hollow Void (Phase 8): the Phase Step set. Worn whole, the first hit you take every 10 s is phased away.
+  { name: 'starlight', displayName: 'Starlight', points: [3, 8, 6, 3], toughness: 3, knockback: 0.1, durability: 40, enchantability: 22, material: 'starlight_ingot', color: '#9ad8ff', shade: '#4a78c0', craftable: true, set: 'starlight' },
 ];
 
 export const ARMOR_ITEMS: ItemDef[] = [];

@@ -69,6 +69,7 @@ import { ARMOR_START, OFFHAND } from './items/Inventory';
 import { ARRIVAL_POS, gatewayAt } from '../content/void';
 import { GATE, fillFrame, gateProgress } from './VoidGate';
 import { VoidBoss } from './VoidBoss';
+import { ROCKET_TIME } from '../physics/glide';
 
 /** How the player arrives in a realm: through a portal (find or build its twin) or a respawn. */
 export interface Arrival {
@@ -887,7 +888,10 @@ export class Game {
     // Physics.
     if (!this.loaded) this.checkLoaded();
     this.movementModifiers();
+    this.glideControl(dt);
     p.update(this.world, this.move, dt);
+    this.glideAftermath();
+    if (this.phaseStepCd > 0) this.phaseStepCd -= dt;
     if (p.hanging) this.ropeWear();
     if (this.anchorCd > 0) this.anchorCd -= dt;
     this.updateLens(dt);
@@ -1792,6 +1796,58 @@ export class Game {
     this.loaded = false;
     this.player.frozen = true;
     this.streamer.invalidate();
+  }
+
+  // ------------------------------------------------------------------ Phase Wings
+
+  /** The wings in your chest slot, with some wear left, or null. */
+  private wings(): ItemStack | null {
+    const s = this.armorPiece(1);
+    return s && IREG.name(s.id) === 'phase_wings' ? s : null;
+  }
+  private jumpWas = false;
+  private glideWear = 0;
+  /** Seconds until the Phase Step set bonus can phase another hit away. */
+  phaseStepCd = 0;
+
+  /**
+   * Phase Wings: in the air, falling, press jump to glide. Your 4D view direction is the heading,
+   * so rotating the slice mid-flight banks you through W. Landing, water, a ladder, or no wings
+   * ends it; the wings wear one point a second.
+   */
+  private glideControl(dt: number): void {
+    const p = this.player;
+    const pressed = this.move.jump && !this.jumpWas;
+    this.jumpWas = this.move.jump;
+    const wings = this.wings();
+    const grounded = p.onGround || p.inWater || p.inLava || p.flying || p.hanging || p.onClimbable || p.mode === 'spectator' || this.vitals.dead;
+    if (p.gliding) {
+      if (!wings || grounded) {
+        p.gliding = false;
+        p.rocket = 0;
+        return;
+      }
+      this.glideWear += dt;
+      if (this.glideWear >= 1) {
+        this.glideWear -= 1;
+        if (p.mode !== 'creative') this.wearArmorPiece(1, 1);
+      }
+      return;
+    }
+    this.glideWear = 0;
+    if (pressed && wings && !grounded && this.loaded && p.vel[p.up]! < -1.5) {
+      p.gliding = true;
+      this.message?.('Gliding · look to steer, rotate your slice to bank through W');
+    }
+  }
+
+  /** Hit points lost striking a wall or the ground at speed while gliding. */
+  private glideAftermath(): void {
+    const p = this.player;
+    if (p.glideImpact <= 0) return;
+    const dmg = p.glideImpact;
+    p.glideImpact = 0;
+    this.hurtPlayer(dmg, null, 'Kinetic energy', 'fall');
   }
 
   /**
@@ -2752,6 +2808,15 @@ export class Game {
     if (!vulnerable || amount <= 0 || this.vitals.dead || this.vitals.hurtCooldown > 0) return false;
     // Fire immunity: Fire Resistance, or a full set of Ancient Slag armour.
     if (isFireDamage(kind) && (this.effects.has('fire_resistance') || this.setBonus('slag'))) return false;
+    // Phase Step (a full Starlight set): the first blow every ten seconds passes through you, and you slip two blocks along W.
+    if (this.phaseStepCd <= 0 && (kind === 'melee' || kind === 'projectile' || kind === 'explosion' || kind === 'contact') && this.setBonus('starlight')) {
+      this.phaseStepCd = 10;
+      this.vitals.hurtCooldown = 0.5;
+      this.particles.burst(p.pos[0]!, p.pos[1]! + 1, p.pos[2]!, p.pos[3]!, p.cam, 'spark', '#9ad8ff', 16, 2.5, 0.5, true);
+      this.message?.('Phase Step: the blow passes through you');
+      void this.shove(Math.random() < 0.5 ? -2 : 2, 'Phase Step');
+      return false;
+    }
     if (this.blocking && from && (kind === 'melee' || kind === 'projectile' || kind === 'explosion') && this.shieldBlocks(from, amount, attacker)) return false;
     const dmg = this.reduceDamage(amount, kind);
     // Thorns: a chance to hurt whatever hit you in melee.
@@ -3925,6 +3990,21 @@ export class Game {
     }
     if (use === 'void_eye') {
       this.useVoidEye(held);
+      return;
+    }
+    if (use === 'starlight_rocket') {
+      const p = this.player;
+      if (!p.gliding) {
+        this.message?.('Launch a rocket while gliding');
+        return;
+      }
+      p.rocket = ROCKET_TIME;
+      const e = this.eyePos, f = p.cam.fwd;
+      this.particles.burst(e[0]! - f[0]! * 0.5, e[1]! - 0.4, e[2]! - f[2]! * 0.5, e[3]! - f[3]! * 0.5, p.cam, 'spark', '#9affc8', 18, 3, 0.6, true);
+      if (survival) {
+        held.count--;
+        this.inv.set(this.hotbarIndex, held.count > 0 ? held : null);
+      }
       return;
     }
     if (use === 'fishing') {

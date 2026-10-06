@@ -196,6 +196,10 @@ export const VOID_ITEMS: ItemDef[] = [
   { name: 'void_eye', displayName: 'Void Eye', icon: { shape: 'eye', colors: ['#9affc8', '#2a1a48', '#e8fff0'] }, use: 'void_eye', readout: 'atlas', atlas: ['stronghold'], group: 'tools', tags: ['glint'] },
   { name: 'whisper_fruit', displayName: 'Whisper Fruit', icon: { shape: 'berries', colors: ['#c87aff', '#7a3ab0', '#ffd0ff'] }, group: 'food' },
   { name: 'starlight_shard', displayName: 'Starlight Shard', icon: { shape: 'shard', colors: ['#9ad8ff', '#5a9ae0', '#f0fbff'] }, group: 'materials' },
+  { name: 'starlight_ingot', displayName: 'Starlight Ingot', icon: { shape: 'ingot', colors: ['#9ad8ff', '#4a78c0', '#f0fbff'] }, group: 'materials' },
+  // Phase Wings: a chest-slot glider (found in Sky Vaults; not craftable). Wear them (instead of a chestplate), fall, press jump to glide.
+  { name: 'phase_wings', displayName: 'Phase Wings', maxStack: 1, durability: 432, enchantability: 12, armor: { slot: 'chest', points: 0, toughness: 0, repair: 'starlight_shard' }, icon: { shape: 'wings', colors: ['#7a5aff', '#2a1a68', '#9affc8'] }, group: 'combat', tags: ['armor', 'armor_chest', 'wings', 'glint'] },
+  { name: 'starlight_rocket', displayName: 'Starlight Rocket', icon: { shape: 'rocket', colors: ['#e8e8f8', '#7a8ab8', '#9affc8'] }, use: 'starlight_rocket', group: 'tools' },
   // The Void Sovereign's heart: the key to the Penteract (Phase 11).
   { name: 'sovereign_heart', displayName: "Sovereign's Heart", maxStack: 1, icon: { shape: 'gem', colors: ['#c87aff', '#3a1a78', '#f0e0ff'] }, group: 'combat', tags: ['glint'] },
 ];
@@ -206,6 +210,9 @@ export const VOID_RECIPES: RecipeDef[] = [
   { type: 'shaped', pattern: ['sss', 'sss', 'sss'], key: { s: 'starlight_shard' }, result: 'starlight_block' },
   { type: 'shapeless', ingredients: ['starlight_block'], result: 'starlight_shard', count: 9 },
   { type: 'shaped', pattern: ['ss', 'ss'], key: { s: 'starlight_shard' }, result: 'starlight_bricks', count: 4 },
+  // Starlight ingots (tools and armour come from the tier tables), and rockets for the wings.
+  { type: 'smelting', input: 'starlight_shard', result: 'starlight_ingot', time: 8, xp: 0.9, furnaces: ['furnace', 'blast_furnace'] },
+  { type: 'shapeless', ingredients: ['starlight_shard', 'paper', 'sulfur'], result: 'starlight_rocket', count: 2 },
 ];
 
 const one = (item: string, count: [number, number] = [1, 1]) => [{ item, count }];
@@ -283,6 +290,8 @@ export const VOID_LOOT: Record<string, LootTable> = {
   },
   sky_vault: {
     pools: [
+      // The vault always holds a pair of Phase Wings.
+      { rolls: W(1, 1), entries: [{ item: 'phase_wings', weight: 1, wear: W(0.05, 0.4) }] },
       {
         rolls: W(4, 6),
         entries: [

@@ -14,4 +14,6 @@ export const TIERS: ToolTierDef[] = [
   { name: 'hyperite', displayName: 'Hyperite', level: 3, speed: 8, durability: 1561, damage: 3, enchantability: 10, material: 'hyperite', color: '#6ff8ff', shade: '#2fb4c8' },
   // Ember Depths (Phase 6): the strongest tier. Slag ingots come from Ancient Slag.
   { name: 'slag', displayName: 'Ancient Slag', level: 4, speed: 9, durability: 2031, damage: 4, enchantability: 15, material: 'ancient_slag_ingot', color: '#6a4430', shade: '#3a2418' },
+  // Hollow Void (Phase 8): the top tier. Ingots are smelted from Starlight Shards.
+  { name: 'starlight', displayName: 'Starlight', level: 4, speed: 10, durability: 2400, damage: 5, enchantability: 22, material: 'starlight_ingot', color: '#9ad8ff', shade: '#4a78c0' },
 ];

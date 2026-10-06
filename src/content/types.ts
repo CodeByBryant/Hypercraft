@@ -374,7 +374,9 @@ export type IconShape =
   | 'door'
   | 'stairs'
   // Phase 8.
-  | 'eye';
+  | 'eye'
+  | 'wings'
+  | 'rocket';
 
 /** Procedural 16x16 pixel icon: a shape painted with a small palette (main, shade, accent). */
 export interface IconDef {
@@ -446,7 +448,8 @@ export type ItemUse =
   | 'fishing'
   | 'sleeping_bag'
   // Phase 8.
-  | 'void_eye';
+  | 'void_eye'
+  | 'starlight_rocket';
 
 /** Melee weapons beyond the tool kinds (Phase 7.7): spears, the 4D Whip. */
 export interface WeaponDef {

@@ -66,6 +66,7 @@ export class Hud {
   private readonly bossName: HTMLDivElement;
   private readonly bossFill: HTMLDivElement;
   private readonly bossWarn: HTMLDivElement;
+  private readonly glideHud: HTMLDivElement;
   private readonly sleepLeave: HTMLButtonElement;
   private readonly loading: HTMLDivElement;
   private readonly loadingText: HTMLDivElement;
@@ -151,6 +152,8 @@ export class Hud {
     const track = el('div', 'track', this.bossBar);
     this.bossFill = el('div', 'fill', track);
     this.bossWarn = el('div', 'boss-warning', this.root);
+    // Phase Wings: speed while gliding.
+    this.glideHud = el('div', 'glide-hud', this.root);
     // Standing in a portal: the view swirls violet as the trip approaches.
     this.portalFx = el('div', 'portal-fx', this.root);
     // On fire: flames lick up from the bottom of the screen.
@@ -303,6 +306,14 @@ export class Hud {
       this.bossFill.style.width = `${Math.max(0, Math.round((boss.health / boss.def.health) * 1000) / 10)}%`;
       this.bossBar.classList.toggle('enraged', boss.phase >= 2);
     }
+    const gp = g.player;
+    if (gp.gliding) {
+      let sp = 0;
+      for (let i = 0; i < 4; i++) if (i !== gp.up) sp += gp.vel[i]! * gp.vel[i]!;
+      const text = `GLIDING · ${Math.round(Math.sqrt(sp))} m/s · ${Math.round(gp.vel[gp.up]!)} vertical${gp.rocket > 0 ? ' · ROCKET' : ''}`;
+      if (this.glideHud.textContent !== text) this.glideHud.textContent = text;
+      this.glideHud.style.display = 'block';
+    } else if (this.glideHud.style.display !== 'none') this.glideHud.style.display = 'none';
     const warn = g.bosses.warning || g.voidBoss.warning;
     if (this.bossWarn.textContent !== warn) {
       this.bossWarn.textContent = warn;

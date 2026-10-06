@@ -105,6 +105,8 @@ export interface Hc {
   voidBoss(): { defeated: boolean; pylons: number; lances: number; warning: string; shifted: boolean; phase: number; health: number; id: number };
   setVoidDefeated(on: boolean): void;
   voidDrain(): number;
+  glide(): { gliding: boolean; speed: number; vy: number; rocket: number; wear: number; phaseStepCd: number };
+  hurtKind(amount: number, kind: string): boolean;
   // Phase 7
   survival(): { food: number; saturation: number; xp: number; level: number; armor: number; absorption: number; effects: [string, number, number][]; using: { item: string; t: number } | null };
   setFood(food: number, saturation?: number): void;
