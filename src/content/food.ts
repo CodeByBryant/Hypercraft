@@ -57,6 +57,15 @@ export const FOOD: Record<string, FoodDef> = {
   berry_pie: { nutrition: 8, saturation: 4.8 },
   fruit_salad: { nutrition: 7, saturation: 8.4, remainder: 'bowl' },
   fish_stew: { nutrition: 10, saturation: 12, remainder: 'bowl' },
+  // The new animals.
+  raw_pork: { nutrition: 3, saturation: 1.8 },
+  cooked_pork: { nutrition: 8, saturation: 12.8 },
+  raw_venison: { nutrition: 3, saturation: 1.8 },
+  cooked_venison: { nutrition: 8, saturation: 12.8 },
+  raw_duck: { nutrition: 2, saturation: 1.2, effects: [['hunger', 30, 0, 0.3]] },
+  cooked_duck: { nutrition: 6, saturation: 7.2 },
+  raw_crab: { nutrition: 2, saturation: 1.2 },
+  cooked_crab: { nutrition: 6, saturation: 9.6 },
 };
 
 function food(name: string, displayName: string, shape: NonNullable<ItemDef['icon']>['shape'], colors: Hex[], extra: Partial<ItemDef> = {}): ItemDef {
@@ -98,6 +107,15 @@ export const FOOD_ITEMS: ItemDef[] = [
   food('raw_salmon', 'Raw Salmon', 'fish', ['#e8806a', '#b8503a', '#f8c8b8']),
   food('cooked_fish', 'Cooked Fish', 'fish', ['#c8a070', '#8a6a40', '#f0d8b0']),
   food('cooked_salmon', 'Cooked Salmon', 'fish', ['#d8704a', '#9a4a2a', '#f0b890']),
+  food('raw_pork', 'Raw Pork', 'raw', ['#e8a09a', '#c0706a', '#f8d8d4']),
+  food('cooked_pork', 'Cooked Pork', 'steak', ['#c8885a', '#8a5a34', '#f0d0b0']),
+  food('raw_venison', 'Raw Venison', 'raw', ['#b84a44', '#7a2a28', '#e8a8a0']),
+  food('cooked_venison', 'Venison Steak', 'steak', ['#7a4a2e', '#4a2a18', '#b8845a']),
+  food('raw_duck', 'Raw Duck', 'raw', ['#e8b8a0', '#c08870', '#f8e0d0']),
+  food('cooked_duck', 'Cooked Duck', 'drumstick', ['#b87838', '#7a4a20', '#e8c898']),
+  food('raw_crab', 'Raw Crab', 'meat', ['#e07a5a', '#b04a30', '#f8c8b8']),
+  food('cooked_crab', 'Cooked Crab', 'meat', ['#e8502a', '#a02a14', '#ffb890']),
+  { name: 'scute', displayName: 'Scute', icon: { shape: 'shard', colors: ['#6a9a4a', '#3a6a2a', '#c8e8a8'] }, group: 'materials' },
   food('berry_pie', 'Berry Pie', 'pie', ['#8a2a5a', '#5a1a3a', '#f0d0a0']),
   food('fruit_salad', 'Fruit Salad', 'stew', ['#e8a03a', '#a86a1a', '#d8302a'], { maxStack: 1 }),
   food('fish_stew', 'Fish Stew', 'stew', ['#8a5a3a', '#5a3a20', '#9aa8b0'], { maxStack: 1 }),
@@ -118,6 +136,10 @@ export const FOOD_RECIPES: RecipeDef[] = [
     ['kelp', 'dried_kelp'],
     ['raw_fish', 'cooked_fish'],
     ['raw_salmon', 'cooked_salmon'],
+    ['raw_pork', 'cooked_pork'],
+    ['raw_venison', 'cooked_venison'],
+    ['raw_duck', 'cooked_duck'],
+    ['raw_crab', 'cooked_crab'],
   ].map(([input, result]): RecipeDef => ({ type: 'smelting', input: input!, result: result!, furnaces: [...SMOKE], xp: 0.35 })),
   { type: 'shaped', pattern: ['p p', ' p '], key: { p: '#planks' }, result: 'bowl', count: 4 },
   { type: 'shapeless', ingredients: ['brown_mushroom', 'red_mushroom', 'bowl'], result: 'mushroom_stew' },
@@ -133,4 +155,5 @@ export const FOOD_RECIPES: RecipeDef[] = [
   { type: 'shapeless', ingredients: ['apple', 'melon_slice', '#berry', '#berry', 'bowl'], result: 'fruit_salad' },
   { type: 'shapeless', ingredients: ['raw_fish', 'potato', 'brown_mushroom', 'bowl'], result: 'fish_stew' },
   { type: 'shapeless', ingredients: ['raw_salmon', 'carrot', 'brown_mushroom', 'bowl'], result: 'fish_stew' },
+  { type: 'shaped', pattern: ['sss', 's s'], key: { s: 'scute' }, result: 'reefshell_helmet' },
 ];

@@ -12,6 +12,7 @@ import type { BiomeDef, MobSpawn } from '../../content/types';
 import type { Frame4 } from '../../math/frame';
 import type { World } from '../../world/World';
 import { Pathfinder } from './Pathfinder';
+import { hash4f } from '../../math/rng';
 import { rayBall, rayBox, rayCapsule } from './intersect';
 import type { ItemStack } from '../items/ItemStack';
 import type { VillagerData } from '../Trading';
@@ -55,9 +56,11 @@ export const PART_BASE = MAX_GPU_MOBS * MOB_TEXELS;
 export const ENTITY_TEX_W = 256;
 export const ENTITY_TEX_H = Math.ceil((PART_BASE + MAX_GPU_MOBS * MAX_MOB_PARTS * PART_TEXELS) / ENTITY_TEX_W);
 
-const MAX_MOBS = 64;
+const MAX_MOBS = 96;
 const CAP_HOSTILE = 14;
-const CAP_PASSIVE = 20;
+const CAP_PASSIVE = 28;
+/** Share of land columns that arrive with a herd of animals standing in them. */
+const HERD_CHANCE = 0.2;
 
 export interface MobHost {
   world: World;
@@ -143,6 +146,8 @@ export class Mob {
   breedCd = 0;
   /** Kept animals are saved with their column instead of despawning (bred, leashed, named). */
   kept = false;
+  /** Placed with the herd of this column (cx,cz,cw): a column gets one herd at a time. */
+  herd = '';
   sheared = false;
   customName = '';
   /** Leashed to the player, or tied to a fence post (world cell). */
@@ -321,6 +326,45 @@ export class MobManager {
   }
 
   // ---------------------------------------------------------------- spawning
+
+  /**
+   * A column arrived: some of them come with a herd (animals live where the land is, not only
+   * where the spawner happens to roll). Deterministic per world and column, one herd at a time,
+   * and the herd despawns like any other animal when you are far away.
+   */
+  herdIn(cx: number, cz: number, cw: number, seed: number, biomeAt: (x: number, z: number, w: number) => BiomeDef | null): void {
+    if (!this.enabled || hash4f(cx, cz, cw, 0, seed ^ 0x4e7d3a) > HERD_CHANCE) return;
+    const key = `${cx},${cz},${cw}`;
+    let passive = 0;
+    for (const m of this.list) {
+      if (m.herd === key) return;
+      if (!m.def.hostile) passive++;
+    }
+    if (passive >= MAX_MOBS - 24) return;
+    const px = cx * 16 + 3 + Math.floor(hash4f(cx, cz, cw, 1, seed) * 10);
+    const pz = cz * 16 + 3 + Math.floor(hash4f(cx, cz, cw, 2, seed) * 10);
+    const pw = cw * 16 + 3 + Math.floor(hash4f(cx, cz, cw, 3, seed) * 10);
+    const biome = biomeAt(px, pz, pw);
+    const table = biome?.mobs?.day?.filter((e) => !MOB_REG.get(e.mob).def.hostile);
+    if (!table?.length) return;
+    const pick = this.weighted(table);
+    const lo = Math.max(2, pick.group?.[0] ?? 2), hi = Math.max(lo, pick.group?.[1] ?? 4);
+    const n = lo + Math.floor(hash4f(cx, cz, cw, 4, seed) * (hi - lo + 1));
+    for (let k = 0; k < n; k++) {
+      const x = px + Math.floor((hash4f(cx, cz, cw, 10 + k, seed) - 0.5) * 7);
+      const z = pz + Math.floor((hash4f(cx, cz, cw, 20 + k, seed) - 0.5) * 7);
+      const w = pw + Math.floor((hash4f(cx, cz, cw, 30 + k, seed) - 0.5) * 7);
+      const y = this.world.skyHeight(x, z, w);
+      const top = this.world.getBlock(x, y, z, w) & 0xfff;
+      const below = this.world.getBlock(x, y - 1, z, w) & 0xfff;
+      if ((top !== 0 && REG.collision[top] !== COLLISION_NONE) || REG.collision[below] === COLLISION_NONE || REG.fluid[below] !== 0 || REG.fluid[top] !== 0) continue;
+      const baby = k > 0 && hash4f(cx, cz, cw, 40 + k, seed) < 0.2;
+      const m = baby ? this.spawnBaby(pick.mob, x + 0.5, y, z + 0.5, w + 0.5) : this.spawn(pick.mob, x + 0.5, y, z + 0.5, w + 0.5);
+      if (!m) break;
+      if (baby) m.kept = false;
+      m.herd = key;
+    }
+  }
 
   private spawnCycle(h: MobHost, biomeAt: (x: number, z: number, w: number) => BiomeDef | null, caveBiomeAt: ((x: number, y: number, z: number, w: number) => number) | null): void {
     const p = h.playerPos;

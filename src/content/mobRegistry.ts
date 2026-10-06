@@ -4,6 +4,7 @@
 import { IREG } from './itemRegistry';
 import { REG, hexToRgb } from './registry';
 import { MOBS } from './mobs';
+import { ANIMALS } from './animals';
 import type { MobDef } from './types';
 
 export const MAX_MOB_PARTS = 16;
@@ -70,4 +71,4 @@ export class MobRegistry {
   }
 }
 
-export const MOB_REG = new MobRegistry(MOBS);
+export const MOB_REG = new MobRegistry([...MOBS, ...ANIMALS]);

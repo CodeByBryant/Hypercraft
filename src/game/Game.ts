@@ -1315,6 +1315,8 @@ export class Game {
    */
   private columnMobsIn(c: Column): void {
     if (this.demo) return;
+    // Animals live where the land is: some columns arrive with a herd.
+    if (this.world.realm.name === 'surface' && this.world.realm.dayCycle) this.mobs.herdIn(c.cx, c.cz, c.cw, this.seed, this.biomeFn);
     const ex = c.extra as { mobs?: SavedMob[]; npcs?: { mob: string; x: number; y: number; z: number; w: number; data?: Record<string, unknown> }[] };
     if (ex.mobs) {
       for (const sm of ex.mobs) this.mobs.restore(sm);
@@ -1424,7 +1426,7 @@ export class Game {
       this.wearHeld(1);
       return true;
     }
-    if (name === 'bucket' && m.def.name === 'ana_cow' && m.baby === 0) {
+    if (name === 'bucket' && (m.def.name === 'ana_cow' || m.def.name === 'crag_goat') && m.baby === 0) {
       const milk: ItemStack = { id: IREG.id('milk_bucket'), count: 1, damage: 0 };
       if (!survival) return true;
       if (held!.count === 1) this.inv.set(this.hotbarIndex, milk);

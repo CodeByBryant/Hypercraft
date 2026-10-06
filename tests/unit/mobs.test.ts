@@ -3,6 +3,7 @@ import { B, REG } from '../../src/content/registry';
 import { IREG } from '../../src/content/itemRegistry';
 import { MOB_REG, MAX_MOB_PARTS } from '../../src/content/mobRegistry';
 import { MOBS } from '../../src/content/mobs';
+import { ANIMALS } from '../../src/content/animals';
 import { MobManager, MOB_TEXELS, PART_BASE, PART_TEXELS, type MobHost } from '../../src/game/mobs/MobManager';
 import { Frame4 } from '../../src/math/frame';
 import type { World } from '../../src/world/World';
@@ -33,7 +34,7 @@ function host(drops: ItemStack[] = []): MobHost {
 
 describe('mob registry', () => {
   it('compiles every mob with bounded parts, drops and a covering radius', () => {
-    expect(MOB_REG.mobs.length).toBe(MOBS.length);
+    expect(MOB_REG.mobs.length).toBe(MOBS.length + ANIMALS.length);
     expect(MOBS.length).toBeGreaterThanOrEqual(24);
     for (const cm of MOB_REG.mobs) {
       const d = cm.def;

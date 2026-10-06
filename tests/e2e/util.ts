@@ -22,6 +22,7 @@ export interface Hc {
   metaAt(x: number, y: number, z: number, w: number): number;
   fishing(): null | { t: number; biteAt: number; bite: number; pos: number[] };
   fishBite(): void;
+  herdMobs(): string[];
   skyHeight(x: number, z: number, w: number): number;
   setTime(t: number): void;
   setWeather(w: string): void;

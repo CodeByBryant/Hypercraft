@@ -142,3 +142,33 @@ test('food and fishing: berries, fruit, fibre, a bite and a catch', async ({ pag
   expect(r.catches).toBeGreaterThan(0);
   expect(errors).toEqual([]);
 });
+
+test('animals: herds stand where columns arrive, and the new kinds live in the world', async ({ page }) => {
+  test.setTimeout(400_000);
+  const errors: string[] = [];
+  await boot(page, 'res=180&rd=3&seed=qolherd', errors);
+  const r = await page.evaluate(async () => {
+    const hc = window.__hc;
+    hc.setMode('spectator');
+    hc.setFlying(true);
+    hc.setTime(6000);
+    hc.setMobSpawning(true);
+    const seen = new Set<string>();
+    let herdTotal = 0;
+    const s = hc.state();
+    // Hop across the world: each hop brings fresh columns (and their herds) into range.
+    for (let i = 1; i <= 6; i++) {
+      hc.teleport(s.pos[0]! + i * 170, s.pos[1]! + 30, s.pos[2]! + (i % 2) * 150, s.pos[3]! + (i % 3) * 120);
+      await hc.ready(60_000);
+      await hc.idle(60_000);
+      await hc.frames(4);
+      const h = hc.herdMobs();
+      herdTotal += h.length;
+      for (const n of h) seen.add(n);
+    }
+    return { herdTotal, kinds: [...seen] };
+  });
+  expect(r.herdTotal).toBeGreaterThan(3);
+  expect(r.kinds.length).toBeGreaterThan(1);
+  expect(errors).toEqual([]);
+});

@@ -11,12 +11,12 @@ import { PROFESSIONS } from './trades';
 
 type V4 = [number, number, number, number];
 
-const box = (at: V4, size: V4, color: Hex, anim?: MobPart['anim'], phase?: number): MobPart => ({ kind: 'box', at, size, color, anim, phase });
-const ball = (at: V4, r: number, color: Hex, anim?: MobPart['anim'], phase?: number, glow?: boolean): MobPart => ({ kind: 'ball', at, r, color, anim, phase, glow });
-const capsule = (at: V4, to: V4, r: number, color: Hex, anim?: MobPart['anim'], phase?: number): MobPart => ({ kind: 'capsule', at, to, r, color, anim, phase });
+export const box = (at: V4, size: V4, color: Hex, anim?: MobPart['anim'], phase?: number): MobPart => ({ kind: 'box', at, size, color, anim, phase });
+export const ball = (at: V4, r: number, color: Hex, anim?: MobPart['anim'], phase?: number, glow?: boolean): MobPart => ({ kind: 'ball', at, r, color, anim, phase, glow });
+export const capsule = (at: V4, to: V4, r: number, color: Hex, anim?: MobPart['anim'], phase?: number): MobPart => ({ kind: 'capsule', at, to, r, color, anim, phase });
 
 /** Six legs: four at the corners of the (x, z) footprint at w = 0, one toward each of ±w. */
-function stanceLegs(color: Hex, height: number, spread: number, thick: number): MobPart[] {
+export function stanceLegs(color: Hex, height: number, spread: number, thick: number): MobPart[] {
   const v: [number, number, number][] = [
     [1, 1, 0],
     [-1, 1, 0],
@@ -30,7 +30,7 @@ function stanceLegs(color: Hex, height: number, spread: number, thick: number): 
 }
 
 /** Two legs in the w = 0 plane (humanoids, birds) plus a heel toward +w: a 4D tripod. */
-function bipedLegs(color: Hex, height: number, spread: number, thick: number): MobPart[] {
+export function bipedLegs(color: Hex, height: number, spread: number, thick: number): MobPart[] {
   return [
     box([-spread, height / 2, 0, 0], [thick, height / 2, thick, thick], color, 'leg', 0),
     box([spread, height / 2, 0, 0], [thick, height / 2, thick, thick], color, 'leg', Math.PI),
@@ -39,7 +39,7 @@ function bipedLegs(color: Hex, height: number, spread: number, thick: number): M
 }
 
 /** Eight spider legs: four diagonals in the w = 0 plane and four reaching into ±w. */
-function spiderLegs(color: Hex, y: number, reach: number): MobPart[] {
+export function spiderLegs(color: Hex, y: number, reach: number): MobPart[] {
   const ends: [number, number, number][] = [
     [1, 1, 0],
     [-1, 1, 0],

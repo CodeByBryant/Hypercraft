@@ -259,6 +259,7 @@ export function installTestApi(game: Game, screen?: InventoryScreen): void {
     },
     target: () => (game.hasTarget ? { ...game.target, p: Array.from(game.target.p), name: REG.name(game.target.voxel) } : null),
     blockAt: (x: number, y: number, z: number, w: number) => REG.name(game.world.getBlock(x, y, z, w)),
+    herdMobs: () => game.mobs.list.filter((m) => m.herd !== '').map((m) => m.def.name),
     fishing: () => (game.fishing ? { t: game.fishing.t, biteAt: game.fishing.biteAt, bite: game.fishing.bite, pos: game.fishing.pos } : null),
     fishBite() {
       if (game.fishing) game.fishing.biteAt = game.fishing.t;
