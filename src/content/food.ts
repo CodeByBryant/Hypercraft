@@ -4,6 +4,7 @@
 // bread, raw meat) get their food data merged in by the item registry; the rest are new items.
 
 import type { FoodDef, Hex, ItemDef, RecipeDef } from './types';
+import { VOID_FOOD } from './void';
 
 /** Food data for item names (existing and new). */
 export const FOOD: Record<string, FoodDef> = {
@@ -67,6 +68,8 @@ export const FOOD: Record<string, FoodDef> = {
   raw_crab: { nutrition: 2, saturation: 1.2 },
   cooked_crab: { nutrition: 6, saturation: 9.6 },
 };
+
+Object.assign(FOOD, VOID_FOOD);
 
 function food(name: string, displayName: string, shape: NonNullable<ItemDef['icon']>['shape'], colors: Hex[], extra: Partial<ItemDef> = {}): ItemDef {
   return { name, displayName, icon: { shape, colors }, group: 'food', ...extra };

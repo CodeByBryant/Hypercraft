@@ -386,10 +386,13 @@ export class MobManager {
       const biome = biomeAt(x, z, w);
       if (!biome?.mobs) continue;
       const sky = this.world.skyHeight(x, z, w);
-      const underground = Math.random() < (inSlice ? 0.25 : 0.45);
+      const realm = this.world.realm;
+      // Floating islands (the Hollow Void): open void has nothing to stand on, and the rock under
+      // an island is solid, so only island tops count.
+      if (realm.islandSpawns && sky < 8) continue;
+      const underground = !realm.islandSpawns && Math.random() < (inSlice ? 0.25 : 0.45);
       let y = sky;
       let table: MobSpawn[] | undefined;
-      const realm = this.world.realm;
       if (realm.cavernSpawns) {
         // Enclosed realms (Ember Depths): any cavern floor above the sea, whatever the light.
         y = realm.seaLevel + 2 + Math.floor(Math.random() * Math.max(1, this.world.height - realm.seaLevel - 24));

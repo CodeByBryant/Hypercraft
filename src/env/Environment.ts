@@ -89,6 +89,7 @@ export class Environment {
     time: 0,
     moonPhase: 0,
     stars: 0,
+    aurora: 0,
     cloudCover: 0.35,
     flash: 0,
     storm: 0,
@@ -288,6 +289,26 @@ export class Environment {
       s.rain = 0;
       s.snow = 0;
       s.flash = 0;
+    }
+    if (this.realm.voidSky) {
+      // The Hollow Void: an open black-violet sky of stars and aurora, with no sun, moon, clouds
+      // or weather. Open ground gets a faint violet light, and nothing here is ever "daylight".
+      s.zenith.set([0.012, 0.006, 0.035]);
+      s.horizon.set([0.07, 0.035, 0.15]);
+      for (let i = 0; i < 3; i++) s.fog[i] = this.bFog[i]! * 0.8;
+      s.skyLight.set([0.34, 0.3, 0.55]);
+      s.sunColor.fill(0);
+      s.sunDir.set([0, -1, 0, 0]);
+      s.moonDir.set([0, -1, 0, 0]);
+      s.stars = 1;
+      s.aurora = 1;
+      s.cloudCover = 0;
+      s.daylight = 0;
+      s.weatherFog = 0;
+      s.rain = 0;
+      s.snow = 0;
+      s.flash = 0;
+      s.storm = 0;
     }
   }
 }

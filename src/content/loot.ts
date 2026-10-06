@@ -4,6 +4,7 @@
 
 import type { LootTable } from './types';
 import { FISHING_LOOT } from './forage';
+import { VOID_LOOT } from './void';
 
 const T = (pools: LootTable['pools']): LootTable => ({ pools });
 
@@ -590,6 +591,7 @@ export const LOOT_TABLES: Record<string, LootTable> = {
 };
 
 LOOT_TABLES.fishing = FISHING_LOOT;
+Object.assign(LOOT_TABLES, VOID_LOOT);
 
 // ---------------------------------------------------------------- Phase 7 additions
 // Armour, golden apples and food in the chests where Minecraft keeps them.

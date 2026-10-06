@@ -48,4 +48,28 @@ export const REALMS: RealmDef[] = [
     bedsExplode: true,
     cavernSpawns: true,
   },
+  {
+    // Realm C: floating islands in black space. No sea (the fall below is the void), no day,
+    // an aurora overhead. Reached through a Void Gate in a Stronghold (Game.beginTravel), not a
+    // portal, so coordinateScale is 1; Gateway Spires link the islands within the realm.
+    name: 'void',
+    displayName: 'The Hollow Void',
+    heightChunks: 8,
+    gravityAxis: 1,
+    gravity: 32,
+    seaLevel: 0,
+    generator: 'void',
+    coordinateScale: 1,
+    dayCycle: false,
+    ambient: 0.1,
+    ambientColor: '#a89cff',
+    weather: ['clear'],
+    skyColor: '#06030f',
+    fogColor: '#10081e',
+    floorBlock: 'bedrock',
+    ceilingBlock: null,
+    bedsExplode: true,
+    voidSky: true,
+    islandSpawns: true,
+  },
 ];

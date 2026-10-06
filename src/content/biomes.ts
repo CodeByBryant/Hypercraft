@@ -1115,3 +1115,7 @@ export const BIOMES: BiomeDef[] = [
     structures: ['deep_silent_vault'],
   },
 ];
+
+// Strongholds (Phase 8) lie under every surface biome, land and sea, so each 384-block cell of
+// the horizontal 3-space holds one.
+for (const b of BIOMES) if (b.kind !== 'underground' && !b.structures?.includes('stronghold')) b.structures = [...(b.structures ?? []), 'stronghold'];

@@ -60,4 +60,9 @@ export const STRUCTURES: StructureDef[] = [
   { name: 'magma_bridge', displayName: 'Magma Bridge', placement: 'lava', spacing: 96, chance: 0.55, builder: 'magma_bridge', radius: 24, salt: 0x6104, realm: 'ember' },
   { name: 'ember_ruined_portal', displayName: 'Ruined Portal', placement: 'surface', spacing: 96, chance: 0.3, builder: 'ember_ruined_portal', radius: 6, salt: 0x6105, realm: 'ember' },
   { name: 'regent_caldera', displayName: "Regent's Caldera", placement: 'lava', spacing: 160, chance: 0.8, builder: 'regent_caldera', radius: 23, salt: 0x6106, realm: 'ember' },
+
+  // ---------------------------------------------------------------- Hollow Void (Phase 8)
+  // The Stronghold holds the Void Gate (six frames around ONE cell, two of them kata/ana of you).
+  // Strongholds are rare in a slice but one lies in every 384-block cell of the horizontal 3-space.
+  { name: 'stronghold', displayName: 'Stronghold', placement: 'underground', spacing: 384, chance: 1, builder: 'stronghold', radius: 22, y: [14, 40], salt: 0x7101 },
 ];

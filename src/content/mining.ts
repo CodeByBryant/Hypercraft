@@ -6,6 +6,7 @@ import type { DropDef, MiningDef } from './types';
 import { FARM_MINING, LEAF_SAPLING } from './farming';
 import { ORE_MINING } from './ores';
 import { WOOD_MINING } from './woods';
+import { VOID_MINING } from './void';
 import { FIBRE_CHANCE, FIBRE_PLANTS, FORAGE_MINING, LEAF_FRUIT, addDrop } from './forage';
 import { ALL_BLOCKS, ALL_TEXTURES } from './registry';
 
@@ -174,6 +175,7 @@ for (const b of ALL_BLOCKS) {
 for (const [name, def] of Object.entries(FARM_MINING)) set([name], def);
 for (const [name, def] of Object.entries(ORE_MINING)) set([name], def);
 for (const [name, def] of Object.entries(FORAGE_MINING)) set([name], def);
+for (const [name, def] of Object.entries(VOID_MINING)) set([name], def);
 // Fruit from leaves, plant fibre from long grass (what it drops by hand; shears keep the plant).
 for (const [leaves, [fruit, chance]] of Object.entries(LEAF_FRUIT)) set([leaves], { tool: 'hoe', shears: true, drops: addDrop(MINING[leaves]?.drops ?? [{ item: 'stick', count: [1, 2], chance: 0.04 }], { item: fruit, chance }) });
 for (const name of FIBRE_PLANTS) if (MINING[name]) set([name], { drops: addDrop(MINING[name]!.drops, { item: 'plant_fibre', chance: FIBRE_CHANCE }) });

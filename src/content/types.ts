@@ -372,7 +372,9 @@ export type IconShape =
   | 'fish'
   // Wood families.
   | 'door'
-  | 'stairs';
+  | 'stairs'
+  // Phase 8.
+  | 'eye';
 
 /** Procedural 16x16 pixel icon: a shape painted with a small palette (main, shade, accent). */
 export interface IconDef {
@@ -442,7 +444,9 @@ export type ItemUse =
   | 'crossbow'
   // Playtest QOL.
   | 'fishing'
-  | 'sleeping_bag';
+  | 'sleeping_bag'
+  // Phase 8.
+  | 'void_eye';
 
 /** Melee weapons beyond the tool kinds (Phase 7.7): spears, the 4D Whip. */
 export interface WeaponDef {
@@ -761,4 +765,8 @@ export interface RealmDef {
   bedsExplode?: boolean;
   /** Mob spawning looks for cavern floors (enclosed realms) instead of the sky surface. */
   cavernSpawns?: boolean;
+  /** Open black sky with stars and an aurora, no sun, moon, clouds or weather (the Hollow Void). */
+  voidSky?: boolean;
+  /** Hostile mobs spawn on any island top (no light check): there is no day. */
+  islandSpawns?: boolean;
 }

@@ -30,6 +30,8 @@ export interface SkyState {
   time: number;
   moonPhase: number;
   stars: number;
+  /** 0..1 aurora curtains (the Hollow Void); above 0.5 the sky has no sun or moon. */
+  aurora: number;
   cloudCover: number;
   flash: number;
   storm: number;
@@ -249,6 +251,7 @@ export class Renderer {
     gl.uniform1f(m.loc('uTime'), sky.time);
     gl.uniform1f(m.loc('uMoonPhase'), sky.moonPhase);
     gl.uniform1f(m.loc('uStars'), sky.stars);
+    gl.uniform1f(m.loc('uAurora'), sky.aurora);
     gl.uniform1f(m.loc('uCloudCover'), sky.cloudCover);
     gl.uniform4f(m.loc('uCloudOrigin'), mod(ox, 4096), 0, mod(oz, 4096), mod(ow, 4096));
     gl.uniform1f(m.loc('uFlash'), sky.flash);

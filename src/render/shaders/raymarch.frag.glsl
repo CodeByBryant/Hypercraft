@@ -61,6 +61,7 @@ uniform float uDaylight;
 uniform float uTime;
 uniform float uMoonPhase;
 uniform float uStars;
+uniform float uAurora;
 uniform float uCloudCover;
 uniform vec4 uCloudOrigin;
 uniform float uFlash;
@@ -322,13 +323,30 @@ float bodyDisk(vec4 d, vec4 dir, float radius, out float vis, out vec4 proj) {
   return smoothstep(cos(r * 1.18), cos(r), dot(d, proj));
 }
 
+// Aurora (the Hollow Void): rippling curtains above the horizon. They are defined on world
+// directions, so they sweep past as you rotate the slice through W.
+vec3 aurora(vec4 d, float up) {
+  if (uAurora <= 0.0 || up < 0.02) return vec3(0.0);
+  vec3 h = vec3(d.x, d.z, d.w);
+  float sway = vnoise3(h * 2.2 + vec3(uTime * 0.035, 0.0, uTime * 0.02));
+  float fine = vnoise3(h * 6.5 + vec3(0.0, uTime * 0.06, 3.7));
+  float ph = up * 5.5 + sway * 3.2 + fine * 0.7;
+  float ribbon = pow(max(0.0, 1.0 - abs(sin(ph * 3.1415927))), 3.0);
+  float cover = smoothstep(0.30, 0.65, sway + 0.25 * fine) * smoothstep(0.02, 0.22, up) * (1.0 - smoothstep(0.7, 1.0, up));
+  vec3 col = mix(vec3(0.15, 1.0, 0.55), vec3(0.55, 0.3, 1.0), smoothstep(0.1, 0.85, up + fine * 0.3));
+  return col * ribbon * cover * uAurora * 0.75;
+}
+
 vec3 sky(vec4 d) {
   vec3 c = skyGradient(d);
   float up = dot(d, uUpVec);
+  // The Hollow Void has no sun or moon: its sky is stars and aurora.
+  float celestial = 1.0 - step(0.5, uAurora);
   // Sun
   float vis;
   vec4 sp;
   float disk = bodyDisk(d, uSunDir, 0.045, vis, sp);
+  vis *= celestial;
   if (vis > 0.0) {
     float cs = max(dot(d, sp), 0.0);
     float glow = pow(cs, 90.0) * 0.6 + pow(cs, 8.0) * 0.22 * (1.0 - uWeatherFog);
@@ -336,7 +354,7 @@ vec3 sky(vec4 d) {
   }
   // Stars (only visible at night); a star is a cell on the 3-sphere of 4D directions, so
   // rotating the slice reveals different stars.
-  if (uStars > 0.01 && up > -0.05) {
+  if (uStars > 0.01 && (up > -0.05 || uAurora > 0.5)) {
     vec4 q = floor(d * 120.0);
     float h = hash41(q);
     if (h > 0.9972) {
@@ -344,10 +362,12 @@ vec3 sky(vec4 d) {
       c += vec3(0.85, 0.9, 1.0) * uStars * tw * min(1.0, (h - 0.9972) * 700.0) * (1.0 - uWeatherFog);
     }
   }
+  c += aurora(d, up);
   // Moon with phases (lit fraction by uMoonPhase: 0 full -> 0.5 new -> 1 full)
   float mvis;
   vec4 mp;
   float md = bodyDisk(d, uMoonDir, 0.04, mvis, mp);
+  mvis *= celestial;
   if (mvis > 0.0 && md > 0.0) {
     vec4 side = normalize(uUpVec - dot(uUpVec, mp) * mp + uRight * 0.3);
     float x = dot(d - mp, side) / 0.04;

@@ -8,6 +8,7 @@ import { anaVault, dungeon, hypermine, library, silentVault } from './undergroun
 import { village } from './village';
 import { citadel, emberRuinedPortal, forge, magmaBridge, regentCaldera, ziggurat } from './ember';
 import { shipwreck, sunkenMonument } from './water';
+import { stronghold } from './void';
 
 export const BUILDERS: Record<string, BuilderFn> = {
   village,
@@ -42,4 +43,5 @@ export const BUILDERS: Record<string, BuilderFn> = {
   magma_bridge: magmaBridge,
   ember_ruined_portal: emberRuinedPortal,
   regent_caldera: regentCaldera,
+  stronghold,
 };

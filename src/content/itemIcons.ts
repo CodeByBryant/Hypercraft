@@ -592,6 +592,16 @@ export function paintIcon(def: IconDef): Uint8ClampedArray {
       p.poly([[11, 8], [15, 5], [15, 11]], shade);
       p.set(4, 7, accent);
       break;
+    case 'eye': {
+      // A Void Eye: a glowing eye (main = iris glow, shade = dark rim, accent = highlight).
+      p.disc(8, 8, 6.2, shade);
+      p.disc(8, 8, 4.6, main);
+      p.disc(8, 8, 2.4, shade);
+      p.disc(8, 8, 1.2, rgba('#05020a'));
+      p.set(6, 6, accent);
+      p.set(7, 6, accent);
+      break;
+    }
     case 'door':
       // A boarded door: frame, two panels with a seam, a handle.
       p.poly([[4, 0], [12, 0], [12, 16], [4, 16]], shade);

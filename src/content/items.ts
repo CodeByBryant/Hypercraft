@@ -12,6 +12,7 @@ import { ORE_ITEMS } from './ores';
 import { TOOLS4D_ITEMS } from './tools4d';
 import { DOOR_TOPS, WOOD_ITEM_EXTRAS } from './woods';
 import { SURVIVAL_ITEMS } from './survival';
+import { VOID_ITEMS } from './void';
 
 const HANDLE: Hex = '#8a6a3c';
 
@@ -125,7 +126,7 @@ ITEMS.push(...ARMOR_ITEMS, ...FOOD_ITEMS);
 ITEMS.push({ name: 'enchanted_book', displayName: 'Enchanted Book', maxStack: 1, icon: { shape: 'book', colors: ['#6a3aa8', '#3a1a6a', '#ffd86a'] }, group: 'tools', tags: ['glint'] });
 ITEMS.push(...BREWING_ITEMS, ...POTION_ITEMS, ...FARM_ITEMS);
 // Smithing, shields, the Anchor Charm.
-ITEMS.push(...SMITHING_ITEMS, ...ORE_ITEMS, ...TOOLS4D_ITEMS, ...SURVIVAL_ITEMS);
+ITEMS.push(...SMITHING_ITEMS, ...ORE_ITEMS, ...TOOLS4D_ITEMS, ...SURVIVAL_ITEMS, ...VOID_ITEMS);
 ITEMS.push(
   { name: 'shield', displayName: 'Shield', maxStack: 1, durability: 336, enchantability: 1, icon: { shape: 'shield', colors: ['#8a6a3c', '#5f4828', '#c8c8c8'] }, use: 'shield', group: 'combat', tags: ['shield'] },
   { name: 'anchor_charm', displayName: 'Anchor Charm', maxStack: 1, icon: { shape: 'charm', colors: ['#6a8aa8', '#2a3a5a', '#f4d03f'] }, group: 'combat', tags: ['glint'] },
@@ -141,6 +142,9 @@ export const NO_ITEM_BLOCKS = new Set([
   ...CROPS.flatMap((c) => Array.from({ length: c.stages }, (_, k) => `${c.name}_${k}`)),
   ...DOOR_TOPS,
   'grave',
+  'void_gate',
+  'gateway_beam',
+  'void_gate_frame_eye',
   'tnt_lit',
   ...BUSHES.map((b) => b.young),
   'farmland_moist','air', 'water', 'lava', 'portal', 'lit_furnace', 'lit_blast_furnace', 'lit_smoker', 'mob_spawner', 'red_bed_head', 'blue_bed_head', 'white_bed_head', 'frosted_ice']);

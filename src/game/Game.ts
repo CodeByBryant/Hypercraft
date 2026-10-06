@@ -66,10 +66,12 @@ import type { Container } from './items/ItemStack';
 import { XpOrbs } from './XpOrbs';
 import { Vision4D } from './Vision4D';
 import { ARMOR_START, OFFHAND } from './items/Inventory';
+import { ARRIVAL_POS, gatewayAt } from '../content/void';
+import { GATE, fillFrame, gateProgress } from './VoidGate';
 
 /** How the player arrives in a realm: through a portal (find or build its twin) or a respawn. */
 export interface Arrival {
-  kind: 'portal' | 'respawn';
+  kind: 'portal' | 'respawn' | 'void';
   /** Shape of the portal left behind (the arrival portal copies it). */
   axis?: number;
   /** Flat portals: the second normal axis. */
@@ -344,6 +346,9 @@ export class Game {
   portalTime = 0;
   /** Just arrived through a portal: no trip back until you step out of it. */
   private portalCooldown = false;
+  /** Seconds spent standing in a lit Void Gate, and the cooldown after a gateway beam. */
+  gateTime = 0;
+  private gatewayCd = 0;
   /** A realm trip is under way (the page reloads into the destination): its display name. */
   traveling: string | null = null;
   /** Pending arrival in this realm (handled once the columns around the player load). */
@@ -876,7 +881,11 @@ export class Game {
         this.villageTick();
       }
       this.updateAtlas();
-      if (!this.traveling) this.updatePortal(dt);
+      if (!this.traveling) {
+        this.updatePortal(dt);
+        this.updateVoidGate(dt);
+        this.updateGateways(dt);
+      }
       this.burnEffects(dt);
       this.enchantTick(dt);
     }
@@ -1673,6 +1682,118 @@ export class Game {
     this.sleeping = null;
   }
 
+  // ------------------------------------------------------------------ the Void Gate
+
+  /**
+   * Void Eye: used on a gate frame it takes the frame's place (and lights the gate cell once all
+   * six frames hold one). Held anywhere it points at the nearest Stronghold (the atlas readout).
+   */
+  private useVoidEye(held: ItemStack): void {
+    if (!this.hasTarget) return;
+    const t = this.target;
+    if (voxelId(t.voxel) !== GATE.frame) return;
+    const survival = this.player.mode === 'survival';
+    const lit = fillFrame(this.world, t.x, t.y, t.z, t.w);
+    if (!lit) return;
+    if (survival) {
+      held.count--;
+      this.inv.set(this.hotbarIndex, held.count > 0 ? held : null);
+    }
+    this.particles.burst(t.x + 0.5, t.y + 0.9, t.z + 0.5, t.w + 0.5, this.player.cam, 'spark', '#9affc8', 8, 1.4, 0.5, true);
+    if (lit.length === 0) {
+      // Say how the gate stands: the cell is the empty one next to the frame.
+      const around = [[1, 0, 0, 0], [-1, 0, 0, 0], [0, 0, 1, 0], [0, 0, -1, 0], [0, 0, 0, 1], [0, 0, 0, -1]];
+      for (const d of around) {
+        const c = [t.x + d[0]!, t.y, t.z + d[2]!, t.w + d[3]!];
+        if (this.world.getBlock(c[0]!, c[1]!, c[2]!, c[3]!) !== 0) continue;
+        const pr = gateProgress(this.world, c[0]!, c[1]!, c[2]!, c[3]!);
+        this.message?.(`The eye settles into the frame · ${pr.eyes} of 6 filled`);
+        return;
+      }
+      this.message?.('The eye settles into the frame');
+      return;
+    }
+    const c = lit[0]!;
+    this.particles.burst(c[0] + 0.5, c[1] + 0.8, c[2] + 0.5, c[3] + 0.5, this.player.cam, 'spark', '#6affc0', 40, 3, 1, true);
+    this.message?.('The Void Gate opens · step into it');
+  }
+
+  /** The id of a block the body overlaps (feet or head cell), with that cell, else null. */
+  private bodyCell(id: number): number[] | null {
+    const p = this.player.pos;
+    for (const dy of [0.2, 1.4]) {
+      const c = [Math.floor(p[0]!), Math.floor(p[1]! + dy), Math.floor(p[2]!), Math.floor(p[3]!)];
+      if ((this.world.getBlock(c[0]!, c[1]!, c[2]!, c[3]!) & 0xfff) === id) return c;
+    }
+    return null;
+  }
+
+  /** Standing in a lit gate: the view swirls, then you travel (to the Void, or home from it). */
+  private updateVoidGate(dt: number): void {
+    if (this.vitals.dead || !this.bodyCell(GATE.gate)) {
+      this.gateTime = Math.max(0, this.gateTime - dt * 2);
+      return;
+    }
+    this.gateTime += dt;
+    const fast = this.player.mode === 'creative' || this.player.mode === 'spectator';
+    const need = fast ? 0.3 : 1.5;
+    this.portalTime = Math.max(this.portalTime, Math.min(1, this.gateTime / need) * (fast ? 1 : 4));
+    if (this.gateTime < need) return;
+    this.gateTime = 0;
+    const realm = this.world.realm.name;
+    if (realm === 'surface') this.beginTravel('void', ARRIVAL_POS, { kind: 'void' });
+    else if (realm === 'void') this.beginTravel('surface', this.surfaceRespawnPoint(), { kind: 'respawn' });
+    else this.message?.('The gate is dormant here: it leads between the Surface and the Void');
+  }
+
+  /** Gateway Spires: standing in a beam sends you to the beam's twin (the same realm, 1024 blocks away). */
+  private updateGateways(dt: number): void {
+    if (this.gatewayCd > 0) this.gatewayCd -= dt;
+    if (this.world.realm.name !== 'void' || this.gatewayCd > 0 || this.vitals.dead) return;
+    const c = this.bodyCell(GATE.beam);
+    if (!c) return;
+    const hit = gatewayAt(c[0]!, c[1]!, c[2]!, c[3]!);
+    if (!hit) return;
+    this.gatewayCd = 3;
+    this.message?.(hit.kind === 'out' ? 'The beam carries you out across the dark…' : 'The beam carries you home to the central island');
+    this.teleportTo(hit.to[0], hit.to[1], hit.to[2], hit.to[3]);
+  }
+
+  /** Move the player to a (possibly far) point and wait for the columns there to stream in. */
+  teleportTo(x: number, y: number, z: number, w: number): void {
+    this.player.setPosition(x, y, z, w);
+    this.player.vel.fill(0);
+    this.loaded = false;
+    this.player.frozen = true;
+    this.streamer.invalidate();
+  }
+
+  /**
+   * Whisper Fruit: like a chorus fruit, you step through the dark to a nearby safe spot within
+   * 8 blocks, kata and ana included.
+   */
+  private whisperTeleport(): void {
+    const p = this.player, up = p.up;
+    const solid = (x: number, y: number, z: number, w: number) => {
+      const v = this.world.getBlock(x, y, z, w);
+      return v === VOID_VOXEL || REG.collision[v & 0xfff] !== COLLISION_NONE;
+    };
+    for (let k = 0; k < 24; k++) {
+      const x = Math.floor(p.pos[0]! + (Math.random() * 2 - 1) * 8), z = Math.floor(p.pos[2]! + (Math.random() * 2 - 1) * 8), w = Math.floor(p.pos[3]! + (Math.random() * 2 - 1) * 8);
+      const y0 = Math.floor(p.pos[up]!) + Math.floor(Math.random() * 9) - 4;
+      for (let dy = 0; dy < 8; dy++) {
+        const y = y0 - dy;
+        if (y < 1 || solid(x, y, z, w) || solid(x, y + 1, z, w) || !solid(x, y - 1, z, w)) continue;
+        const e = this.eyePos;
+        this.particles.burst(e[0]!, e[1]!, e[2]!, e[3]!, p.cam, 'spark', '#c87aff', 14, 2, 0.5, true);
+        p.setPosition(x + 0.5, y, z + 0.5, w + 0.5);
+        this.particles.burst(x + 0.5, y + 1, z + 0.5, w + 0.5, p.cam, 'spark', '#c87aff', 14, 2, 0.5, true);
+        return;
+      }
+    }
+    this.message?.('The fruit fizzles: nowhere safe to step');
+  }
+
   // ------------------------------------------------------------------ portals & realm travel
 
   private isPortalFrame(v: number): boolean {
@@ -2103,8 +2224,8 @@ export class Game {
     const a = this.arrival!;
     this.arrival = null;
     this.arrivalWait = 0;
-    if (a.kind === 'respawn') {
-      this.checkBed = this.bed !== null;
+    if (a.kind === 'respawn' || a.kind === 'void') {
+      this.checkBed = a.kind === 'respawn' && this.bed !== null;
       return true;
     }
     const realm = this.world.realm.name;
@@ -3628,6 +3749,7 @@ export class Game {
       this.burning = 0;
     }
     for (const [name, secs, amp, chance] of f.effects ?? []) if (Math.random() < chance) this.applyEffect(name, secs, amp);
+    if (IREG.name(st.id) === 'whisper_fruit') this.whisperTeleport();
     if (this.player.mode === 'creative') return;
     st.count--;
     const rem = f.remainder ? { id: IREG.id(f.remainder), count: 1, damage: 0 } : null;
@@ -3752,6 +3874,10 @@ export class Game {
     }
     if (use === 'sleeping_bag') {
       this.useSleepingBag(held);
+      return;
+    }
+    if (use === 'void_eye') {
+      this.useVoidEye(held);
       return;
     }
     if (use === 'fishing') {
