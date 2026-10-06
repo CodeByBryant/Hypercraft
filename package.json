@@ -1,6 +1,6 @@
 {
   "name": "hypercraft",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "private": true,
   "description": "HYPERCRAFT: a 4D voxel survival sandbox for the browser",
   "type": "module",

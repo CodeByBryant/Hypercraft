@@ -48,6 +48,7 @@ particles unless `&particles=1`; used by tests).
 | LMB (hold in survival) / RMB / MMB | attack or mine / place, use, open stations / pick block |
 | RMB (hold) | eat or drink, draw a bow, raise a shield, load a crossbow, climb a Hyper Rope |
 | **H** | swap the main hand and the off hand |
+| RMB with a fishing rod / sleeping bag / axe / on a door or grave | cast and reel in / sleep at night / strip a log / open and close / take your things back |
 | Shift + RMB | with a W-Anchor: mark where you stand |
 | **Tab** or **I** | inventory, crafting and recipe book |
 | **B** (Ctrl+B) | drop the held item (the whole stack) |

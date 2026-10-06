@@ -25,6 +25,13 @@ Honest list as of Phase 7 (survival systems, enchanting, brewing, farming, anima
   with a larger hidden-axis margin.
 
 ## Gameplay
+- Worlds created before 0.7.1 keep the terrain they already generated: new areas use the bigger
+  biomes, cave mouths, rivers and lakes, so expect seams (a sharp biome or river edge) where old
+  and new columns meet.
+- Waterfalls are placed at generation and the fluid sim only wakes on block changes: a fall dries
+  up or spreads only once you touch the water around it.
+- Herds are placed when a column arrives and are not saved (unless you breed, lead or name the
+  animals): leave a herd far behind and a fresh one stands there on return.
 - Lit TNT is not saved: after a reload it stays lit without going off (mine it to get it back).
 - A thrown Hyper-Chakram that is in the air when the game is saved is lost.
 - Crossbows take only Unbreaking and Mending (no Multishot, Piercing or Quick Charge yet).

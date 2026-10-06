@@ -51,7 +51,8 @@ players and mobs burning.
 
 Boxes are 4D `[min, max]` in cell coordinates, authored for facing +X (or the bottom half).
 `variants`: `none`, `vertical2` (meta 0 bottom / 1 top), `horizontal6` (meta 0..5 = facing
-+X, −X, +Z, −Z, +W, −W). `kind: 'plant'` (diagonal sheets) and `kind: 'fluid'` need no boxes.
++X, −X, +Z, −Z, +W, −W), `door` (meta 0..5 = closed, facing as `horizontal6`; 6..11 = open,
+using `openBoxes`). `kind: 'plant'` (diagonal sheets) and `kind: 'fluid'` need no boxes.
 Collision uses the same boxes (`collision: 'shape'`), a full cube, or nothing.
 
 ## Textures (`src/content/textures.ts`)
@@ -114,6 +115,19 @@ Shapes are 4D-native (canopies are balls, cones or ellipsoids in x, z and w, so 
 cuts them differently): `ball`, `birch`, `wide`, `cone`, `acacia` (trunk bends toward one of
 ±X/±Z/±W), `bamboo`, `mushroom` (hollow cap), `dead`, `cactus`, `kelp` (grows up to the
 water surface). Biomes reference trees by name; the registry rejects unknown names.
+
+### Wood families (`src/content/woods.ts`, since 0.7.1)
+
+```ts
+{ name: 'jungle', display: 'Jungle', logs: ['jungle_log'] }
+```
+
+One line per wood generates `<name>_planks`, `stripped_<name>_log` (an axe turns each log in
+`logs` into it), `<name>_slab`, `_stairs`, `_fence` and a two-cell `_door` (`_door_top` is the
+upper half and has no item), with their recipes, mining rules and icons. Optional: `colors`
+(planks), `stem` (fungi), `noStrip`, `ember` (fireproof). A new tree with a new log needs one
+line here so its wood is craftable; the unit test fails otherwise. Animals are in
+`animals.ts` (bodies) and `fauna.ts` (which biomes list them).
 
 ## Items (`src/content/items.ts`)
 
@@ -418,6 +432,9 @@ load consumes; the arrival portal copies that shape.
   * since Phase 5, `bed: [x, y, z, w] | null`, your respawn point (Surface coordinates);
   * since Phase 6, `SavedState.realm` is the realm you are in; `SavedState.data.portals`
     holds the lit portals and `data.arrival` a pending arrival. Columns are saved per realm;
+  * since 0.7.1, `SavedState.data.graves: { realm, pos }[]` (the last five graves; a grave's
+    contents are a `grave` block entity in its column's `extra.be`: `{ type: 'grave', slots, xp }`)
+    and `WorldInfo.keepInventory`;
   * since Phase 7, `hunger: { food, sat, exh }`, `xp` (total points), `effects` (each with
     its name, seconds left and level), `absorption` and `enchSeed` (the enchanting table's
     offers stay put until you enchant).

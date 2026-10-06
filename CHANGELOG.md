@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.7.1 — The livable world (2026-10-06)
+
+Playtest feedback after Phase 7: the world had grown wide without the basics that make it
+coherent and survivable.
+
+### Added
+- **Wood families.** Every tree makes its own planks, stripped log (use an axe on a log), slab,
+  stairs, fence and a two-cell door: 33 woods, one table (`src/content/woods.ts`). Doors open
+  and close with use and keep mobs out (villages have them). Every log, plank and leaf block now
+  has a mining rule; stone and crystal "trunks" are pickaxe blocks, not logs.
+- **Food that is food.** Blueberry, cranberry and lingonberry bushes are real berry bushes;
+  fruit trees drop their fruit (cherries, olives, coconuts, baobab fruit); cacti, sunflowers,
+  glow berries, sea grapes and puffballs are edible; long grass gives plant fibre (3 make a
+  string). New dishes: berry pie, fruit salad, fish stew.
+- **Fishing.** The fishing rod: cast at water, wait for the splash, use again to reel in fish,
+  salmon, junk or treasure.
+- **Eight new animals**: wild boar, ridge deer, crag goat, mallard, steppe bison, shell turtle,
+  shore crab, floe penguin, with raw and cooked meats; every land biome lists two to four animals
+  that fit it, and about one land column in five arrives with a herd.
+- **Terrain.** Biomes about three times larger, caves that open to the surface (mouths in
+  hillsides, ravines open to the sky), rivers of varying width with a stream network, gorges and
+  islets, many more and larger lakes (with sandy shores and lava lakes in volcanic highlands),
+  and waterfalls down cliff faces.
+- **Survival.** A Minecraft-shaped day (about ten minutes of full light, seven of dark), gentler
+  nights (hostiles only in the dark, further away, fewer; no ana stalkers the first night),
+  **graves** (everything you carried waits in a grave, a HUD pointer leads back to it), a
+  **keep inventory** world option, the **sleeping bag**, and a starter kit in new survival
+  worlds (torches, bread, a crafting table, a sleeping bag).
+
+### Changed
+- Torches and lit rooms keep hostiles from spawning (block light 0 is required); the hostile cap
+  went from 14 to 10 and the passive cap from 20 to 28.
+- Lakes are stretched along W so one stays in view across many slices.
+
 ## 0.7.0 — Phase 7: Survival systems, enchanting, brewing, farming, animals, smithing, 4D tools (2026-10-02)
 
 ### Added

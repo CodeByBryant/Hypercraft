@@ -42,3 +42,14 @@ describe('survival QOL (0.7.1)', () => {
     expect(IREG.has('grave')).toBe(false); // you cannot craft or place one
   });
 });
+
+describe('coherence: everything that looks like food gives food', () => {
+  it('berry, grape and fruit plants and fruiting trees give something edible', async () => {
+    const { rollDrops } = await import('../../src/game/items/Mining');
+    const food = (name: string) => rollDrops(REG.id(name), -1, () => 0).some((s) => IREG.food[s.id] || IREG.itemBlock[s.id] === REG.id(name) ? !!IREG.food[s.id] : false);
+    const fruity = REG.blocks.filter((b) => /berr|cranberry|grape|puffball/.test(b.name) && (b.tags ?? []).includes('plant') && !b.name.endsWith('_young'));
+    expect(fruity.length).toBeGreaterThan(5);
+    for (const b of fruity) expect(food(b.name), `${b.name} gives no food`).toBe(true);
+    for (const n of ['apple_leaves', 'cherry_leaves', 'olive_leaves', 'palm_fronds', 'baobab_leaves']) expect(food(n), n).toBe(true);
+  });
+});
