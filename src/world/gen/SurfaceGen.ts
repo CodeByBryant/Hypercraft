@@ -94,6 +94,11 @@ export class SurfaceGenerator {
   private readonly caves: CaveFields;
   private readonly biomes: BiomeDef[];
   private readonly nRiver: SimplexNoise;
+  /** River width along its course, the stream network, river islets, cave mouths. */
+  private readonly nRiverW: SimplexNoise;
+  private readonly nStream: SimplexNoise;
+  private readonly nIslet: SimplexNoise;
+  private readonly nEntrance: SimplexNoise;
   private readonly nRavine: SimplexNoise;
   private readonly nRavMask: SimplexNoise;
   private readonly nSheet: SimplexNoise;
@@ -146,6 +151,10 @@ export class SurfaceGenerator {
     this.climate = new Climate(this.seed, this.biomes, this.sea, this.height);
     this.caves = new CaveFields(this.seed, this.height);
     this.nRiver = new SimplexNoise(this.seed ^ 0xa101);
+    this.nRiverW = new SimplexNoise(this.seed ^ 0xb101);
+    this.nStream = new SimplexNoise(this.seed ^ 0xb202);
+    this.nIslet = new SimplexNoise(this.seed ^ 0xb303);
+    this.nEntrance = new SimplexNoise(this.seed ^ 0xb404);
     this.nRavine = new SimplexNoise(this.seed ^ 0xa202);
     this.nRavMask = new SimplexNoise(this.seed ^ 0xa303);
     this.nSheet = new SimplexNoise(this.seed ^ 0xa404);
@@ -182,7 +191,7 @@ export class SurfaceGenerator {
       'limestone', 'savanna_stone', 'weathered_stone', 'fossil_stone', 'silent_shale', 'tidestone', 'dune_sand', 'red_sand',
       'bleached_sand', 'mycelium', 'podzol', 'snowy_turf', 'dry_turf', 'steppe_turf', 'petal_turf', 'glass_turf', 'orchard_turf',
       'forest_turf', 'loam', 'jungle_soil', 'fen_mud', 'marsh_mud', 'sea_sand', 'dark_gravel', 'ash_soil', 'mud', 'kelp', 'frost_kelp',
-      'seagrass',
+      'seagrass', 'reeds',
     ];
     this.ids = {};
     for (const n of names) this.ids[n] = id(n);
@@ -252,27 +261,58 @@ export class SurfaceGenerator {
   /**
    * Rivers: the near-zero set of a 3D noise over (x, z, w), i.e. a 2D surface in the
    * horizontal 3-space (a 3D hypersurface in 4D), so a slice shows it as a winding channel
-   * that shifts as you move kata/ana. The bed sits below sea level; banks rise smoothly; the
-   * whole cut fades out in high mountains instead of stopping at a wall.
+   * that shifts as you move kata/ana. Playtest (0.7.1): the width varies along the course
+   * (a creek here, a wide river there), a second, finer network of streams runs through the
+   * lowlands, rivers cut gorges with steep walls through mountains instead of fading out, and
+   * wide stretches have islets. The bed sits below sea level; banks rise smoothly.
    */
   private applyRiver(h: number, x: number, z: number, w: number, p: BiomePick, c: ClimateSample): { h: number; river: boolean } {
     const o = this.rvOut;
     o.h = h;
     o.river = false;
     if (p.ocean) return o;
-    const strength = Math.min(1, Math.max(0, (0.8 - c.mountains) / 0.3));
-    if (strength <= 0) return o;
-    const r = this.riverMask(x, z, w);
-    if (r >= 0.065) return o;
-    let target: number;
-    if (r < 0.02) {
-      target = this.sea - 2 - 3 * (1 - r / 0.02);
-    } else {
-      const t = (r - 0.02) / 0.045;
-      target = this.sea + t * t * Math.max(0, h - this.sea);
+    const sea = this.sea;
+    const mount = c.mountains;
+    // Rivers cut through everything but the very highest peaks.
+    const strength = Math.min(1, Math.max(0, (1.02 - mount) / 0.12));
+    if (strength > 0) {
+      const r = this.riverMask(x, z, w);
+      const wn = 0.5 + 0.5 * this.nRiverW.n3(x / 280, z / 280, w / 280);
+      const gorge = Math.min(1, Math.max(0, (mount - 0.35) / 0.3));
+      // Half widths in mask units (about 160 blocks of terrain per unit...): bed, then bank.
+      const half = (0.014 + 0.05 * wn * wn) * (1 - 0.4 * gorge);
+      const bank = half + (0.03 + 0.03 * wn) * (1 - 0.65 * gorge);
+      if (r < bank) {
+        let target: number;
+        if (r < half) {
+          const t = r / half;
+          target = sea - 2 - Math.round(1 + 3 * wn) * (1 - t * t);
+          // Islets in the wide stretches.
+          if (wn > 0.6 && t < 0.8 && this.nIslet.n3(x / 15, z / 15, w / 15) > 0.5 - 0.3 * (wn - 0.6)) target = sea + 1;
+        } else {
+          const t = (r - half) / (bank - half);
+          target = sea + t * t * Math.max(0, h - sea);
+        }
+        const nh = Math.min(h, Math.floor(h + (target - h) * strength));
+        if (nh < o.h) {
+          o.h = nh;
+          o.river = r < half && nh < sea;
+        }
+      }
     }
-    o.h = Math.min(h, Math.floor(h + (target - h) * strength));
-    o.river = r < 0.02 && o.h < this.sea;
+    // Streams: thin channels through the lowlands (they never leave the sea-level plain).
+    if (!o.river && h - sea < 14 && h > sea && mount < 0.3) {
+      const sr = Math.abs(this.nStream.fbm3(x / 230, z / 230, w / 230, 2));
+      if (sr < 0.034) {
+        const t = sr < 0.011 ? 0 : (sr - 0.011) / 0.023;
+        const target = t === 0 ? sea - 1 : sea + t * t * Math.max(0, h - sea);
+        const nh = Math.min(h, Math.floor(target));
+        if (nh < o.h) {
+          o.h = nh;
+          o.river = t === 0;
+        }
+      }
+    }
     return o;
   }
 
@@ -499,11 +539,15 @@ export class SurfaceGenerator {
           }
 
           // Carvers (4D): only below the roof.
-          const roof = underwater || riverOf[i] || garden ? 7 : mountOf[i]! > 0.5 ? 3 : 1;
+          // Cave mouths: in some zones the roof is open and the tunnels near the surface are wide,
+          // so caves daylight in hillsides and fields (0.7.1: you could only enter by digging).
+          const dry = !underwater && !garden && !riverOf[i];
+          const mouth = dry ? Math.max(0, Math.min(1, (this.nEntrance.n3(X / 110, Z / 110, W / 110) - 0.56) / 0.18)) : 0;
+          const roof = !dry ? 7 : mouth > 0 ? 0 : mountOf[i]! > 0.5 ? 3 : 1;
           const carveTop = topY - roof; // inclusive
-          // Under the sea, ravines cut through the floor and fill with water.
+          // Under the sea, ravines cut through the floor and fill with water; on land they open to the sky.
           const wetRavine = underwater && !garden;
-          const yEnd = wetRavine ? topY : carveTop;
+          const yEnd = wetRavine || dry ? topY : carveTop;
           if (yEnd < 4) continue;
           this.caves.column(x);
           // Ana Sheet: a huge 2D cavity {w ~ wc(x,z), y ~ yc(x,z)} per 96-block W cell.
@@ -524,7 +568,7 @@ export class SurfaceGenerator {
           const yTop = H - 1;
           for (let y = 4; y <= yEnd && y < yTop; y++) {
             if (y > carveTop) {
-              if (y > ravFloor && rav < 0.022 * Math.min(1, (y - ravFloor) / 8)) blocks[i + y * L] = WATER;
+              if (y > ravFloor && rav < 0.022 * Math.min(1, (y - ravFloor) / 8)) blocks[i + y * L] = wetRavine ? WATER : 0;
               continue;
             }
             // Cave fields, linearly interpolated between 4-block lattice levels.
@@ -536,7 +580,7 @@ export class SurfaceGenerator {
             let carve = cheese > 0.62 - 0.26 * depth01;
             if (!carve) {
               // Spaghetti tunnels, wider in the deep.
-              const r = 0.055 + 0.035 * depth01 + 0.02 * (cheese * 0.5 + 0.5);
+              const r = (0.055 + 0.035 * depth01 + 0.02 * (cheese * 0.5 + 0.5)) * (1 + 0.6 * mouth * Math.max(0, 1 - (topY - y) / 20));
               const s1 = cv[o + 1]! + (cv[o2 + 1]! - cv[o + 1]!) * t;
               if (s1 < r && s1 > -r) {
                 const s2 = cv[o + 2]! + (cv[o2 + 2]! - cv[o + 2]!) * t;
@@ -597,38 +641,44 @@ export class SurfaceGenerator {
 
   private readonly lakeS: ColumnSample = { height: 0, biome: 0, grass: [0, 0, 0] };
   /** Lake grid cell size and maximum radius. */
-  static readonly LAKE_CELL = 72;
-  static readonly LAKE_RMAX = 13;
+  static readonly LAKE_CELL = 64;
+  static readonly LAKE_RMAX = 26;
+  /** Lakes are this much longer along W than across: a lake stays in view over many slices. */
+  static readonly LAKE_WSTRETCH = 2;
 
   /**
    * The lake of 4D grid cell (a, b, d), or null: centre, radius, water level, depth and biome.
    * Deterministic; used by generation and tests.
    */
-  lakeAt(a: number, b: number, d: number): { x: number; z: number; w: number; r: number; level: number; depth: number; biome: number } | null {
+  lakeAt(a: number, b: number, d: number): { x: number; z: number; w: number; r: number; level: number; depth: number; biome: number; lava: boolean } | null {
     const S = SurfaceGenerator.LAKE_CELL;
     const hsh = hash4(a, b, d, 6, this.seed ^ SALT_LAKE);
-    if ((hsh & 255) > 70) return null;
-    const R = 7 + ((hsh >>> 26) % 7);
+    if ((hsh & 255) > 140) return null;
+    // Mostly ponds, sometimes real lakes.
+    const q = ((hsh >>> 26) % 19) / 18;
+    const R = Math.round(8 + 18 * q * q);
     const cx = a * S + 14 + ((hsh >>> 8) % (S - 28)), cz = b * S + 14 + ((hsh >>> 14) % (S - 28)), cw = d * S + 14 + (((hsh >>> 20) * 7) % (S - 28));
     if (this.garden && this.inGardenAbs(cx, cz, cw, R + 3)) return null;
     const s = this.lakeS;
     this.sample(cx, cz, cw, s);
     if (s.ocean || s.river) return null;
     const biome = this.biomes[s.biome]!;
-    if (biome.precipitation === 'none' || s.biome === this.idx.hollow || s.biome === this.idx.frost) return null;
+    const lava = s.biome === this.idx.volcanic;
+    if ((biome.precipitation === 'none' && !lava) || s.biome === this.idx.hollow || s.biome === this.idx.frost) return null;
     const bi = s.biome;
     let lo = s.height, hi = s.height;
     for (let k = 0; k < 6; k++) {
       const r = R * 0.85 * (k & 1 ? 1 : -1);
       const ax = k >> 1;
-      this.sample(cx + (ax === 0 ? r : 0), cz + (ax === 1 ? r : 0), cw + (ax === 2 ? r : 0), s);
+      this.sample(cx + (ax === 0 ? r : 0), cz + (ax === 1 ? r : 0), cw + (ax === 2 ? r * SurfaceGenerator.LAKE_WSTRETCH : 0), s);
       if (s.ocean || s.river) return null;
       lo = Math.min(lo, s.height);
       hi = Math.max(hi, s.height);
     }
-    const level = lo - 1;
-    if (hi - lo > 10 || level <= this.sea + 1 || level > this.height - 20) return null;
-    return { x: cx, z: cz, w: cw, r: R, level, depth: 3 + ((hsh >>> 4) & 3), biome: bi };
+    // Ponds in the lowlands sit at sea level (a flooded hollow); on hills the lowest rim sets it.
+    const level = Math.max(lo - 1, this.sea);
+    if (hi - lo > 12 || lo < this.sea + 1 || level > this.height - 20) return null;
+    return { x: cx, z: cz, w: cw, r: R, level, depth: 3 + ((hsh >>> 4) & 3) + (R > 14 ? 2 : 0), biome: bi, lava };
   }
 
   /**
@@ -637,29 +687,48 @@ export class SurfaceGenerator {
    * whose shape changes as you move kata/ana.
    */
   private lakes(X0: number, Z0: number, W0: number, heights: Int16Array, blocks: Uint16Array): void {
-    const S = SurfaceGenerator.LAKE_CELL, RMAX = SurfaceGenerator.LAKE_RMAX;
+    const S = SurfaceGenerator.LAKE_CELL, RMAX = Math.ceil(SurfaceGenerator.LAKE_RMAX * 1.5);
     const L = COLUMN_LAYER;
+    const WS = SurfaceGenerator.LAKE_WSTRETCH, RW = RMAX * WS;
     for (let a = Math.floor((X0 - RMAX) / S); a <= Math.floor((X0 + 15 + RMAX) / S); a++)
       for (let b = Math.floor((Z0 - RMAX) / S); b <= Math.floor((Z0 + 15 + RMAX) / S); b++)
-        for (let d = Math.floor((W0 - RMAX) / S); d <= Math.floor((W0 + 15 + RMAX) / S); d++) {
+        for (let d = Math.floor((W0 - RW) / S); d <= Math.floor((W0 + 15 + RW) / S); d++) {
           const lake = this.lakeAt(a, b, d);
           if (!lake) continue;
-          const { x: cx, z: cz, w: cw, r: R, level, depth } = lake;
-          if (cx + R < X0 || cx - R > X0 + 16 || cz + R < Z0 || cz - R > Z0 + 16 || cw + R < W0 || cw - R > W0 + 16) continue;
-          const bed = this.under[lake.biome]!;
-          const top = this.biomes[lake.biome]!.frozenWater ? B.ice : B.water;
-          for (let w = Math.max(0, Math.floor(cw - R) - W0); w <= Math.min(15, Math.ceil(cw + R) - W0); w++)
+          const { x: cx, z: cz, w: cw, r: R0, level, depth } = lake;
+          // A wobbly shore: the radius varies with direction.
+          const R = R0 * 1.5;
+          const RWk = R * WS;
+          if (cx + R < X0 || cx - R > X0 + 16 || cz + R < Z0 || cz - R > Z0 + 16 || cw + RWk < W0 || cw - RWk > W0 + 16) continue;
+          const bed = lake.lava ? B.stone : this.under[lake.biome]!;
+          const fluid = lake.lava ? B.lava : B.water;
+          const top = lake.lava ? B.lava : this.biomes[lake.biome]!.frozenWater ? B.ice : B.water;
+          for (let w = Math.max(0, Math.floor(cw - RWk) - W0); w <= Math.min(15, Math.ceil(cw + RWk) - W0); w++)
             for (let z = Math.max(0, Math.floor(cz - R) - Z0); z <= Math.min(15, Math.ceil(cz + R) - Z0); z++)
               for (let x = Math.max(0, Math.floor(cx - R) - X0); x <= Math.min(15, Math.ceil(cx + R) - X0); x++) {
-                const dd = Math.hypot(x + X0 + 0.5 - cx, z + Z0 + 0.5 - cz, w + W0 + 0.5 - cw) / R;
-                if (dd >= 1) continue;
+                const X = x + X0, Z = z + Z0, W = w + W0;
+                const wob = 1 + 0.16 * this.nIslet.n3(X / 17 + a * 5.1, Z / 17 + b * 5.1, W / 17 + d * 5.1);
+                const dd = Math.hypot(X + 0.5 - cx, Z + 0.5 - cz, (W + 0.5 - cw) / WS) / (R0 * wob);
                 const i = x + (z << 4) + (w << 8);
+                if (dd >= 1) {
+                  // The shore: sand and gravel (grass stays under the trees), reeds at the water.
+                  if (dd < 1.22 && !lake.lava && heights[i]! >= level - 1 && heights[i]! <= level + 2) {
+                    const hh = heights[i]!;
+                    const t = blocks[i + hh * COLUMN_LAYER]!;
+                    if (REG.solid[t] === 1 && REG.fluid[t] === 0) {
+                      const r1 = hash4f(X, 3, Z, W, this.seed ^ SALT_LAKE);
+                      if (r1 < 0.55) blocks[i + hh * COLUMN_LAYER] = r1 < 0.12 ? B.gravel : r1 < 0.2 ? B.clay : B.sand;
+                      if (dd < 1.08 && r1 > 0.86 && blocks[i + (hh + 1) * COLUMN_LAYER] === 0) blocks[i + (hh + 1) * COLUMN_LAYER] = this.ids.reeds!;
+                    }
+                  }
+                  continue;
+                }
                 const floorY = level - Math.max(1, Math.round(depth * (1 - dd * dd)));
                 const h = heights[i]!;
                 // Seal the bed so caves below cannot drain the lake.
                 for (let y = floorY - 3; y < floorY; y++) if (y > 0 && REG.solid[blocks[i + y * L]!] === 0) blocks[i + y * L] = B.stone;
                 blocks[i + floorY * L] = bed;
-                for (let y = floorY + 1; y <= level; y++) blocks[i + y * L] = y === level ? top : B.water;
+                for (let y = floorY + 1; y <= level; y++) blocks[i + y * L] = y === level ? top : fluid;
                 for (let y = level + 1; y <= h; y++) blocks[i + y * L] = 0;
                 heights[i] = floorY;
               }

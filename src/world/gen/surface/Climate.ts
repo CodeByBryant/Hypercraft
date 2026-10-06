@@ -41,6 +41,13 @@ export interface BiomePick {
 
 const LAND_T = 0.2;
 
+/**
+ * How large biomes are: the temperature, humidity and weirdness fields that pick a biome
+ * are stretched by this much (terrain shape noise is not), and relief counts for less in the
+ * choice, so a biome is a region you walk through for a while, not a patch.
+ */
+export const BIOME_TUNING = { scale: 4, relief: 0.8, terrain: 3 };
+
 export class Climate {
   readonly sea: number;
   readonly height: number;
@@ -86,16 +93,18 @@ export class Climate {
    */
   sample(x: number, z: number, w: number, out: ClimateSample): ClimateSample {
     const cont = this.nCont.fbm3(x / 700, z / 700, w / 700, 4);
-    const eros = this.nEros.fbm3(x / 380, z / 380, w / 380, 3);
+    const kt = BIOME_TUNING.terrain;
+    const eros = this.nEros.fbm3(x / (380 * kt), z / (380 * kt), w / (380 * kt), 3);
     // Ridged noise with a rounded crest (soft |f|), so peaks are steep but not knife edges.
-    const pf = this.nPeaks.fbm3(x / 460, z / 460, w / 460, 2);
+    const pf = this.nPeaks.fbm3(x / (460 * kt), z / (460 * kt), w / (460 * kt), 2);
     const ridge = 1 - 2 * Math.sqrt(pf * pf + 0.0144);
     const ana = this.nAna.n3(x / 2600, z / 2600, w / 290);
     out.cont = cont;
     out.erosion = eros;
-    out.temp = 0.5 + 0.5 * Math.tanh(2.6 * this.nTemp.fbm3(x / 720, z / 720, w / 720, 3) + 0.5 * ana);
-    out.hum = 0.5 + 0.5 * Math.tanh(2.6 * this.nHum.fbm3(x / 620, z / 620, w / 620, 3) - 0.35 * ana);
-    out.weird = 0.5 + 0.5 * Math.tanh(2.4 * this.nWeird.fbm3(x / 460, z / 460, w / 460, 2));
+    const k = BIOME_TUNING.scale;
+    out.temp = 0.5 + 0.5 * Math.tanh(2.6 * this.nTemp.fbm3(x / (720 * k), z / (720 * k), w / (720 * k), 3) + 0.5 * ana);
+    out.hum = 0.5 + 0.5 * Math.tanh(2.6 * this.nHum.fbm3(x / (620 * k), z / (620 * k), w / (620 * k), 3) - 0.35 * ana);
+    out.weird = 0.5 + 0.5 * Math.tanh(2.4 * this.nWeird.fbm3(x / (460 * k), z / (460 * k), w / (460 * k), 2));
     // Ranges follow ridge lines (|peaks noise| small) inside low-erosion zones.
     const gate = Math.max(0, Math.min(1, (0.2 - eros) / 0.45));
     out.mountains = Math.max(0, Math.min(1, ((ridge - 0.52) / 0.36) * gate * 1.3));
@@ -125,7 +134,7 @@ export class Climate {
         const dt = c.temp - cl[0];
         const dh = c.hum - cl[1];
         const dw = c.weird - cl[2];
-        const dm = (c.relief - cl[3]) * 1.25;
+        const dm = (c.relief - cl[3]) * BIOME_TUNING.relief;
         d2 = dt * dt + dh * dh + dw * dw * 0.7 + dm * dm;
       }
       const wt = 1 / (d2 * d2 + 1e-6);
