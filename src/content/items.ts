@@ -6,7 +6,7 @@ import { TIERS } from './tiers';
 import { ARMOR_ITEMS } from './armor';
 import { FOOD_ITEMS } from './food';
 import { BREWING_ITEMS, POTION_ITEMS } from './potions';
-import { CROPS, FARM_ITEMS } from './farming';
+import { BUSHES, CROPS, FARM_ITEMS } from './farming';
 import { SMITHING_ITEMS } from './smithing';
 import { ORE_ITEMS } from './ores';
 import { TOOLS4D_ITEMS } from './tools4d';
@@ -140,8 +140,7 @@ export const NO_ITEM_BLOCKS = new Set([
   ...CROPS.flatMap((c) => Array.from({ length: c.stages }, (_, k) => `${c.name}_${k}`)),
   ...DOOR_TOPS,
   'tnt_lit',
-  'sweet_berry_bush_young',
-  'strawberry_bush_young',
+  ...BUSHES.map((b) => b.young),
   'farmland_moist','air', 'water', 'lava', 'portal', 'lit_furnace', 'lit_blast_furnace', 'lit_smoker', 'mob_spawner', 'red_bed_head', 'blue_bed_head', 'white_bed_head', 'frosted_ice']);
 
 /** Extra item properties for block items (fuel values, stack sizes, groups). */

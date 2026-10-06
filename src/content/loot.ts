@@ -3,6 +3,7 @@
 // the column is generated (deterministic per world seed and chest position).
 
 import type { LootTable } from './types';
+import { FISHING_LOOT } from './forage';
 
 const T = (pools: LootTable['pools']): LootTable => ({ pools });
 
@@ -587,6 +588,8 @@ export const LOOT_TABLES: Record<string, LootTable> = {
     },
   ]),
 };
+
+LOOT_TABLES.fishing = FISHING_LOOT;
 
 // ---------------------------------------------------------------- Phase 7 additions
 // Armour, golden apples and food in the chests where Minecraft keeps them.

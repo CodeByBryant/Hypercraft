@@ -60,6 +60,7 @@ import { ARROWS } from '../content/ores';
 import { THROWN, ANCHOR_COOLDOWN, ROPE_SPEED } from '../content/tools4d';
 import { anaSheetCells } from './Tools4D';
 import { DOOR_OTHER, DOOR_PART, STRIP_ID, doorPartner, isDoor, toggledDoor } from './WoodBlocks';
+import { LOOT } from '../content/lootRegistry';
 import type { Container } from './items/ItemStack';
 import { XpOrbs } from './XpOrbs';
 import { Vision4D } from './Vision4D';
@@ -305,6 +306,8 @@ export class Game {
   private readonly ropeFrom = new Float64Array(4);
   /** W-Anchor recall cooldown (seconds). */
   anchorCd = 0;
+  /** A cast fishing line: the bobber's water cell, seconds waiting, when it bites, the bite window left. */
+  fishing: { pos: [number, number, number, number]; t: number; biteAt: number; bite: number } | null = null;
   /** Crossbow: loaded, waiting for the use button to be let go. */
   private crossbowLatch = false;
   /** A mob hit off the slice by a spear's reach (outlined). */
@@ -840,6 +843,7 @@ export class Game {
     if (p.hanging) this.ropeWear();
     if (this.anchorCd > 0) this.anchorCd -= dt;
     this.updateLens(dt);
+    this.updateFishing(dt);
     if (!this.demo) this.updateVitals(dt);
     this.items.update(dt, this.world, p.up, this.world.realm.gravity, this.loaded && p.mode !== 'spectator' && !this.vitals.dead ? p.pos : null, p.height, this.collect);
     this.orbs.update(dt, this.world, p.up, this.loaded && p.mode !== 'spectator' && !this.vitals.dead ? p.pos : null, p.height, this.collectXp);
@@ -1653,6 +1657,73 @@ export class Game {
    * Phase Lens: walls in the slices next to yours (a step ana or kata along the hidden axis)
    * where your own slice is open, nearest first: what you would walk into. Five times a second.
    */
+  /** Fishing: cast the line at water, wait for the bite, reel in to catch something. */
+  private castOrReel(held: ItemStack): void {
+    const f = this.fishing;
+    if (f) {
+      if (f.bite > 0) this.catchFish(held);
+      else this.message?.('You reel in the line');
+      this.fishing = null;
+      return;
+    }
+    const hit = this.fluidHit;
+    if (!raycast(this.world, this.eyePos, this.pickDir, 22, hit, true) || REG.fluid[voxelId(hit.voxel)] !== FLUID_WATER) {
+      this.message?.('Cast at water to fish');
+      return;
+    }
+    // The bobber floats at the surface: find the top water cell of the column hit.
+    let y = hit.y;
+    const up = this.player.up;
+    const c: [number, number, number, number] = [hit.x, hit.y, hit.z, hit.w];
+    for (let k = 0; k < 8; k++) {
+      c[up] = y + 1;
+      if (REG.fluid[voxelId(this.world.getBlock(c[0], c[1], c[2], c[3]))] !== FLUID_WATER) break;
+      y++;
+    }
+    c[up] = y;
+    const rain = this.env.weather === 'rain' || this.env.weather === 'thunder';
+    this.fishing = { pos: c, t: 0, biteAt: (5 + Math.random() * 20) * (rain ? 0.6 : 1), bite: 0 };
+    this.message?.('Line cast: wait for a bite');
+  }
+
+  private updateFishing(dt: number): void {
+    const f = this.fishing;
+    if (!f) return;
+    const held = this.held;
+    const e = this.eyePos;
+    const far = Math.hypot(f.pos[0] + 0.5 - e[0]!, f.pos[1] + 0.5 - e[1]!, f.pos[2] + 0.5 - e[2]!, f.pos[3] + 0.5 - e[3]!) > 32;
+    if (!held || IREG.def(held.id).use !== 'fishing' || far || REG.fluid[voxelId(this.world.getBlock(f.pos[0], f.pos[1], f.pos[2], f.pos[3]))] !== FLUID_WATER) {
+      this.fishing = null;
+      return;
+    }
+    f.t += dt;
+    if (f.bite > 0) {
+      f.bite -= dt;
+      if (f.bite <= 0) {
+        this.message?.('It got away');
+        f.t = 0;
+        f.biteAt = 5 + Math.random() * 15;
+      }
+    } else if (f.t >= f.biteAt) {
+      f.bite = 1.2;
+      this.message?.('A bite! Use the rod to reel in');
+      this.particles.burst(f.pos[0] + 0.5, f.pos[1] + 0.95, f.pos[2] + 0.5, f.pos[3] + 0.5, this.player.cam, 'poof', '#cfe8ff', 10, 1.4, 0.3);
+    }
+  }
+
+  private catchFish(held: ItemStack): void {
+    const got = LOOT.roll('fishing', Math.random, 1).find((s) => s !== null);
+    if (!got) return;
+    const st: ItemStack = { id: IREG.id(got[0]), count: got[1], damage: got[2] ?? 0, ...(got[3] ? { tag: got[3] } : {}) };
+    const p = this.player.pos;
+    if (this.inv.add(st) > 0) this.throwStack(st);
+    this.orbs.spawn(p[0]!, p[1]! + 0.9, p[2]!, p[3]!, 1 + Math.floor(Math.random() * 3));
+    this.message?.(`You caught ${IREG.displayName(st.id)}`);
+    this.hunger.exhaust(0.02);
+    if (this.player.mode === 'survival') this.wearHeld(1);
+    void held;
+  }
+
   private updateLens(dt: number): void {
     this.lensTimer -= dt;
     if (this.lensTimer > 0) return;
@@ -3519,6 +3590,10 @@ export class Game {
       }
       return;
     }
+    if (use === 'fishing') {
+      this.castOrReel(held);
+      return;
+    }
     if (use === 'water_bucket' && this.world.realm.waterEvaporates) {
       if (!this.hasTarget) return;
       const t = this.target;
@@ -3897,6 +3972,20 @@ export class Game {
       mx[2] = t.z + t.bmax[2]! - e[2]!;
       mx[3] = t.w + t.bmax[3]! - e[3]!;
       lines.addBox(mn, mx, cam, 0.05, 0.05, 0.08, 0.9);
+    }
+    // The fishing bobber: a small red box on the water, bright and dipping on a bite.
+    const fb = this.fishing;
+    if (fb) {
+      const dip = fb.bite > 0 ? 0.3 : 0;
+      const up = this.player.up;
+      for (let k = 0; k < 4; k++) {
+        const base = fb.pos[k]! + 0.5 - e[k]!;
+        mn[k] = base - 0.09;
+        mx[k] = base + 0.09;
+      }
+      mn[up] = fb.pos[up]! + 0.8 - dip - e[up]!;
+      mx[up] = mn[up]! + 0.2;
+      lines.addBox(mn, mx, cam, 1, fb.bite > 0 ? 0.9 : 0.15, 0.1, 1);
     }
   }
 

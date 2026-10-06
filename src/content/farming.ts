@@ -52,7 +52,18 @@ export interface BushDef {
 export const BUSHES: BushDef[] = [
   { mature: 'sweet_berry_bush', young: 'sweet_berry_bush_young', berry: 'sweet_berries' },
   { mature: 'strawberry_bush', young: 'strawberry_bush_young', berry: 'strawberries' },
+  { mature: 'blueberry_bush', young: 'blueberry_bush_young', berry: 'blueberries' },
+  { mature: 'cranberry', young: 'cranberry_young', berry: 'cranberries' },
+  { mature: 'lingonberry', young: 'lingonberry_young', berry: 'lingonberries' },
 ];
+/** Young bush colours (stalks only: the berries grow back). */
+const YOUNG_COLORS: Record<string, [Hex, Hex]> = {
+  sweet_berry_bush_young: ['#2f5a2a', '#3f6a2a'],
+  strawberry_bush_young: ['#3f6a2a', '#4f7a2a'],
+  blueberry_bush_young: ['#3a6a3a', '#2e5a2e'],
+  cranberry_young: ['#4a5a2a', '#3a4a22'],
+  lingonberry_young: ['#2f4a2a', '#3a5a30'],
+};
 
 /** Sapling block -> tree it grows into. */
 export const SAPLINGS: Record<string, string> = {};
@@ -66,31 +77,32 @@ export const FARM_TEXTURES: TextureDef[] = [
   { name: 'melon_top', pattern: 'noise', colors: ['#6ab84a', '#5aa83a'], amount: 0.1 },
   { name: 'pumpkin_side', pattern: 'stripes', colors: ['#e8902a', '#c8701a'], amount: 0.08 },
   { name: 'pumpkin_top', pattern: 'noise', colors: ['#d8801a', '#c8701a'], amount: 0.1 },
-  { name: 'sweet_berry_bush_young', pattern: 'plant', colors: ['#2f5a2a', '#3f6a2a'], density: 0.5 },
-  { name: 'strawberry_bush_young', pattern: 'plant', colors: ['#3f6a2a', '#4f7a2a'], density: 0.5 },
 ];
+for (const b of BUSHES) FARM_TEXTURES.push({ name: b.young, pattern: 'plant', colors: YOUNG_COLORS[b.young]!, density: 0.5 });
 
 export const FARM_BLOCKS: BlockDef[] = [
   { name: 'farmland', render: 'opaque', solid: true, shape: 'path', opaque: false, textures: { top: 'farmland_top', side: 'dirt', bottom: 'dirt' }, hardness: 0.6, tags: ['farmland'] },
   { name: 'farmland_moist', displayName: 'Farmland', render: 'opaque', solid: true, shape: 'path', opaque: false, textures: { top: 'farmland_moist_top', side: 'dirt', bottom: 'dirt' }, hardness: 0.6, tags: ['farmland'] },
   { name: 'melon', render: 'opaque', solid: true, textures: { top: 'melon_top', bottom: 'melon_top', side: 'melon_side' }, hardness: 1, tags: ['fruit'] },
   { name: 'pumpkin', render: 'opaque', solid: true, textures: { top: 'pumpkin_top', bottom: 'pumpkin_top', side: 'pumpkin_side' }, hardness: 1, tags: ['fruit'] },
-  { name: 'sweet_berry_bush_young', displayName: 'Sweet Berry Bush', render: 'cutout', solid: false, shape: 'plant', opaque: false, textures: { all: 'sweet_berry_bush_young' }, hardness: 0, tags: ['plant', 'bush'] },
-  { name: 'strawberry_bush_young', displayName: 'Strawberry Bush', render: 'cutout', solid: false, shape: 'plant', opaque: false, textures: { all: 'strawberry_bush_young' }, hardness: 0, tags: ['plant', 'bush'] },
 ];
+const title = (n: string) => n.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+for (const b of BUSHES) FARM_BLOCKS.push({ name: b.young, displayName: title(b.mature.replace(/_bush$/, '')) + ' Bush', render: 'cutout', solid: false, shape: 'plant', opaque: false, textures: { all: b.young }, hardness: 0, tags: ['plant', 'bush'] });
 
 export const FARM_MINING: Record<string, MiningDef> = {
   farmland: { tool: 'shovel', drops: [{ item: 'dirt' }] },
   farmland_moist: { tool: 'shovel', drops: [{ item: 'dirt' }] },
   melon: { tool: 'axe', drops: [{ item: 'melon_slice', count: [3, 7] }] },
   pumpkin: { tool: 'axe' },
-  sweet_berry_bush: { drops: [{ item: 'sweet_berries', count: [1, 2] }] },
-  sweet_berry_bush_young: { drops: 'none' },
-  strawberry_bush: { drops: [{ item: 'strawberries', count: [1, 2] }] },
-  strawberry_bush_young: { drops: 'none' },
   tall_grass: { shears: true, drops: [{ item: 'wheat_seeds', chance: 0.125 }] },
   wild_wheat: { drops: [{ item: 'wheat', count: [1, 2] }, { item: 'wheat_seeds', count: [0, 2] }] },
 };
+
+// Berry bushes: breaking a ripe one gives its berries (picking leaves the bush); a young one gives nothing.
+for (const b of BUSHES) {
+  FARM_MINING[b.mature] = { drops: [{ item: b.berry, count: [1, 2] }] };
+  FARM_MINING[b.young] = { drops: 'none' };
+}
 
 for (const c of CROPS) {
   for (let k = 0; k < c.stages; k++) {

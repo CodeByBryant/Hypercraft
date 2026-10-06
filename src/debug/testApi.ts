@@ -259,6 +259,10 @@ export function installTestApi(game: Game, screen?: InventoryScreen): void {
     },
     target: () => (game.hasTarget ? { ...game.target, p: Array.from(game.target.p), name: REG.name(game.target.voxel) } : null),
     blockAt: (x: number, y: number, z: number, w: number) => REG.name(game.world.getBlock(x, y, z, w)),
+    fishing: () => (game.fishing ? { t: game.fishing.t, biteAt: game.fishing.biteAt, bite: game.fishing.bite, pos: game.fishing.pos } : null),
+    fishBite() {
+      if (game.fishing) game.fishing.biteAt = game.fishing.t;
+    },
     metaAt: (x: number, y: number, z: number, w: number) => (game.world.getBlock(x, y, z, w) >>> 12) & 15,
     /** Top of the light-blocking terrain (incl. tree canopies) at a column. */
     skyHeight: (x: number, z: number, w: number) => game.world.skyHeight(Math.floor(x), Math.floor(z), Math.floor(w)),

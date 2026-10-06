@@ -439,7 +439,9 @@ export type ItemUse =
   // Phase 7.7 weapons.
   | 'chakram'
   | 'dagger'
-  | 'crossbow';
+  | 'crossbow'
+  // Playtest QOL.
+  | 'fishing';
 
 /** Melee weapons beyond the tool kinds (Phase 7.7): spears, the 4D Whip. */
 export interface WeaponDef {
