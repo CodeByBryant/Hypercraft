@@ -55,6 +55,8 @@ export interface ProjectileHost {
   hurtPlayer(amount: number, from: Float64Array, cause: string): void;
   /** A stuck player arrow was walked over; returns true if it was collected. */
   collect(item: number): boolean;
+  /** A projectile hit a block (x, y, z, w, block id): return true to use the projectile up (pylons shatter). */
+  blockHit?(x: number, y: number, z: number, w: number, id: number, byPlayer: boolean): boolean;
   /** A bursting projectile hit something (splash potion, experience bottle). */
   impact?(item: number, pos: Float64Array): void;
   /** A chakram came back: into the inventory (or at your feet). */
@@ -172,6 +174,11 @@ export class Projectiles {
         }
         const v = world.getBlock(Math.floor(a.pos[0]!), Math.floor(a.pos[1]!), Math.floor(a.pos[2]!), Math.floor(a.pos[3]!)) & 0xfff;
         if (REG.collision[v] !== COLLISION_NONE) {
+          if (h.blockHit?.(Math.floor(a.pos[0]!), Math.floor(a.pos[1]!), Math.floor(a.pos[2]!), Math.floor(a.pos[3]!), v, a.byPlayer)) {
+            this.list.splice(i, 1);
+            removed = true;
+            break;
+          }
           for (let k = 0; k < 4; k++) a.pos[k] = this.prev[k]!;
           if (a.burst) {
             h.impact?.(a.item, a.pos);

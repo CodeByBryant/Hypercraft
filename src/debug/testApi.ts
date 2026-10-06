@@ -421,6 +421,14 @@ export function installTestApi(game: Game, screen?: InventoryScreen): void {
       const m = game.mobs.list.find((x) => x.id === id);
       return m ? game.mobs.damage(m, amount, null) : false;
     },
+    /** The Void Sovereign's fight: defeated flag, pylons standing, lances, warning, whether it is phase-shifted. */
+    voidBoss: () => {
+      const m = game.voidBoss.find();
+      return { defeated: game.voidBoss.defeated, pylons: game.voidBoss.countPylons(), lances: game.voidBoss.lances.length, warning: game.voidBoss.warning, shifted: m ? m.shift > 0 : false, phase: m ? m.phase : 0, health: m ? m.health : 0, id: m ? m.id : -1 };
+    },
+    setVoidDefeated: (on: boolean) => void (game.voidBoss.defeated = on),
+    /** Run the Sovereign's light drain once (phase III), returning how many torches went out. */
+    voidDrain: () => game.voidBoss.drain(),
     traveling: () => game.traveling,
     /** Night vision is on (and allowed in this game mode). */
     nightVision: () => game.nightVisionOn,

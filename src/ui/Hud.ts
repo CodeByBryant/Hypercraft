@@ -296,12 +296,14 @@ export class Hud {
     const boss = g.bosses.boss;
     this.bossBar.style.display = boss ? 'block' : 'none';
     if (boss) {
-      const text = `${boss.def.displayName.toUpperCase()}${boss.phase === 2 ? ' · ENRAGED' : ''}`;
+      const sov = boss.def.ai === 'sovereign';
+      const tag = sov ? (boss.phase >= 2 ? ` · PHASE ${boss.phase === 2 ? 'II' : 'III'}` : '') : boss.phase === 2 ? ' · ENRAGED' : '';
+      const text = `${boss.def.displayName.toUpperCase()}${tag}`;
       if (this.bossName.textContent !== text) this.bossName.textContent = text;
       this.bossFill.style.width = `${Math.max(0, Math.round((boss.health / boss.def.health) * 1000) / 10)}%`;
-      this.bossBar.classList.toggle('enraged', boss.phase === 2);
+      this.bossBar.classList.toggle('enraged', boss.phase >= 2);
     }
-    const warn = g.bosses.warning;
+    const warn = g.bosses.warning || g.voidBoss.warning;
     if (this.bossWarn.textContent !== warn) {
       this.bossWarn.textContent = warn;
       this.bossWarn.style.display = warn ? 'block' : 'none';
@@ -718,6 +720,22 @@ export class Hud {
       d[o + 1] = pl.erupt > 0 ? 170 : 90;
       d[o + 2] = 20;
       d[o + 3] = 255;
+    }
+    // The Void Sovereign's fight: pylons (magenta), lances (violet, blinking while announced) and the
+    // Sovereign itself while it hangs off your slice (white).
+    if (g.world.realm.name === 'void') {
+      for (const mk of g.voidBoss.marks()) {
+        const a = (mk.x + 0.5 - pos[0]!) * R[0]! + (mk.z + 0.5 - pos[2]!) * R[2]! + (mk.w + 0.5 - pos[3]!) * R[3]!;
+        const b = (mk.x + 0.5 - pos[0]!) * H[0]! + (mk.z + 0.5 - pos[2]!) * H[2]! + (mk.w + 0.5 - pos[3]!) * H[3]!;
+        if (Math.abs(a) > 12.5 || Math.abs(b) > 12.5) continue;
+        if (mk.pending && !blink) continue;
+        const o = ((12 - Math.round(b)) * 25 + 12 + Math.round(a)) * 4;
+        const c = mk.kind === 'pylon' ? [255, 120, 240] : mk.kind === 'lance' ? [170, 110, 255] : [255, 255, 255];
+        d[o] = c[0]!;
+        d[o + 1] = c[1]!;
+        d[o + 2] = c[2]!;
+        d[o + 3] = 255;
+      }
     }
     this.radarCtx.putImageData(this.radarImg, 0, 0);
   }

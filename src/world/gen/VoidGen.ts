@@ -21,7 +21,7 @@ import { SimplexNoise } from '../../math/noise';
 import { hash4, hash4f } from '../../math/rng';
 import { REG, hexToRgb } from '../../content/registry';
 import type { BiomeDef, RealmDef, StructureDef } from '../../content/types';
-import { ARENA_R, BEAM_HEIGHT, CENTRAL_R, ARRIVAL_GATE, ARRIVAL_POS, DIRS, ISLAND_CELL, ISLAND_GAP, LANDING_R, LANDING_TOP, VOID_TOP, landingXZW, spireXZW } from '../../content/void';
+import { ARENA_R, BEAM_HEIGHT, CENTRAL_R, ARRIVAL_GATE, ARRIVAL_POS, DIRS, ISLAND_CELL, ISLAND_GAP, PYLONS, PYLON_CRYSTALS, LANDING_R, LANDING_TOP, VOID_TOP, landingXZW, spireXZW } from '../../content/void';
 import { COLUMN_LAYER } from '../constants';
 import type { ColumnSample, GenOptions } from './SurfaceGen';
 import { StructureGen, type GenExtra } from './structures/StructureGen';
@@ -118,7 +118,7 @@ export class VoidGenerator {
       });
     });
     if (this.vb.length < 2) throw new Error(`realm "${realm.name}": needs void biomes`);
-    for (const n of ['void_rock', 'voidstone', 'voidstone_bricks', 'sovereign_stone', 'starlight_crystal', 'void_gate', 'void_gate_frame_eye', 'gateway_beam', 'whisper_vine', 'whisper_blossom']) this.ids[n] = id(n);
+    for (const n of ['void_rock', 'voidstone', 'voidstone_bricks', 'sovereign_stone', 'starlight_crystal', 'void_gate', 'void_gate_frame_eye', 'gateway_beam', 'whisper_vine', 'whisper_blossom', 'pylon_crystal']) this.ids[n] = id(n);
     const plateau = this.vb.findIndex((b) => b.def.name === 'hollow_plateau');
     this.central = { kind: Kind.Central, cx: 0, cz: 0, cw: 0, R: CENTRAL_R, top: VOID_TOP, thick: 38, biome: plateau, k: -1 };
     // The landings: a different biome each.
@@ -395,6 +395,12 @@ export class VoidGenerator {
     for (let k = 0; k < 6; k++) {
       const [sx, sz, sw] = spireXZW(k);
       if (near(sx, sz, sw, 2)) this.spire(put, sx, VOID_TOP, sz, sw, false);
+    }
+    // The arena's eight pylons: a base of Sovereign stone and three crystal blocks, around the throne.
+    for (const [px, pz, pw] of PYLONS) {
+      if (!near(px, pz, pw, 1)) continue;
+      put(px, VOID_TOP + 1, pz, pw, I.sovereign_stone!);
+      for (let k = 0; k < PYLON_CRYSTALS; k++) put(px, VOID_TOP + 2 + k, pz, pw, I.pylon_crystal!);
     }
     // The landings: a flat pad and an active return spire.
     for (let k = 0; k < 6; k++) {

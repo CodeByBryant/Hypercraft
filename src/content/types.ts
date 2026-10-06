@@ -591,7 +591,8 @@ export type MobAI =
   | 'brute'
   | 'regent'
   | 'walker'
-  | 'sentinel';
+  | 'sentinel'
+  | 'sovereign';
 
 export interface MobDef {
   name: string;

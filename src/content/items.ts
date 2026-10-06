@@ -145,6 +145,7 @@ export const NO_ITEM_BLOCKS = new Set([
   'void_gate',
   'gateway_beam',
   'void_gate_frame_eye',
+  'void_lance',
   'tnt_lit',
   ...BUSHES.map((b) => b.young),
   'farmland_moist','air', 'water', 'lava', 'portal', 'lit_furnace', 'lit_blast_furnace', 'lit_smoker', 'mob_spawner', 'red_bed_head', 'blue_bed_head', 'white_bed_head', 'frosted_ice']);

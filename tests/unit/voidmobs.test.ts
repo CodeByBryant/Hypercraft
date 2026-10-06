@@ -74,8 +74,8 @@ describe('gaze', () => {
 });
 
 describe('void mobs: definitions', () => {
-  it('has the four mobs, with bounded parts and drops that exist', () => {
-    expect(VOID_MOBS.map((m) => m.name)).toEqual(['void_walker', 'whisper_swarm', 'starlight_serpent', 'sky_sentinel']);
+  it('has the four island mobs and the Sovereign, with bounded parts and drops that exist', () => {
+    expect(VOID_MOBS.map((m) => m.name)).toEqual(['void_walker', 'whisper_swarm', 'starlight_serpent', 'sky_sentinel', 'void_sovereign']);
     for (const m of VOID_MOBS) {
       const cm = MOB_REG.get(m.name);
       expect(cm.def.parts.length).toBeLessThanOrEqual(MAX_MOB_PARTS);

@@ -68,6 +68,7 @@ import { Vision4D } from './Vision4D';
 import { ARMOR_START, OFFHAND } from './items/Inventory';
 import { ARRIVAL_POS, gatewayAt } from '../content/void';
 import { GATE, fillFrame, gateProgress } from './VoidGate';
+import { VoidBoss } from './VoidBoss';
 
 /** How the player arrives in a realm: through a portal (find or build its twin) or a respawn. */
 export interface Arrival {
@@ -274,6 +275,8 @@ export class Game {
   private checkBed = false;
   /** Boss fights: attacks, telegraphs and the HUD boss bar. */
   readonly bosses: BossDirector;
+  /** The Void Sovereign's fight (Hollow Void). */
+  voidBoss!: VoidBoss;
   /** Fire spread and burn-out (every lit or spreading fire). */
   readonly fire: FireSystem;
   /** Night vision toggle (creative and spectator only; N, or the touch button). */
@@ -478,6 +481,7 @@ export class Game {
     this.world.onBlockChange((x, y, z, w, o, n) => {
       this.light.onBlockChanged(x, y, z, w, o, n);
       this.keyBlocks.blockChanged(x, z, w, o, n);
+      this.voidBoss.blockChanged(x, y, z, w, o, n);
       this.farming.blockChanged(x, y, z, w, o, n);
       this.portalBlockChanged(x, y, z, w, o, n);
       this.fire.blockChanged(x, y, z, w, o, n);
@@ -581,6 +585,7 @@ export class Game {
           this.particles.burst(m.pos[0]!, m.pos[1]! + h, m.pos[2]!, m.pos[3]!, this.player.cam, 'spark', '#ffb030', 60, 5, 1.2, true);
           this.bosses.clear();
           this.message?.(`${m.def.displayName} is defeated!`);
+          if (m.def.name === 'void_sovereign') this.voidBoss.onDefeat(m);
         }
       },
     };
@@ -595,12 +600,27 @@ export class Game {
       flame: (x, y, z, w) => this.particles.burst(x, y, z, w, this.player.cam, 'spark', '#ff8a1a', 3, 2.4, 0.3, true),
       message: (t) => this.message?.(t),
     });
+    this.voidBoss = new VoidBoss({
+      world: this.world,
+      mobs: this.mobs,
+      playerPos: this.player.pos,
+      playerRight: this.player.cam.R,
+      playerHidden: this.player.cam.H,
+      playerTargetable: () => this.mobHost.playerTargetable,
+      difficulty: () => DIFFICULTY[this.info.difficulty] ?? 2,
+      shoot: (from, vel, damage, item, byPlayer) => this.projectiles.spawn(from, vel, damage, item, byPlayer),
+      glow: (x, y, z, w, color, n = 3) => this.particles.burst(x, y, z, w, this.player.cam, 'spark', color, n, 2.4, 0.5, true),
+      message: (t) => this.message?.(t),
+      dropItem: (x, y, z, w, st) => this.dropAtCell(x, y, z, w, st),
+      blind: (seconds) => void this.applyEffect('blindness', seconds, 0),
+    });
     this.projHost = {
       playerPos: this.player.pos,
       get playerHeight() {
         return game.player.height;
       },
       hurtPlayer: (amount, from, cause) => void this.hurtPlayer(amount, from, cause, 'projectile'),
+      blockHit: (x, y, z, w, id, byPlayer) => this.voidBoss.projectileHit(x, y, z, w, id, byPlayer),
       collect: (item) => {
         if (this.player.mode === 'spectator') return false;
         if (this.player.mode === 'creative') return true;
@@ -708,6 +728,7 @@ export class Game {
     if (Array.isArray(bed) && bed.length === 4 && bed.every((v) => Number.isInteger(v))) this.bed = bed as [number, number, number, number];
     const wd = st.data ?? {};
     if (Array.isArray(wd.portals)) this.portals = wd.portals as PortalRecord[];
+    this.voidBoss.load(wd.voidSovereign);
     if (Array.isArray(wd.graves)) this.graves = (wd.graves as Game['graves']).filter((g) => typeof g.realm === 'string' && Array.isArray(g.pos) && g.pos.length === 4).slice(-MAX_GRAVES);
     if (wd.arrival && typeof wd.arrival === 'object') {
       this.arrival = wd.arrival as Arrival;
@@ -738,7 +759,7 @@ export class Game {
     const away = dead && this.world.realm.name !== 'surface';
     return {
       realm: away ? 'surface' : this.world.realm.name,
-      data: away ? { portals: this.portals, graves: this.graves, arrival: { kind: 'respawn' } } : { portals: this.portals, graves: this.graves },
+      data: away ? { portals: this.portals, graves: this.graves, voidSovereign: this.voidBoss.save(), arrival: { kind: 'respawn' } } : { portals: this.portals, graves: this.graves, voidSovereign: this.voidBoss.save() },
       player: {
         pos: dead ? (away ? this.surfaceRespawnPoint() : this.respawnPoint()) : Array.from(p.pos),
         F: Array.from(p.cam.F),
@@ -879,6 +900,7 @@ export class Game {
       this.mobs.update(dt, this.mobHost, this.biomeFn, this.caveFn);
       this.projectiles.update(dt, this.world, this.mobs, this.projHost);
       this.bosses.update(dt);
+      if (this.world.realm.name === 'void') this.voidBoss.update(dt);
       this.villageTimer -= dt;
       if (this.villageTimer <= 0) {
         this.villageTimer = 1;
@@ -3327,6 +3349,7 @@ export class Game {
             if (id === this.tntLitId) continue;
             const hard = REG.hardness[id]!;
             if (hard < 0 || hard >= 30 || REG.fluid[id] !== 0 || this.blockEntities.isGrave(id)) continue;
+            if (this.voidBoss.protects(bx, by, bz, bw, id)) continue;
             if (!this.world.setBlock(bx, by, bz, bw, 0)) continue;
             if (BED_IDS[id] || DOOR_PART[id]) this.removePartner(bx, by, bz, bw, v);
             if (Math.random() < 0.3) for (const st of rollDrops(id, -1, Math.random)) counts.set(st.id, (counts.get(st.id) ?? 0) + st.count);
@@ -3433,7 +3456,7 @@ export class Game {
     }
     // Break time depends on the held tool, whether we stand on the ground and are underwater.
     const wet = this.player.eyeInWater && enchLevel(this.armorPiece(0), 'aqua_affinity') === 0;
-    this.mineSeconds = breakInfo(voxelId(t.voxel), heldId, this.player.onGround || this.player.flying, wet, enchLevel(held, 'efficiency')).seconds;
+    this.mineSeconds = this.arenaLocked(t.x, t.y, t.z, t.w, voxelId(t.voxel), false) ? Infinity : breakInfo(voxelId(t.voxel), heldId, this.player.onGround || this.player.flying, wet, enchLevel(held, 'efficiency')).seconds;
     const haste = this.effects.amp('haste'), fatigue = this.effects.amp('mining_fatigue');
     if (haste >= 0) this.mineSeconds /= 1 + 0.2 * (haste + 1);
     if (fatigue >= 0) this.mineSeconds /= Math.pow(0.3, Math.min(4, fatigue + 1));
@@ -3454,11 +3477,29 @@ export class Game {
     }
   }
 
+  /**
+   * The Void Sovereign's arena: while it lives nothing in it may be broken or built (except its
+   * pylons), so there is no pillaring up or tunnelling under it. Creative players are exempt.
+   * Says why, at most every few seconds.
+   */
+  private arenaLocked(x: number, y: number, z: number, w: number, id: number, speak = true): boolean {
+    if (this.world.realm.name !== 'void' || this.player.mode === 'creative' || this.player.mode === 'spectator') return false;
+    if (!this.voidBoss.protects(x, y, z, w, id)) return false;
+    const now = performance.now() / 1000;
+    if (speak && now - this.arenaMsgAt > 3) {
+      this.arenaMsgAt = now;
+      this.message?.('The arena stone will not yield while the Void Sovereign lives · only its pylons break');
+    }
+    return true;
+  }
+  private arenaMsgAt = -99;
+
   /** Break the targeted block as a survival player: drops, tool wear. */
   harvestTarget(): boolean {
     if (!this.hasTarget) return false;
     const t = this.target;
     const id = voxelId(t.voxel);
+    if (this.arenaLocked(t.x, t.y, t.z, t.w, id)) return false;
     const held = this.held;
     const heldId = held ? held.id : -1;
     const drops = rollDrops(id, heldId, Math.random, enchLevel(held, 'silk_touch') > 0, enchLevel(held, 'fortune'));
@@ -3491,7 +3532,7 @@ export class Game {
       if (v === 0 || v === VOID_VOXEL) continue;
       const id = voxelId(v);
       const h = REG.hardness[id]!;
-      if (h < 0 || h > hard + 1.5 || REG.fluid[id] !== 0 || BED_IDS[id] || DOOR_PART[id]) continue;
+      if (h < 0 || h > hard + 1.5 || REG.fluid[id] !== 0 || BED_IDS[id] || DOOR_PART[id] || this.voidBoss.protects(c[0], c[1], c[2], c[3], id)) continue;
       if (drops && !canHarvest(id, held.id)) continue;
       const out = drops ? rollDrops(id, held.id, Math.random, enchLevel(held, 'silk_touch') > 0, enchLevel(held, 'fortune')) : [];
       if (!this.world.setBlock(c[0], c[1], c[2], c[3], 0)) continue;
@@ -4015,6 +4056,7 @@ export class Game {
     const t = this.target;
     const id = voxelId(t.voxel);
     if (REG.hardness[id]! < 0 && this.player.mode === 'survival') return false;
+    if (this.arenaLocked(t.x, t.y, t.z, t.w, id)) return false;
     if (!this.world.setBlock(t.x, t.y, t.z, t.w, 0)) return false;
     this.removePartner(t.x, t.y, t.z, t.w, t.voxel);
     const held = this.held;
@@ -4100,6 +4142,7 @@ export class Game {
     }
     const cur = this.world.getBlock(x, y, z, w);
     if (cur === VOID_VOXEL || (cur !== 0 && !REG.replaceable[cur & 0xfff])) return false;
+    if (this.arenaLocked(x, y, z, w, voxelId(cur))) return false;
     const id = voxelId(voxelOrId);
     let meta = (voxelOrId >>> 12) & 15;
     const mode = REG.variantMode[id]!;

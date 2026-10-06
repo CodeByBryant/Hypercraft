@@ -62,6 +62,29 @@ export function landingXZW(k: number): [number, number, number] {
 /** Height of a beam above its plinth, in cells. */
 export const BEAM_HEIGHT = 10;
 
+// ---- the Sovereign's arena (relative to the throne: x, z, w; the throne cell is (0, VOID_TOP + 1, 0, 0))
+/** Eight pylons heal the Sovereign while they stand: four on the ring in the throne's own slice (w = 0) and four kata/ana of it (w = +-11). */
+export const PYLONS: [number, number, number][] = [
+  [22, 0, 0],
+  [-22, 0, 0],
+  [0, 22, 0],
+  [0, -22, 0],
+  [16, 0, 11],
+  [-16, 0, 11],
+  [16, 0, -11],
+  [-16, 0, -11],
+];
+/** A pylon: a base of Sovereign stone and this many crystal blocks above it. */
+export const PYLON_CRYSTALS = 3;
+/** Within this 3-ball (x, z, w) of the throne the Sovereign wakes, and nothing may be broken or placed while it lives. */
+export const SUMMON_R = 32;
+export const ARENA_PROTECT_R = 34;
+
+/** Is the cell (x, y, z, w) inside the protected arena? */
+export function inArena(x: number, y: number, z: number, w: number, r = ARENA_PROTECT_R): boolean {
+  return y >= VOID_TOP - 8 && y <= VOID_TOP + 48 && Math.hypot(x + 0.5, z + 0.5, w + 0.5) < r;
+}
+
 export interface GatewayHit {
   /** Where it takes you: a standing position beside the other beam (never inside it). */
   to: [number, number, number, number];
@@ -147,6 +170,11 @@ VOID_BLOCKS.push({ name: 'void_gate', displayName: 'Void Gate', render: 'translu
 tex('gateway_beam', 'glow', ['#c8a0ff', '#8a5aff', '#ffffff'], { alpha: 0.55 });
 VOID_BLOCKS.push({ name: 'gateway_beam', displayName: 'Gateway Beam', render: 'translucent', solid: false, textures: { all: 'gateway_beam' }, tint: '#b890ff', alpha: 0.5, emission: 14, hardness: -1, tags: ['gateway'] });
 
+// The arena: crystal pylons that heal the Sovereign, and the lances it calls down.
+cube('pylon_crystal', 'crystal', ['#ff9af0', '#c84ad8', '#fff0ff'], { emission: 13, hardness: 1.2, tags: ['pylon'] });
+tex('void_lance', 'glow', ['#b890ff', '#7a3aff', '#ffffff'], { alpha: 0.6 });
+VOID_BLOCKS.push({ name: 'void_lance', displayName: 'Void Lance', render: 'translucent', solid: false, textures: { all: 'void_lance' }, tint: '#a070ff', alpha: 0.55, emission: 14, hardness: -1, damage: 6, tags: ['lance'] });
+
 // Plants: two (at least) for each biome.
 plant('dusk_lily', 'flower', ['#3a4a5a', '#3a4a5a', '#b8a0ff'], { emission: 2 });
 plant('void_reed', 'plant', ['#5a5a80', '#44446a'], { density: 0.6 });
@@ -168,6 +196,8 @@ export const VOID_ITEMS: ItemDef[] = [
   { name: 'void_eye', displayName: 'Void Eye', icon: { shape: 'eye', colors: ['#9affc8', '#2a1a48', '#e8fff0'] }, use: 'void_eye', readout: 'atlas', atlas: ['stronghold'], group: 'tools', tags: ['glint'] },
   { name: 'whisper_fruit', displayName: 'Whisper Fruit', icon: { shape: 'berries', colors: ['#c87aff', '#7a3ab0', '#ffd0ff'] }, group: 'food' },
   { name: 'starlight_shard', displayName: 'Starlight Shard', icon: { shape: 'shard', colors: ['#9ad8ff', '#5a9ae0', '#f0fbff'] }, group: 'materials' },
+  // The Void Sovereign's heart: the key to the Penteract (Phase 11).
+  { name: 'sovereign_heart', displayName: "Sovereign's Heart", maxStack: 1, icon: { shape: 'gem', colors: ['#c87aff', '#3a1a78', '#f0e0ff'] }, group: 'combat', tags: ['glint'] },
 ];
 
 export const VOID_RECIPES: RecipeDef[] = [
@@ -190,6 +220,7 @@ export const VOID_MINING: Record<string, MiningDef> = {
   glimmer_moss: { tool: 'shovel' },
   starlight_crystal: { tool: 'pickaxe', tier: 2, drops: one('starlight_shard', [2, 4]), xp: [3, 7] },
   starlight_block: { tool: 'pickaxe', tier: 1 },
+  pylon_crystal: { tool: 'pickaxe', tier: 0, drops: one('starlight_shard', [1, 2]) },
   starlight_bricks: { tool: 'pickaxe', tier: 0 },
   starlight_cluster: { tool: 'pickaxe', tier: 0, drops: one('starlight_shard', [1, 2]) },
   aurora_glass: { drops: 'none' },

@@ -317,3 +317,124 @@ test('void structures: a Sky Vault with sleeping sentinels that wake when its ch
   await visit(garden!, 14, -8, 'void-8-starlight-garden');
   expect(errors).toEqual([]);
 });
+
+test('void sovereign: it wakes in the arena, the arena is locked, pylons break, it phase-shifts, falls and opens the gateways', async ({ page }) => {
+  test.setTimeout(900_000);
+  const errors: string[] = [];
+  await boot(page, 'res=270&rd=3&seed=voidboss&realm=void', errors);
+  const r = await page.evaluate(async () => {
+    const hc = window.__hc;
+    hc.setMode('survival');
+    hc.setMobSpawning(false);
+    hc.clearMobs();
+    hc.setHealth(20);
+    hc.setView({ yaw: 45, pitch: -60 });
+    // Walk to the arena's edge: close enough for the Sovereign to wake.
+    hc.teleport(-14.5, 65.1, -14.5, 0.5);
+    await hc.frames(30);
+    const woke = hc.boss();
+    // The arena stone does not yield while it lives (survival), and you cannot build in it.
+    hc.give('stone', 8);
+    hc.select(0);
+    const broke = hc.breakTarget();
+    const placed = hc.placeTarget('stone');
+    // Its pylons do: break one with the pick (any block of it).
+    const before = hc.voidBoss().pylons;
+    const harvested = hc.harvestAt(22, 67, 0, 0);
+    await hc.frames(15);
+    const after = hc.voidBoss().pylons;
+    return { woke: woke && { name: woke.name, health: woke.health, max: woke.max }, broke, placed, before, harvested, after };
+  });
+  expect(r.woke).toEqual({ name: 'void_sovereign', health: 600, max: 600 });
+  expect(r.broke).toBe(false);
+  expect(r.placed).toBe(false);
+  expect(r.before).toBe(8);
+  expect(r.harvested).toBe(true);
+  expect(r.after).toBe(7);
+
+  // A screenshot of the fight: the Sovereign over its throne, pylons around.
+  await page.evaluate(() => {
+    const hc = window.__hc;
+    const bid = hc.boss()!.id;
+    const b = hc.mobs().find((x) => x.id === bid)!;
+    hc.freezeMobs(true);
+    hc.setMode('spectator');
+    hc.setFlying(true);
+    hc.setView({ yaw: 45, pitch: 8 });
+    const f = hc.state().fwd;
+    hc.teleport(b.pos[0]! - f[0]! * 15, 68, b.pos[2]! - f[2]! * 15, b.pos[3]! - f[3]! * 15);
+  });
+  await page.evaluate(() => window.__hc.idle(240_000));
+  await shot(page, 'void-9-sovereign');
+
+  // Phase II: hurt it below two thirds; before long it slips off the slice and cannot be hurt.
+  const shifted = await page.evaluate(async () => {
+    const hc = window.__hc;
+    hc.freezeMobs(false);
+    hc.setMode('survival');
+    hc.setHealth(20);
+    hc.teleport(-14.5, 65.1, -14.5, 0.5);
+    const id = hc.boss()!.id;
+    hc.hurtMob(id, 230); // 600 -> 370
+    let seen = false, untouchable = false, warning = '';
+    for (let i = 0; i < 2400 && !seen; i++) {
+      await hc.frames(1);
+      hc.setHealth(20);
+      const v = hc.voidBoss();
+      if (v.shifted) {
+        seen = true;
+        warning = v.warning;
+        untouchable = !hc.hurtMob(id, 50);
+      }
+    }
+    return { seen, untouchable, warning, phase: hc.voidBoss().phase };
+  });
+  expect(shifted.seen).toBe(true);
+  expect(shifted.untouchable).toBe(true);
+  expect(shifted.phase).toBeGreaterThanOrEqual(2);
+  expect(shifted.warning).toMatch(/kata|ana/);
+
+  // Defeat: the gate on the throne, the spires, the memory.
+  const done = await page.evaluate(async () => {
+    const hc = window.__hc;
+    const id = hc.boss()!.id;
+    // (While it is phase-shifted nothing touches it: keep trying until it steps back into the slice.)
+    for (let k = 0; k < 900 && hc.boss(); k++) {
+      hc.setHealth(20);
+      hc.hurtMob(id, 1e6);
+      await hc.frames(3);
+    }
+    await hc.frames(40);
+    const g = (window.__hc as unknown as { game: { snapshot(): { data?: { voidSovereign?: { defeated: boolean } } } } }).game;
+    const first = { boss: hc.boss(), v: hc.voidBoss(), gate: hc.blockAt(0, 65, 0, 0), frame: hc.blockAt(1, 65, 0, 0) };
+    // The spires wake as their columns come into reach: walk over to the eastern one.
+    hc.travel(30, 66, 3, 0.5);
+    await hc.ready(180_000);
+    await hc.idle(240_000);
+    await hc.frames(90);
+    // With the Sovereign gone the arena is just ground again: survival can break it.
+    hc.setMode('survival');
+    hc.give('stone', 4);
+    hc.select(0);
+    hc.setView({ yaw: 45, pitch: -60 });
+    await hc.frames(5);
+    const broke = hc.breakTarget();
+    return {
+      broke,
+      boss: first.boss,
+      v: first.v,
+      gate: first.gate,
+      frame: first.frame,
+      spire: hc.blockAt(38, 66, 0, 0),
+      saved: g.snapshot().data?.voidSovereign?.defeated ?? null,
+    };
+  });
+  expect(done.boss).toBeNull();
+  expect(done.v.defeated).toBe(true);
+  expect(done.gate).toBe('void_gate');
+  expect(done.frame).toBe('void_gate_frame_eye');
+  expect(done.spire).toBe('gateway_beam');
+  expect(done.saved).toBe(true);
+  expect(done.broke).toBe(true); // the arena is just ground again
+  expect(errors).toEqual([]);
+});

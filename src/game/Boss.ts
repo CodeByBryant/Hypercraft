@@ -89,7 +89,7 @@ export class BossDirector {
         bd = d;
         best = m;
       }
-      this.fight(m, dt);
+      if (m.def.ai === 'regent') this.fight(m, dt);
     }
     this.boss = best;
     this.updatePillars(dt);

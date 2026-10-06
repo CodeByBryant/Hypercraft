@@ -102,6 +102,9 @@ export interface Hc {
   boss(): { id: number; name: string; health: number; max: number; phase: number; mode: string; pillars: { x: number; y: number; z: number; w: number; erupt: number }[]; warning: string } | null;
   spawnBoss(name: string, x: number, y: number, z: number, w: number): number;
   hurtMob(id: number, amount: number): boolean;
+  voidBoss(): { defeated: boolean; pylons: number; lances: number; warning: string; shifted: boolean; phase: number; health: number; id: number };
+  setVoidDefeated(on: boolean): void;
+  voidDrain(): number;
   // Phase 7
   survival(): { food: number; saturation: number; xp: number; level: number; armor: number; absorption: number; effects: [string, number, number][]; using: { item: string; t: number } | null };
   setFood(food: number, saturation?: number): void;

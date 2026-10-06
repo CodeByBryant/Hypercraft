@@ -131,6 +131,51 @@ export const VOID_MOBS: MobDef[] = [
     ],
     drops: [{ item: 'starlight_shard', count: [2, 4] }, { item: 'phase_dust', count: [1, 3] }],
   },
+  {
+    // The final boss of the Hollow Void (src/game/VoidBoss.ts runs its attacks, the 'sovereign' AI in
+    // MobManager its movement): it hovers over the arena, blinks about, steps off your slice and
+    // heals from eight pylons until they are broken.
+    name: 'void_sovereign',
+    displayName: 'Void Sovereign',
+    hostile: true,
+    ai: 'sovereign',
+    boss: true,
+    persistent: true,
+    floats: true,
+    health: 600,
+    speed: 3.2,
+    damage: 10,
+    width: 1.3,
+    height: 4.4,
+    xp: 12000,
+    parts: [
+      capsule([0, 1.5, 0, 0], [0, 3.0, 0, 0], 0.85, '#140a28'),
+      ball([0, 1.1, 0, 0], 0.55, '#0c0618', 'tail'),
+      ball([0, 3.75, 0.1, 0], 0.5, '#20143c', 'head'),
+      box([0.55, 4.2, 0, 0], [0.07, 0.36, 0.07, 0.07], '#9affc8', 'head'),
+      box([-0.55, 4.2, 0, 0], [0.07, 0.36, 0.07, 0.07], '#9affc8', 'head'),
+      box([0, 4.2, 0, 0.55], [0.07, 0.36, 0.07, 0.07], '#9affc8', 'head'),
+      box([0, 4.2, 0, -0.55], [0.07, 0.36, 0.07, 0.07], '#9affc8', 'head'),
+      ball([0.18, 3.8, 0.45, 0], 0.07, '#ffffff', undefined, 0, true),
+      ball([-0.18, 3.8, 0.45, 0], 0.07, '#ffffff', undefined, 0, true),
+      // Three arms (right, left and ana) ending in hands of light.
+      capsule([0.9, 3.1, 0, 0], [1.7, 2.2, 0.5, 0], 0.22, '#1a0e34', 'leg', 0),
+      capsule([-0.9, 3.1, 0, 0], [-1.7, 2.2, 0.5, 0], 0.22, '#1a0e34', 'leg', Math.PI),
+      capsule([0, 3.1, 0, 0.9], [0, 2.2, 0.5, 1.7], 0.22, '#1a0e34', 'leg', Math.PI / 2),
+      ball([1.75, 2.15, 0.5, 0], 0.3, '#8a5aff', 'pulse', 0, true),
+      ball([-1.75, 2.15, 0.5, 0], 0.3, '#8a5aff', 'pulse', 1, true),
+      ball([0, 2.15, 0.5, 1.75], 0.3, '#8a5aff', 'pulse', 2, true),
+      // The void in its chest.
+      ball([0, 2.4, 0.4, 0], 0.36, '#c8a0ff', 'pulse', 0, true),
+    ],
+    drops: [
+      { item: 'sovereign_heart', count: [1, 1] },
+      { item: 'starlight_shard', count: [24, 40] },
+      { item: 'phase_dust', count: [12, 20] },
+      { item: 'hyperite', count: [6, 10] },
+      { item: 'enchanted_golden_apple', count: [2, 3] },
+    ],
+  },
 ];
 
 /** What spawns where on the islands (night tables: everything unlit is dark here). */

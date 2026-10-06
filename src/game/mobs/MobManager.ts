@@ -130,6 +130,10 @@ export class Mob {
   /** Stalker: signed offset along the player's hidden axis. */
   lurkOffset = 0;
   awake = true;
+  /** Void Sovereign: seconds left of a phase shift (hung off your slice, untouchable), the offset it keeps along your hidden axis, and the cooldown of its snap back into your slice. */
+  shift = 0;
+  shiftOff = 0;
+  snapCd = 0;
   layTimer = 0;
   spinTimer = 4;
   burnTimer = 0;
@@ -1032,6 +1036,72 @@ export class MobManager {
         this.meleeReach(m, p, h);
         break;
       }
+      case 'sovereign': {
+        // The Void Sovereign hovers about 8 blocks from you and a little above, keeps to your slice
+        // (it drifts along your hidden axis toward you and, when you are far kata/ana of it, steps
+        // through W to you) and blinks around the arena now and then. While phase-shifted
+        // (VoidBoss) it hangs off your slice, out of reach. Leave its arena (46 blocks) and it
+        // returns to the throne and heals.
+        const home = m.home;
+        const away = home ? Math.hypot(p[0]! - home[0]!, p[2]! - home[2]!, p[3]! - home[3]!) : 0;
+        if (!h.playerTargetable || away > 46) {
+          m.shift = 0;
+          if (home) this.steer(m, home[0]!, home[2]!, home[3]!, sp);
+          else this.brake(m);
+          m.vel[1] = ((home ? home[1]! : m.pos[1]!) + 1 - m.pos[1]!) * 1.2;
+          m.health = Math.min(def.health, m.health + 12 * dt);
+          m.mode = 'idle';
+          break;
+        }
+        m.mode = 'chase';
+        const H = h.playerHidden;
+        let dh = 0;
+        for (let k = 0; k < 4; k++) dh += (m.pos[k]! - p[k]!) * H[k]!;
+        if (m.snapCd > 0) m.snapCd -= dt;
+        const dx = p[0]! - m.pos[0]!, dz = p[2]! - m.pos[2]!, dw = p[3]! - m.pos[3]!;
+        const hd = Math.hypot(dx, dz, dw) || 1;
+        if (m.shift > 0) {
+          // Hold a fixed distance off the slice along the hidden axis, out of sight.
+          m.shift -= dt;
+          this.brake(m);
+          for (const k of [0, 2, 3]) m.vel[k] = m.vel[k]! - (dh - m.shiftOff) * H[k]! * 2;
+          m.vel[1] = (p[1]! + 3.5 - m.pos[1]!) * 1.2;
+          break;
+        }
+        const keep = m.phase === 3 ? 6 : 8;
+        if (hd > keep + 2) this.steer(m, p[0]!, p[2]!, p[3]!, sp);
+        else if (hd < keep - 2) this.steer(m, m.pos[0]! - dx, m.pos[2]! - dz, m.pos[3]! - dw, sp * 0.7);
+        else {
+          this.brake(m);
+          m.face(dx, dz, dw, H);
+        }
+        // Pull into the player's slice along the hidden axis; far off it, step through W at once.
+        for (const k of [0, 2, 3]) m.vel[k] = m.vel[k]! - dh * H[k]! * 1.5;
+        if (Math.abs(dh) > 3 && m.snapCd <= 0) {
+          for (const k of [0, 2, 3]) m.pos[k] = m.pos[k]! - dh * H[k]!;
+          m.snapCd = 2;
+        }
+        // Blink about the arena: a spot 9-12 blocks from you inside your slice.
+        m.timer -= dt;
+        if (m.timer <= 0) {
+          m.timer = (m.phase === 1 ? 8 : 6) + Math.random() * 3;
+          const dir = this.tmp;
+          randomHorizontal(dir, H);
+          const d = 9 + Math.random() * 3;
+          const nx = p[0]! + dir[0]! * d, nz = p[2]! + dir[2]! * d, nw = p[3]! + dir[3]! * d;
+          if (!home || Math.hypot(nx - home[0]!, nz - home[2]!, nw - home[3]!) < 40) {
+            h.puff?.(m.pos[0]!, m.pos[1]! + m.height * 0.5, m.pos[2]!, m.pos[3]!, '#c8a0ff');
+            m.pos[0] = nx;
+            m.pos[2] = nz;
+            m.pos[3] = nw;
+            m.vel.fill(0);
+            h.puff?.(nx, m.pos[1]! + m.height * 0.5, nz, nw, '#c8a0ff');
+          }
+        }
+        m.vel[1] = (Math.max(p[1]! + 3.2, (home ? home[1]! : 0) - 1) - m.pos[1]!) * 1.2;
+        this.meleeReach(m, p, h);
+        break;
+      }
       case 'walker': {
         // The Void Walker: tall, silent and fast, but only while you are not looking. Watched (in
         // your slice, within about 26 degrees of your view, in plain sight) it freezes solid; the
@@ -1285,6 +1355,8 @@ export class MobManager {
    */
   damage(m: Mob, amount: number, from: ArrayLike<number> | null, eye?: ArrayLike<number> | null, hidden?: ArrayLike<number>, byPlayer = false, kbMul = 1): boolean {
     if (m.hurt > 0 && from) return false;
+    // The Sovereign is out of reach while it is phase-shifted off your slice.
+    if (m.def.ai === 'sovereign' && m.shift > 0) return false;
     if (byPlayer) m.playerHit = 5;
     const res = m.effects?.amp('resistance') ?? -1;
     if (res >= 0) amount *= Math.max(0, 1 - 0.2 * (res + 1));
