@@ -246,3 +246,74 @@ test('void mobs: a Walker freezes under your gaze and only moves when you look a
   await page.evaluate(() => window.__hc.idle(240_000));
   await shot(page, 'void-5-mobs');
 });
+
+test('void structures: a Sky Vault with sleeping sentinels that wake when its chest opens, a city and a garden', async ({ page }) => {
+  test.setTimeout(900_000);
+  const errors: string[] = [];
+  await boot(page, 'res=270&rd=3&seed=voidvault&realm=void', errors);
+  const find = (name: string) => page.evaluate((n) => window.__hc.locate([n], 2500), name);
+  const vault = await find('sky_vault');
+  const city = await find('void_city');
+  const garden = await find('starlight_garden');
+  expect(vault && city && garden).toBeTruthy();
+
+  /** Fly to a structure and look at its centre from `dist` blocks back along +x (spectator). */
+  async function visit(p: { x: number; y: number; z: number; w: number }, dist: number, pitch: number, name: string, extra: { xw?: number; zw?: number } = {}): Promise<void> {
+    await page.evaluate(
+      ([pp, d, pt, ex]) => {
+        const hc = window.__hc;
+        const c = pp as { x: number; y: number; z: number; w: number };
+        hc.setMode('spectator');
+        hc.setFlying(true);
+        for (const yaw of [90, -90, 0, 180]) {
+          hc.setView({ yaw, pitch: pt as number, ...(ex as object) });
+          if (hc.state().fwd[0]! > 0.6) break;
+        }
+        const f = hc.state().fwd;
+        hc.travel(c.x + 0.5 - f[0]! * (d as number), c.y + 3 - f[1]! * (d as number), c.z + 0.5 - f[2]! * (d as number), c.w + 0.5 - f[3]! * (d as number));
+      },
+      [p, dist, pitch, extra] as const,
+    );
+    await page.evaluate(() => window.__hc.ready(180_000));
+    await page.evaluate(() => window.__hc.idle(240_000));
+    await shot(page, name);
+  }
+
+  await visit(vault!, 16, -6, 'void-6-sky-vault');
+  await visit(vault!, 16, -6, 'void-6b-sky-vault-xw30', { xw: 30 });
+  // The guards: asleep until a chest in the vault is opened.
+  const guards = await page.evaluate(() => window.__hc.mobs().filter((m) => m.name === 'sky_sentinel'));
+  expect(guards.length).toBeGreaterThanOrEqual(2);
+  for (const g of guards) expect(g.awake).toBe(false);
+  // Find the vault's chest (the orientation of the structure is random) and open it.
+  const woke = await page.evaluate(
+    async ([vx, vy, vz, vw]) => {
+      const hc = window.__hc;
+      hc.setMode('survival');
+      hc.setFlying(false);
+      hc.setMobSpawning(false);
+      let chest: number[] | null = null;
+      for (let dw = -6; dw <= 6 && !chest; dw++)
+        for (let dz = -6; dz <= 6 && !chest; dz++)
+          for (let dx = -6; dx <= 6 && !chest; dx++)
+            for (let dy = 0; dy <= 4 && !chest; dy++) if (hc.blockAt(vx! + dx, vy! + dy, vz! + dz, vw! + dw) === 'chest') chest = [vx! + dx, vy! + dy, vz! + dz, vw! + dw];
+      if (!chest) return { chest: null, awake: 0 };
+      hc.travel(chest[0]! + 0.5, chest[1]! + 1, chest[2]! + 0.5, chest[3]! + 0.5);
+      await hc.ready(180_000);
+      hc.clearInventory();
+      hc.useOn(chest[0]!, chest[1]!, chest[2]!, chest[3]!);
+      await hc.frames(3);
+      const open = hc.screenOpen();
+      hc.closeScreen();
+      return { chest, awake: hc.mobs().filter((m) => m.name === 'sky_sentinel' && m.awake).length, open };
+    },
+    [vault!.x, vault!.y, vault!.z, vault!.w],
+  );
+  expect(woke.chest).not.toBeNull();
+  expect(woke.awake).toBeGreaterThanOrEqual(2);
+
+  await visit(city!, 22, -8, 'void-7-void-city');
+  await visit(city!, 22, -8, 'void-7b-void-city-xw45zw45', { xw: 45, zw: 45 });
+  await visit(garden!, 14, -8, 'void-8-starlight-garden');
+  expect(errors).toEqual([]);
+});

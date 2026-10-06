@@ -30,6 +30,8 @@ export const LANDING_TOP = 72;
 export const LANDING_R = 30;
 /** Islands further out than this from the middle are random (none closer than the gap). */
 export const ISLAND_GAP = 300;
+/** Side of a cell of the island lattice (one island per cell at most) and of the island structures' grid. */
+export const ISLAND_CELL = 128;
 
 /** The six horizontal directions in (x, z, w). */
 export const DIRS: [number, number, number][] = [
@@ -229,6 +231,57 @@ export const VOID_LOOT: Record<string, LootTable> = {
       },
     ],
   },
+  void_city: {
+    pools: [
+      {
+        rolls: W(3, 5),
+        entries: [
+          { item: 'starlight_shard', weight: 8, count: W(2, 5) },
+          { item: 'phase_dust', weight: 7, count: W(1, 4) },
+          { item: 'iron_ingot', weight: 6, count: W(2, 6) },
+          { item: 'gold_ingot', weight: 5, count: W(1, 4) },
+          { item: 'bread', weight: 5, count: W(2, 5) },
+          { item: 'xp_bottle', weight: 4, count: W(1, 4) },
+          { item: 'hypercinder', weight: 3, count: W(1, 3) },
+          { item: 'golden_apple', weight: 2 },
+          { item: 'book', weight: 3, enchant: 'random' },
+          { item: 'void_eye', weight: 1 },
+        ],
+      },
+    ],
+  },
+  sky_vault: {
+    pools: [
+      {
+        rolls: W(4, 6),
+        entries: [
+          { item: 'starlight_shard', weight: 10, count: W(3, 8) },
+          { item: 'phase_dust', weight: 8, count: W(2, 5) },
+          { item: 'hyperite', weight: 5, count: W(1, 3) },
+          { item: 'xp_bottle', weight: 5, count: W(2, 5) },
+          { item: 'golden_apple', weight: 3, count: W(1, 2) },
+          { item: 'enchanted_golden_apple', weight: 1 },
+          { item: 'book', weight: 4, enchant: W(20, 39) },
+          { item: 'hyperite_chestplate', weight: 1, wear: W(0, 0.3), enchant: W(20, 39) },
+          { item: 'hyperite_boots', weight: 1, wear: W(0, 0.3), enchant: W(20, 39) },
+        ],
+      },
+    ],
+  },
+  starlight_garden: {
+    pools: [
+      {
+        rolls: W(3, 5),
+        entries: [
+          { item: 'whisper_fruit', weight: 10, count: W(3, 7) },
+          { item: 'starlight_shard', weight: 6, count: W(1, 4) },
+          { item: 'bread', weight: 4, count: W(1, 4) },
+          { item: 'torch', weight: 4, count: W(2, 8) },
+          { item: 'xp_bottle', weight: 3, count: W(1, 3) },
+        ],
+      },
+    ],
+  },
   stronghold_library: {
     pools: [
       {
@@ -377,3 +430,14 @@ export const VOID_BIOMES: BiomeDef[] = [
 
 // Natural spawns on the islands (voidMobs.ts).
 for (const b of VOID_BIOMES) b.mobs = { night: VOID_SPAWNS[b.name] ?? [] };
+
+// Which structures an island of each biome may host (structures.ts, placement 'island').
+const VOID_STRUCTURES: Record<string, string[]> = {
+  hollow_plateau: ['void_city', 'crystal_shrine'],
+  whisper_gardens: ['starlight_garden', 'crystal_shrine'],
+  starlight_crags: ['sky_vault', 'crystal_shrine'],
+  void_spires: ['sky_vault', 'void_city'],
+  glimmer_meadows: ['starlight_garden', 'crystal_shrine'],
+  shattered_reach: ['void_city', 'sky_vault', 'crystal_shrine'],
+};
+for (const b of VOID_BIOMES) b.structures = VOID_STRUCTURES[b.name] ?? [];

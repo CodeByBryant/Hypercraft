@@ -4,7 +4,7 @@
 // slice). The island structures (Void City, Sky Vault, Starlight Garden) follow in 8.3.
 
 import { A, Bf, C, id, type Builder } from '../Builder';
-import { weighted } from './common';
+import { IF_AIR, weighted } from './common';
 
 /** Wall bricks: mostly plain, some mossy, some cracked. */
 function brick(b: Builder): number {
@@ -179,5 +179,126 @@ function furnish(b: Builder, kind: RoomKind, axis: number, sign: number, tc: num
       chest(spots[2]!, 'stronghold');
       b.spawner(...at(0, 1, 2, 0), weighted(b, [['web_weaver', 3], ['shambler', 3], ['bone_archer', 2]] as [string, number][]));
       break;
+  }
+}
+
+// ---------------------------------------------------------------- islands (Hollow Void)
+// Each island hosts at most one structure, centred on it (VoidGenerator.islandHost). Local y = 0
+// is the first air cell over the centre of the island; its top is bumpy, so every building clears
+// the air above its footprint and sinks a foundation of voidstone under it.
+
+/** Crystal Shrine: a waystone: pillar, glowing cap and crystals on the six sides. Common. */
+export function crystalShrine(b: Builder): void {
+  const brick = id('voidstone_bricks'), glow = id('starlight_block'), cluster = id('starlight_cluster'), base = id('voidstone');
+  b.box(-1, 0, -1, -1, 1, 6, 1, 1, 0);
+  b.foundation(-1, -1, -1, 1, 1, 1, -1, base, 6);
+  b.box(-1, -1, -1, -1, 1, 0, 1, 1, brick); // a 3 x 3 x 3 plinth (a, b, c), the top two layers of it above ground
+  for (let y = 1; y <= 3; y++) b.set(0, y, 0, 0, brick);
+  b.set(0, 4, 0, 0, glow);
+  for (const [a, bb, c] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]] as [number, number, number][]) b.set(a, 1, bb, c, cluster);
+}
+
+/** Starlight Garden: a moss lawn ringed by six crystal pillars, whisper trees and a chest of fruit. */
+export function starlightGarden(b: Builder): void {
+  const moss = id('whisper_moss'), crystal = id('starlight_crystal'), cluster = id('starlight_cluster'), vine = id('whisper_vine'), blossom = id('whisper_blossom');
+  const bricks = id('starlight_bricks'), glow = id('starlight_block'), base = id('voidstone');
+  b.box(-7, 0, -7, -7, 7, 8, 7, 7, 0);
+  // The lawn: a ball of moss cut at the ground (radius 7 in a, b and c).
+  for (let c = -7; c <= 7; c++)
+    for (let bb = -7; bb <= 7; bb++)
+      for (let a = -7; a <= 7; a++) if (a * a + bb * bb + c * c <= 49) b.set(a, -1, bb, c, moss);
+  // The heart: a plinth of starlight bricks and the chest.
+  b.foundation(-1, -1, -1, 1, 1, 1, -1, base, 6);
+  b.box(-1, -1, -1, -1, 1, 0, 1, 1, bricks);
+  b.chest(0, 1, 0, 0, 'starlight_garden');
+  b.set(0, 2, 0, 0, glow);
+  // Six crystal pillars, one toward each horizontal direction, topped by a glowing cluster.
+  for (const [a, bb, c] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]] as [number, number, number][]) {
+    const h = b.int(3, 5);
+    for (let y = 0; y < h; y++) b.set(a * 5, y, bb * 5, c * 5, crystal);
+    b.set(a * 5, h, bb * 5, c * 5, cluster);
+  }
+  // Whisper trees: vines stacked three to six high, a blossom on top.
+  for (let k = 0; k < 12; k++) {
+    const a = b.int(-6, 6), bb = b.int(-6, 6), c = b.int(-6, 6);
+    if (a * a + bb * bb + c * c > 36 || Math.abs(a) + Math.abs(bb) + Math.abs(c) < 3) continue;
+    const h = b.int(3, 6);
+    for (let y = 0; y < h; y++) b.set(a, y, bb, c, vine, IF_AIR);
+    b.set(a, h, bb, c, blossom, IF_AIR);
+  }
+}
+
+/**
+ * Sky Vault: a hall (9 x 9 x 7 in a, b, c) with a 3 x 3 x 3 doorway, aurora-glass windows you can
+ * look in through from kata and ana, sentinels, and the vault's chest on a pedestal at the back.
+ */
+export function skyVault(b: Builder): void {
+  const brick = id('voidstone_bricks'), plate = id('starlight_bricks'), glow = id('starlight_block'), glass = id('aurora_glass'), lantern = id('lantern'), base = id('voidstone');
+  b.box(-4, 0, -4, -3, 4, 8, 4, 3, 0);
+  b.foundation(-4, -4, -3, 4, 4, 3, -1, base, 8);
+  b.room(-4, -1, -4, -3, 4, 6, 4, 3, brick, plate, plate);
+  // The doorway on the -b face: 3 wide in a, 3 wide in c, 3 tall.
+  b.box(-1, 0, -4, -1, 1, 2, -4, 1, 0);
+  // Windows: slits on the +-a faces and on the +-c faces (kata/ana of the hall).
+  for (const s of [-1, 1]) {
+    b.box(s * 4, 2, -1, 0, s * 4, 3, 1, 0, glass);
+    b.box(-1, 2, -1, s * 3, 1, 3, 1, s * 3, glass);
+  }
+  // Pillars with lanterns, a pedestal with the chest, glowing posts.
+  for (const [a, bb] of [[-3, -2], [3, -2], [-3, 2], [3, 2]] as [number, number][]) {
+    for (let y = 0; y <= 3; y++) b.set(a, y, bb, 0, brick);
+    b.set(a, 4, bb, 0, lantern);
+  }
+  b.box(-1, 0, 2, -1, 1, 0, 3, 1, plate);
+  b.chest(0, 1, 2, 0, 'sky_vault');
+  for (const [a, c] of [[-2, -2], [2, -2], [-2, 2], [2, 2]] as [number, number][]) {
+    b.set(a, 0, 3, c, glow);
+    b.set(a, 1, 3, c, glow);
+  }
+  // The guards: two by the doorway, and often a third beside the pedestal (along c: off your slice).
+  b.npc(-3, 0, -3, 0, 'sky_sentinel');
+  b.npc(3, 0, -3, 0, 'sky_sentinel');
+  if (b.chance(0.5)) b.npc(0, 0, 1, 2, 'sky_sentinel');
+}
+
+/**
+ * Void City: two or three sites, each a stack of towers along c (the hidden axis), nine apart and
+ * joined by one-block bridges that run along c ONLY, so from any one slice a bridge is a lone
+ * block and a tower has neighbours you cannot see. The doors of a tower are on its a/b faces
+ * (walk in) and on its c faces (through a bridge).
+ */
+export function voidCity(b: Builder): void {
+  const brick = id('voidstone_bricks'), roof = id('starlight_bricks'), glass = id('aurora_glass'), lantern = id('lantern'), base = id('voidstone');
+  const sites: [number, number][] = b.chance(0.5)
+    ? [[-7, -4], [7, -4], [0, 7]]
+    : [[-6, 0], [6, 0]];
+  for (const [sa, sb] of sites) {
+    const n = b.int(2, 3);
+    const c0 = n === 3 ? -9 : -4;
+    for (let t = 0; t < n; t++) {
+      const tc = c0 + 9 * t;
+      b.box(sa - 2, 0, sb - 2, tc - 2, sa + 2, 7, sb + 2, tc + 2, 0);
+      b.foundation(sa - 2, sb - 2, tc - 2, sa + 2, sb + 2, tc + 2, -1, base, 8);
+      b.room(sa - 2, -1, sb - 2, tc - 2, sa + 2, 4, sb + 2, tc + 2, brick, base, roof);
+      // Battlements on the roof corners.
+      for (const da of [-2, 2]) for (const db of [-2, 2]) for (const dc of [-2, 2]) b.set(sa + da, 5, sb + db, tc + dc, brick);
+      // A door on an a or b face (a 1-wide, 2-tall opening), windows on the c faces.
+      const side = b.int(0, 3);
+      if (side < 2) b.box(sa + (side ? 2 : -2), 0, sb, tc, sa + (side ? 2 : -2), 1, sb, tc, 0);
+      else b.box(sa, 0, sb + (side === 3 ? 2 : -2), tc, sa, 1, sb + (side === 3 ? 2 : -2), tc, 0);
+      b.box(sa, 1, sb, tc - 2, sa, 2, sb, tc - 2, glass);
+      b.box(sa, 1, sb, tc + 2, sa, 2, sb, tc + 2, glass);
+      b.set(sa, 3, sb, tc, lantern);
+      if (t === 0) b.chest(sa + 1, 0, sb + 1, tc + 1, 'void_city');
+      // The bridge to the next tower, along c only, with a doorway at each end.
+      if (t < n - 1) {
+        b.box(sa, 0, sb, tc + 2, sa, 1, sb, tc + 2, 0);
+        b.box(sa, 0, sb, tc + 7, sa, 1, sb, tc + 7, 0);
+        for (let c = tc + 3; c <= tc + 6; c++) {
+          b.set(sa, -1, sb, c, brick);
+          b.box(sa, 0, sb, c, sa, 2, sb, c, 0);
+        }
+      }
+    }
   }
 }

@@ -682,9 +682,11 @@ export interface LootTable {
  * surface: on dry ground; beach / underwater: shores and sea floors; underground: at a depth;
  * sheet: on an Ana Sheet. Ember Depths: surface is the cavern floor above the lava sea,
  * `lava` is on the magma sea (bridges), `cavern` hangs in the open air between floor and
- * ceiling.
+ * ceiling. Hollow Void: `island` stands on a floating island; the generator decides which
+ * islands host which structure (StructureTerrain.islandHost), and `chance` is the share of
+ * eligible islands that get this one.
  */
-export type StructurePlacement = 'surface' | 'underground' | 'underwater' | 'beach' | 'sheet' | 'lava' | 'cavern';
+export type StructurePlacement = 'surface' | 'underground' | 'underwater' | 'beach' | 'sheet' | 'lava' | 'cavern' | 'island';
 
 export interface StructureDef {
   name: string;

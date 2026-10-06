@@ -7,6 +7,7 @@
 // Minecraft's: roughly, a slice sees chance × (w extent / spacing) structures per spacing² area.
 
 import type { StructureDef } from './types';
+import { ISLAND_CELL } from './void';
 
 const VILLAGE_STYLES = ['meadow', 'orchard', 'marsh', 'taiga', 'snow', 'savanna', 'desert'] as const;
 
@@ -65,4 +66,11 @@ export const STRUCTURES: StructureDef[] = [
   // The Stronghold holds the Void Gate (six frames around ONE cell, two of them kata/ana of you).
   // Strongholds are rare in a slice but one lies in every 384-block cell of the horizontal 3-space.
   { name: 'stronghold', displayName: 'Stronghold', placement: 'underground', spacing: 384, chance: 1, builder: 'stronghold', radius: 22, y: [14, 40], salt: 0x7101 },
+
+  // Floating islands (placement 'island'): the generator gives each island at most one structure;
+  // `chance` is the share of eligible islands (their biome lists it, big enough to carry it).
+  { name: 'crystal_shrine', displayName: 'Crystal Shrine', placement: 'island', spacing: ISLAND_CELL, chance: 0.3, builder: 'crystal_shrine', radius: 5, salt: 0x7201, realm: 'void' },
+  { name: 'starlight_garden', displayName: 'Starlight Garden', placement: 'island', spacing: ISLAND_CELL, chance: 0.18, builder: 'starlight_garden', radius: 8, salt: 0x7202, realm: 'void' },
+  { name: 'sky_vault', displayName: 'Sky Vault', placement: 'island', spacing: ISLAND_CELL, chance: 0.14, builder: 'sky_vault', radius: 9, salt: 0x7203, realm: 'void' },
+  { name: 'void_city', displayName: 'Void City', placement: 'island', spacing: ISLAND_CELL, chance: 0.22, builder: 'void_city', radius: 16, salt: 0x7204, realm: 'void' },
 ];

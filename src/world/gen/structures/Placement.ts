@@ -24,6 +24,11 @@ export interface StructureTerrain {
   gardenOrigin: [number, number, number, number];
   sample(x: number, z: number, w: number, out: ColumnSample): ColumnSample;
   sheetAt?(x: number, z: number, w: number): { w: number; y: number } | null;
+  /**
+   * Floating islands (the Hollow Void): where the island in lattice cell (i, j, k) hosts `def`
+   * (its start point: the island's centre, one above the top), or null.
+   */
+  islandHost?(def: StructureDef, i: number, j: number, k: number): { x: number; y: number; z: number; w: number } | null;
 }
 
 /** The structures of one realm. */
@@ -71,6 +76,12 @@ export class StructurePlacer {
 
   private compute(def: StructureDef, i: number, j: number, k: number): Start | null {
     const seed = this.seed;
+    if (def.placement === 'island') {
+      // The generator owns island structures: one cell per island lattice cell.
+      const host = this.gen.islandHost?.(def, i, j, k);
+      if (!host) return null;
+      return { def, x: host.x, y: host.y, z: host.z, w: host.w, orient: hash4(i, j, k, def.salt + 5, seed) % 48, seed: hash4(i, j, k, def.salt + 6, seed), i, j, k };
+    }
     const h = hash4(i, j, k, def.salt, seed);
     if (h / 4294967296 >= def.chance) return null;
     const S = def.spacing;

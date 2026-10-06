@@ -20,20 +20,24 @@
 import { SimplexNoise } from '../../math/noise';
 import { hash4, hash4f } from '../../math/rng';
 import { REG, hexToRgb } from '../../content/registry';
-import type { BiomeDef, RealmDef } from '../../content/types';
-import { ARENA_R, BEAM_HEIGHT, CENTRAL_R, ARRIVAL_GATE, ARRIVAL_POS, DIRS, ISLAND_GAP, LANDING_R, LANDING_TOP, VOID_TOP, landingXZW, spireXZW } from '../../content/void';
+import type { BiomeDef, RealmDef, StructureDef } from '../../content/types';
+import { ARENA_R, BEAM_HEIGHT, CENTRAL_R, ARRIVAL_GATE, ARRIVAL_POS, DIRS, ISLAND_CELL, ISLAND_GAP, LANDING_R, LANDING_TOP, VOID_TOP, landingXZW, spireXZW } from '../../content/void';
 import { COLUMN_LAYER } from '../constants';
 import type { ColumnSample, GenOptions } from './SurfaceGen';
 import { StructureGen, type GenExtra } from './structures/StructureGen';
+import { structuresOf } from './structures/Placement';
 
 const SALT_ISLAND = 0x7a01;
 const SALT_PLANT = 0x7a02;
 const SALT_ORE = 0x7a03;
+const SALT_HOST = 0x7a04;
 
 /** Lattice cell of the random islands. */
-const CELL = 128;
+const CELL = ISLAND_CELL;
 /** The widest an island reaches past its radius (shore wobble). */
 const REACH = 1.2;
+/** A structure fits an island when its radius is at most this share of the island's radius (the shore wobbles by 16%). */
+const CORE = 0.62;
 
 const enum Kind {
   Lattice,
@@ -246,6 +250,33 @@ export class VoidGenerator {
   }
 
   // ------------------------------------------------------------------ structures
+
+  private islandDefs: StructureDef[] | null = null;
+
+  /**
+   * Which structure the island in lattice cell (i, j, k) hosts (StructurePlacer, 'island'
+   * placement). One roll per island picks at most one of the structures its biome lists and its
+   * size can carry; each takes a slice of the roll as wide as its `chance`, so structures never
+   * overlap. Returns the structure's start (the island's centre, one above its top), or null.
+   */
+  islandHost(def: StructureDef, i: number, j: number, k: number): { x: number; y: number; z: number; w: number } | null {
+    const isl = this.lattice(i, j, k);
+    if (!isl) return null;
+    const biome = this.vb[isl.biome]!.def;
+    const defs = (this.islandDefs ??= structuresOf(this.realm.name).filter((d) => d.placement === 'island'));
+    const r = hash4f(i, j, k, SALT_HOST, this.seed);
+    let acc = 0;
+    for (const d of defs) {
+      if (!biome.structures?.includes(d.name) || isl.R * CORE < d.radius) continue;
+      acc += d.chance;
+      if (r >= acc) continue;
+      if (d !== def) return null;
+      const X = Math.floor(isl.cx), Z = Math.floor(isl.cz), W = Math.floor(isl.cw);
+      const out = { top: 0, bottom: 0, d: 0 };
+      return this.shape(isl, X, Z, W, out) ? { x: X, y: out.top + 1, z: Z, w: W } : null;
+    }
+    return null;
+  }
 
   private structGen: StructureGen | null = null;
   get structures(): StructureGen {

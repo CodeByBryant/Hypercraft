@@ -2,13 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { REG } from '../../src/content/registry';
 import { IREG } from '../../src/content/itemRegistry';
 import { STRUCTURES } from '../../src/content/structures';
+import { MOB_REG } from '../../src/content/mobRegistry';
+import { BUILDERS } from '../../src/world/gen/structures/builders';
+import { Builder, ORIENTS } from '../../src/world/gen/structures/Builder';
+import { StructurePlan } from '../../src/world/gen/structures/Plan';
+import { Rng } from '../../src/math/rng';
 import { LOOT } from '../../src/content/lootRegistry';
 import { VoidGenerator, type Island } from '../../src/world/gen/VoidGen';
 import { SurfaceGenerator, type ColumnSample } from '../../src/world/gen/SurfaceGen';
 import { createGenerator, type WorldGenerator } from '../../src/world/gen/generators';
 import { COLUMN_LAYER } from '../../src/world/constants';
 import { GATE, fillFrame, gateFaces, gateProgress, gateReady, type GateWorld } from '../../src/game/VoidGate';
-import { ARENA_R, ARRIVAL_GATE, ARRIVAL_POS, BEAM_HEIGHT, CENTRAL_R, DIRS, ISLAND_GAP, LANDING_R, LANDING_TOP, VOID_TOP, gatewayAt, landingXZW, spireXZW } from '../../src/content/void';
+import { ISLAND_CELL, ARENA_R, ARRIVAL_GATE, ARRIVAL_POS, BEAM_HEIGHT, CENTRAL_R, DIRS, ISLAND_GAP, LANDING_R, LANDING_TOP, VOID_TOP, gatewayAt, landingXZW, spireXZW } from '../../src/content/void';
 
 const realm = REG.realm('void');
 const sample = (): ColumnSample => ({ height: 0, biome: 0, grass: [0, 0, 0] });
@@ -278,5 +283,145 @@ describe('Void Gate (frames and eyes)', () => {
     w.setBlock(...cell, REG.id('stone'));
     for (const f of gateFaces(...cell)) fillFrame(w, f[0], f[1], f[2], f[3]);
     expect(w.getBlock(...cell)).toBe(REG.id('stone'));
+  });
+});
+
+describe('Void structures (islands)', () => {
+  const g = new VoidGenerator(2025, realm);
+  const KINDS = ['crystal_shrine', 'starlight_garden', 'sky_vault', 'void_city'];
+  const defs = STRUCTURES.filter((d) => d.realm === 'void' && d.placement === 'island');
+
+  it('defines four island structures on the island lattice, each with a builder, loot and a biome that lists it', () => {
+    expect(defs.map((d) => d.name).sort()).toEqual([...KINDS].sort());
+    let share = 0;
+    for (const d of defs) {
+      expect(d.spacing).toBe(ISLAND_CELL);
+      expect(BUILDERS[d.builder], d.name).toBeDefined();
+      expect(REG.biomes.some((b) => b.realm === 'void' && b.structures?.includes(d.name)), d.name).toBe(true);
+      share += d.chance;
+    }
+    expect(share).toBeLessThanOrEqual(1); // one roll per island: shares must not exceed it
+    for (const t of ['void_city', 'sky_vault', 'starlight_garden']) expect(LOOT.has(t)).toBe(true);
+    expect(() => g.structures).not.toThrow(); // validates every builder name
+  });
+
+  it('puts every kind within a few hundred blocks of the central island, deterministically', () => {
+    for (const n of KINDS) {
+      const a = g.nearestStructure([n], 0, 0, 0, 2000);
+      const b = new VoidGenerator(2025, realm).nearestStructure([n], 0, 0, 0, 2000);
+      expect(a, n).not.toBeNull();
+      expect(a).toEqual(b);
+      expect(Math.hypot(a!.x, a!.z, a!.w)).toBeLessThan(900);
+      expect(Math.hypot(a!.x, a!.z, a!.w)).toBeGreaterThanOrEqual(ISLAND_GAP);
+    }
+  });
+
+  it('hosts at most one structure per island, on an island big enough to carry it', () => {
+    const out: Island[] = [];
+    let hosted = 0;
+    for (const isl of g.islandsIn(-700, -700, -700, 700, 700, 700, out).filter((i) => i.kind === 0)) {
+      const cell = [Math.floor(isl.cx / ISLAND_CELL), Math.floor(isl.cz / ISLAND_CELL), Math.floor(isl.cw / ISLAND_CELL)] as const;
+      const got = defs.filter((d) => g.islandHost(d, ...cell) !== null);
+      expect(got.length).toBeLessThanOrEqual(1);
+      for (const d of got) {
+        hosted++;
+        expect(isl.R * 0.62).toBeGreaterThanOrEqual(d.radius);
+        expect(REG.biomes[g.vb[isl.biome]!.index]!.structures).toContain(d.name);
+      }
+    }
+    expect(hosted).toBeGreaterThan(5);
+  });
+
+  it('builds each within its radius, with valid chests and mobs, on solid ground', () => {
+    const at = world(g);
+    for (const n of KINDS) {
+      const st = g.structures.placer.nearest([n], 0, 0, 0, 2000)!;
+      const plan = g.structures.plan(st);
+      const r = st.def.radius + 3;
+      const origin = [st.x, st.y, st.z, st.w];
+      for (const k of [0, 2, 3]) {
+        expect(plan.min[k]!, n).toBeGreaterThanOrEqual(origin[k]! - r);
+        expect(plan.max[k]!, n).toBeLessThanOrEqual(origin[k]! + r);
+      }
+      for (const m of plan.markers) {
+        if (m.kind === 'chest') expect(LOOT.has(m.loot!), `${n}: ${m.loot}`).toBe(true);
+        else expect(MOB_REG.has(m.mob!), `${n}: ${m.mob}`).toBe(true);
+      }
+      // The start stands on the island: solid just below, nothing solid at head height in the middle of a shrine.
+      expect(REG.solid[at(st.x, st.y - 1, st.z, st.w)], n).toBe(1);
+    }
+  });
+});
+
+/** Every cell a plan writes, by world coordinates. */
+function planCells(plan: StructurePlan): Map<string, number> {
+  const cells = new Map<string, number>();
+  for (let cw = Math.floor(plan.min[3]! / 16); cw <= Math.floor(plan.max[3]! / 16); cw++)
+    for (let cz = Math.floor(plan.min[2]! / 16); cz <= Math.floor(plan.max[2]! / 16); cz++)
+      for (let cx = Math.floor(plan.min[0]! / 16); cx <= Math.floor(plan.max[0]! / 16); cx++) {
+        const list = plan.column(cx, cz, cw) ?? [];
+        for (let i = 0; i < list.length; i += 3) {
+          const d = list[i]!;
+          cells.set(`${cx * 16 + (d & 15)},${Math.floor(d / COLUMN_LAYER)},${cz * 16 + ((d >> 4) & 15)},${cw * 16 + ((d >> 8) & 15)}`, list[i + 1]! & 0xfff);
+        }
+      }
+  return cells;
+}
+
+describe('Void structure shapes', () => {
+  /** Build one with the identity orientation (a = x, b = z, c = w) standing at y = 64. */
+  function build(name: string, seed = 5) {
+    const plan = new StructurePlan(name, 128);
+    const b = new Builder(plan, new Rng(seed), () => 63, 0);
+    b.frame(0, 64, 0, 0, ORIENTS[0]!);
+    BUILDERS[name]!(b, { def: STRUCTURES.find((d) => d.name === name)!, x: 0, y: 64, z: 0, w: 0, orient: 0, seed, i: 0, j: 0, k: 0 });
+    return plan;
+  }
+
+  it('the Sky Vault has a loot chest on its pedestal, aurora-glass windows and two or three sentinels', () => {
+    const plan = build('sky_vault');
+    const chests = plan.markers.filter((m) => m.kind === 'chest');
+    expect(chests.map((m) => m.loot)).toEqual(['sky_vault']);
+    expect([chests[0]!.x, chests[0]!.y, chests[0]!.z, chests[0]!.w]).toEqual([0, 65, 2, 0]);
+    const guards = plan.markers.filter((m) => m.kind === 'npc');
+    expect(guards.length).toBeGreaterThanOrEqual(2);
+    expect(guards.length).toBeLessThanOrEqual(3);
+    for (const m of guards) expect(m.mob).toBe('sky_sentinel');
+    const cells = planCells(plan);
+    expect([...cells.values()].filter((v) => v === id('aurora_glass')).length).toBeGreaterThan(6);
+    // A 3 x 3 x 3 doorway on the -b face: every cell of it is air.
+    for (let a = -1; a <= 1; a++) for (let y = 64; y <= 66; y++) for (let c = -1; c <= 1; c++) expect(cells.get(`${a},${y},-4,${c}`), `${a},${y},${c}`).toBe(0);
+  });
+
+  it('the Void City joins its towers with one-block bridges that run along w only', () => {
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const plan = build('void_city', seed);
+      const cells = planCells(plan);
+      // Bridges are the only voidstone BRICKS at floor level (the tower floors are plain voidstone).
+      const bridge = new Set<string>();
+      for (const [k, v] of cells) {
+        const [x, y, z, w] = k.split(',').map(Number) as [number, number, number, number];
+        if (y === 63 && v === id('voidstone_bricks')) bridge.add(`${x},${z},${w}`);
+      }
+      expect(bridge.size, `seed ${seed}`).toBeGreaterThanOrEqual(4);
+      for (const k of bridge) {
+        const [x, z, w] = k.split(',').map(Number) as [number, number, number];
+        expect(bridge.has(`${x + 1},${z},${w}`) || bridge.has(`${x - 1},${z},${w}`) || bridge.has(`${x},${z + 1},${w}`) || bridge.has(`${x},${z - 1},${w}`), `seed ${seed}: bridge cell ${k} touches another along x or z`).toBe(false);
+        expect(bridge.has(`${x},${z},${w + 1}`) || bridge.has(`${x},${z},${w - 1}`), `seed ${seed}: bridge cell ${k} is alone`).toBe(true);
+      }
+      // At least four towers' worth of lanterns, and one chest per site.
+      expect([...cells.values()].filter((v) => v === id('lantern')).length).toBeGreaterThanOrEqual(4);
+      expect(plan.markers.filter((m) => m.kind === 'chest').length).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it('the Starlight Garden holds a chest of fruit and six crystal pillars; the shrine glows', () => {
+    const garden = build('starlight_garden');
+    expect(garden.markers.filter((m) => m.kind === 'chest').map((m) => m.loot)).toEqual(['starlight_garden']);
+    const cells = planCells(garden);
+    for (const [a, bb, c] of [[5, 0, 0], [-5, 0, 0], [0, 5, 0], [0, -5, 0], [0, 0, 5], [0, 0, -5]]) expect(cells.get(`${a},64,${bb},${c}`), `${a},${bb},${c}`).toBe(id('starlight_crystal'));
+    const shrine = planCells(build('crystal_shrine'));
+    expect(shrine.get('0,68,0,0')).toBe(id('starlight_block'));
+    expect([...shrine.values()].filter((v) => v === id('starlight_cluster')).length).toBe(6);
   });
 });
