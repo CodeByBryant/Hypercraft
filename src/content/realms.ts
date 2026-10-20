@@ -96,4 +96,25 @@ export const REALMS: RealmDef[] = [
     invertedSky: true,
     mirrorControls: true,
   },
+  {
+    // Realm E: an enclosed geode world under everything, lit only by crystals. Reached through a
+    // Geode Gate on the Surface (Game.updateRift), so no portal scale. The water line is its sea.
+    name: 'abyss',
+    displayName: 'The Crystal Abyss',
+    heightChunks: 8,
+    gravityAxis: 1,
+    gravity: 32,
+    seaLevel: 24,
+    generator: 'abyss',
+    coordinateScale: 1,
+    dayCycle: false,
+    ambient: 0.02,
+    ambientColor: '#8a78ff',
+    weather: ['clear'],
+    skyColor: '#120a24',
+    fogColor: '#1c1236',
+    floorBlock: 'bedrock',
+    ceilingBlock: 'bedrock',
+    cavernSpawns: true,
+  },
 ];

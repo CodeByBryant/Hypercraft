@@ -16,4 +16,6 @@ export const TIERS: ToolTierDef[] = [
   { name: 'slag', displayName: 'Ancient Slag', level: 4, speed: 9, durability: 2031, damage: 4, enchantability: 15, material: 'ancient_slag_ingot', color: '#6a4430', shade: '#3a2418' },
   // Hollow Void (Phase 8): the top tier. Ingots are smelted from Starlight Shards.
   { name: 'starlight', displayName: 'Starlight', level: 4, speed: 10, durability: 2400, damage: 5, enchantability: 22, material: 'starlight_ingot', color: '#9ad8ff', shade: '#4a78c0' },
+  // Crystal Abyss (Phase 9): the Prism tier. Ingots are smelted from Prism Shards.
+  { name: 'prism', displayName: 'Prism', level: 4, speed: 10.5, durability: 2800, damage: 5.5, enchantability: 24, material: 'prism_ingot', color: '#d0b0ff', shade: '#8a68d8' },
 ];

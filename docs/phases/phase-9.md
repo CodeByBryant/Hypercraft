@@ -99,3 +99,51 @@ A reflected copy of the Surface (Realm D).
 * Tests: `tests/unit/mirrormobs.test.ts`, `tests/unit/mirrorboss.test.ts` (reflection steering, the
   delayed copies, shield, phases, beams, arena rules, save), the palace in `mirror.test.ts`, and an
   e2e that wakes the Twin with a Hand Mirror and fells it (`mirror.spec.ts`).
+
+## 9.4 The Crystal Abyss and the Prism tier
+
+* **The realm** (`abyss` in `realms.ts`): an enclosed geode world, 128 tall, bedrock top and bottom,
+  no day, almost no ambient light (0.02): the only light is what grows in it, so torches, lanterns
+  and the luminous biomes decide where you can see. A dark water line at y 24 is its sea.
+  `cavernSpawns` puts mobs on any cavern floor (the existing Crystal Crawler lives here until 9.5).
+* **The generator** (`src/world/gen/AbyssGen.ts`, ~45 ms per column in Node for neighbouring
+  columns): a 4D density lattice every 4 blocks along x, y, z and w (big chambers where a slow noise
+  is high, tunnels where two noises are both near zero, so they are curves in a slice), interpolated
+  to every cell; the same lattice answers `sample()`, `surfaces()` and `spawnPoint()`. Biomes are
+  picked per (x, z, w) column from two slow noises, and the Echo Lakes wherever the floor is under
+  the water line.
+* **Shifting crystal walls**: inside a wall mask, thin slabs of translucent crystal cut the caverns
+  along planes whose normals lean into W. In 4D that is all "shifting" has to mean: step kata or
+  ana and the wall slides sideways past you (a unit test walks a wall along W and watches its x
+  change). `wallAt()` is public, and the spawn point checks it.
+* **Hyper-geodes**: hollow 4-balls (radius 8 to 14) on a 64-block lattice: a husk, a calcite layer, a
+  glowing lining with prism ore in it, resonance clusters budding inside and prism crystal at the
+  heart. In a slice the hollow breathes as you move along W, like the cross-section of a ball.
+  Geodes (and walls) are features, like trees: they do not move the floor `sample()` reports.
+* **Six biomes** (`src/content/abyss.ts`, four ground blocks and two plants each): Prism Forest
+  (violet moss and tall prism-glass pillars), Geode Hollows (calcite and agate), Resonance Caverns
+  (humming stone, resonance clusters), Lumen Grotto (glowcap soil, spore light), Shard Barrens (dark
+  rubble, no light at all) and the Echo Lakes (the water, kelp and coral).
+* **The way in: the Geode Gate.** A hollow geode 18 to 44 blocks under the Surface (`geode_gate`,
+  one per ~224 blocks under any biome above ground) with a dormant Abyss rift on a plinth of gate
+  stone, resonance clusters around it and a chest holding Resonance Crystals and torches. Hold a
+  **Resonance Crystal** up to the rift: it is used up and the rift wakes. Stepping in leads to the
+  Abyss at the same x, z, w (the Abyss is not scaled), at about the depth you came from, in a gate of
+  your own in a chamber carved for it; that gate leads home. Resonance Crystals grow in the Abyss's
+  geodes and resonance caverns, and on the Surface in the crystal geode caves (`sky_crystal_cluster`
+  now drops them).
+* **`src/content/rifts.ts`** is the table behind both rift links (Mirror and Abyss): awake and
+  dormant blocks, the realms, the waker item, the arch cells, and whether an arrival stands on the
+  ground or in a carved chamber (`stand`). `Game.updateRift`, `arriveAtRift` and the wake items read
+  it, so a new rift link is a row there plus its blocks.
+* **Resonance Compass**: a Slicer Compass tuned with three Resonance Crystals; held, its arrow points
+  to the nearest Geode Gate (an atlas readout like the Hand Mirror's).
+* **The Prism tier** (`tiers.ts`): Prism Shards come from prism ore (iron level 3, glowing in the
+  ceilings and the geode linings), smelt to Prism Ingots and make tools and weapons (level 4, speed
+  10.5, durability 2800, damage 5.5, enchantability 24). Prism armour comes with the Abyss mobs (9.5).
+* Advancements: Resonance, Tuned In, Wake the Gate, Into the Abyss, Prismatic, Light Through Glass,
+  Cut Like Light, Crystal Clear.
+* Tests: `tests/unit/abyss.test.ts` (realm flags, biomes, determinism, bedrock and water, every
+  biome reached, `sample` against blocks, the spawn, crystals, geodes, shifting walls, the gate, rift
+  links, the Prism tier), `tests/e2e/abyss.spec.ts` (the three R6 views, the dark, a biome tour, a
+  full gate trip: wake with a crystal, cross down, arrive in a carved chamber, come home).

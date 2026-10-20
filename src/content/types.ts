@@ -425,6 +425,8 @@ export interface ItemDef {
 }
 
 export type ItemUse =
+  // Phase 9: fuel for an Abyss rift.
+  | 'rift_fuel'
   | 'bucket'
   | 'water_bucket'
   | 'lava_bucket'

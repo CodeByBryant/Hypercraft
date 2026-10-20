@@ -19,7 +19,7 @@ import { FluidSim } from '../world/fluids/Fluids';
 import { makeRayHit, raycast, type RayHit } from '../world/raycast';
 import { Frame4 } from '../math/frame';
 import { dollParts, newDollState, DOLL_RADIUS, type DollState } from './PlayerModel';
-import { ARCH_AIR, archCells } from '../content/mirror';
+import { ARCH_AIR, ARRIVAL_ROOM, RIFT_LINKS, riftLinkOf } from '../content/rifts';
 import { createGenerator, type WorldGenerator } from '../world/gen/generators';
 import { VOID_VOXEL } from '../world/constants';
 import { COLLISION_NONE } from '../content/registry';
@@ -81,6 +81,8 @@ import type { AdvancementDef } from '../content/advancements';
 /** How the player arrives in a realm: through a portal (find or build its twin) or a respawn. */
 export interface Arrival {
   kind: 'portal' | 'respawn' | 'void' | 'rift';
+  /** Rifts: the awake rift block you came through (names the link). */
+  rift?: string;
   /** Shape of the portal left behind (the arrival portal copies it). */
   axis?: number;
   /** Flat portals: the second normal axis. */
@@ -1991,9 +1993,10 @@ export class Game {
   /** Frames an arrival has waited for the arch's columns. */
   private riftWait = 0;
 
-  /** Standing in an awake Mirror rift: the view swirls, then you cross to your mirror image on the other side. */
+  /** Standing in an awake rift (Mirror or Abyss): the view swirls, then you cross to the realm on the other side. */
   private updateRift(dt: number): void {
-    if (this.vitals.dead || !this.bodyCell(REG.id('mirror_rift'))) {
+    const link = this.vitals.dead ? undefined : RIFT_LINKS.find((l) => this.bodyCell(REG.id(l.rift)));
+    if (!link) {
       this.riftTime = Math.max(0, this.riftTime - dt * 2);
       return;
     }
@@ -2004,31 +2007,34 @@ export class Game {
     if (this.riftTime < need) return;
     this.riftTime = 0;
     const realm = this.world.realm.name;
-    const to = realm === 'surface' ? 'mirror' : realm === 'mirror' ? 'surface' : null;
+    const [ra, rb] = link.realms;
+    const to = realm === ra ? rb : realm === rb ? ra : null;
     if (!to) {
-      this.message?.('The rift is dormant here: it leads between the Surface and the Mirror Realm');
+      this.message?.(`The rift is dormant here: it leads between ${REG.realm(ra).displayName} and ${REG.realm(rb).displayName}`);
       return;
     }
     const p = this.player.pos;
     this.adv.event('rift');
-    this.beginTravel(to, scalePosition(p, this.world.realm, REG.realm(to)), { kind: 'rift' });
+    this.beginTravel(to, scalePosition(p, this.world.realm, REG.realm(to)), { kind: 'rift', rift: link.rift });
   }
 
   /**
-   * Arrive through a rift: stand beside the nearest awake rift (the reflected arch of a Silver
-   * Arch, or one you built here before), or build an arch around the spot. False while the
-   * columns around it have not streamed in.
+   * Arrive through a rift: stand beside the nearest awake rift of that link (the reflected arch of
+   * a Silver Arch, or one you built here before), or build an arch around the spot (on the ground,
+   * or in a chamber carved at your depth in an enclosed realm). False while the columns around it
+   * have not streamed in.
    */
-  private arriveAtRift(): boolean {
+  private arriveAtRift(riftName?: string): boolean {
     const world = this.world;
     const p = this.player.pos;
-    const awake = REG.id('mirror_rift');
+    const link = riftLinkOf(riftName);
+    const awake = REG.id(link.rift);
     const x0 = Math.floor(p[0]!), z0 = Math.floor(p[2]!), w0 = Math.floor(p[3]!);
     // The columns the arch will stand in (its corners), or after a while whatever has streamed in.
     let ready = true;
     for (const dx of [-1, 1]) for (const dz of [-1, 1]) for (const dw of [-1, 1]) if (!world.column((x0 + dx) >> 4, (z0 + dz) >> 4, (w0 + dw) >> 4)) ready = false;
     if (!ready && this.riftWait++ < 600) {
-      this.arrival = { kind: 'rift' };
+      this.arrival = { kind: 'rift', rift: link.rift };
       this.streamer.invalidate();
       return false;
     }
@@ -2036,7 +2042,7 @@ export class Game {
     const stand = (x: number, y: number, z: number, w: number): boolean => {
       this.player.setPosition(x + 1.5, y, z + 0.5, w + 0.5);
       this.player.vel.fill(0);
-      this.message?.(world.realm.mirrorControls ? 'The Mirror Realm: up is W, and left and right swap (Settings turns that off)' : 'Back on the Surface');
+      this.message?.(link.arrival[world.realm.name] ?? '');
       return true;
     };
     for (let dy = -8; dy <= 8; dy++)
@@ -2049,11 +2055,28 @@ export class Game {
           }
     // None near: build an arch here, on the ground (or the sea's surface).
     const realm = world.realm;
-    const y = Math.max(realm.seaLevel + 1, world.skyHeight(x0, z0, w0));
-    for (const d of ARCH_AIR) world.setBlock(x0 + d[0], y + d[1], z0 + d[2], w0 + d[3], 0);
-    for (const c of archCells('mirror_rift')) world.setBlock(x0 + c.d[0], y + c.d[1], z0 + c.d[2], w0 + c.d[3], REG.id(c.block));
-    for (const [a, b, c] of [[-1, -1, -1], [1, -1, -1], [-1, 1, 1], [1, 1, 1], [0, 0, 0]] as number[][]) for (let k = 2; k <= 4; k++) if (!REG.solid[world.getBlock(x0 + a!, y - k, z0 + b!, w0 + c!) & 0xfff]) world.setBlock(x0 + a!, y - k, z0 + b!, w0 + c!, REG.id('arch_stone'));
+    const depth = link.stand[realm.name] === 'depth';
+    const y = depth ? Math.max(8, Math.min(world.height - 12, Math.floor(p[1]!))) : Math.max(realm.seaLevel + 1, world.skyHeight(x0, z0, w0));
+    for (const d of depth ? ARRIVAL_ROOM : ARCH_AIR) world.setBlock(x0 + d[0], y + d[1], z0 + d[2], w0 + d[3], 0);
+    for (const c of link.cells(link.rift)) world.setBlock(x0 + c.d[0], y + c.d[1], z0 + c.d[2], w0 + c.d[3], REG.id(c.block));
+    for (const [a, b, c] of [[-1, -1, -1], [1, -1, -1], [-1, 1, 1], [1, 1, 1], [0, 0, 0]] as number[][]) for (let k = 2; k <= 4; k++) if (!REG.solid[world.getBlock(x0 + a!, y - k, z0 + b!, w0 + c!) & 0xfff]) world.setBlock(x0 + a!, y - k, z0 + b!, w0 + c!, REG.id(link.foot));
     return stand(x0, y, z0, w0);
+  }
+
+  /** Hold a Resonance Crystal up to a dormant Abyss rift in a Geode Gate: it is used up, and the rift wakes. */
+  private useRiftFuel(held: ItemStack): void {
+    const link = RIFT_LINKS.find((l) => l.waker === IREG.name(held.id));
+    const t = this.target;
+    if (!link || !this.hasTarget || (this.world.getBlock(t.x, t.y, t.z, t.w) & 0xfff) !== REG.id(link.dormant)) return;
+    const dormant = REG.id(link.dormant), awake = REG.id(link.rift);
+    for (const dy of [-1, 0, 1]) if ((this.world.getBlock(t.x, t.y + dy, t.z, t.w) & 0xfff) === dormant) this.world.setBlock(t.x, t.y + dy, t.z, t.w, awake);
+    if (this.player.mode === 'survival') {
+      held.count--;
+      this.inv.set(this.hotbarIndex, held.count > 0 ? held : null);
+    }
+    this.particles.burst(t.x + 0.5, t.y + 1, t.z + 0.5, t.w + 0.5, this.player.cam, 'spark', '#a8d8ff', 30, 3, 1, true);
+    this.adv.event('gate_wake');
+    this.message?.('The crystal dissolves into the rift · it wakes · step into it');
   }
 
   /** Hold the Hand Mirror up to a dormant rift: it wakes. */
@@ -2642,7 +2665,7 @@ export class Game {
       this.checkBed = a.kind === 'respawn' && this.bed !== null;
       return true;
     }
-    if (a.kind === 'rift') return this.arriveAtRift();
+    if (a.kind === 'rift') return this.arriveAtRift(a.rift);
     const realm = this.world.realm.name;
     const p = this.player.pos;
     const R = realm === 'surface' ? 128 : 16;
@@ -4377,6 +4400,10 @@ export class Game {
     }
     if (use === 'hand_mirror') {
       this.useHandMirror();
+      return;
+    }
+    if (use === 'rift_fuel') {
+      this.useRiftFuel(held);
       return;
     }
     if (use === 'starlight_rocket') {

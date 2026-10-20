@@ -101,6 +101,17 @@ makes the cell a `void_gate`; stepping in calls `Game.beginTravel('void', ARRIVA
 a pure function) teleport between islands without a reload. To add such a link, add an `Arrival`
 kind in `Game.arrive()` and decide where the player stands.
 
+## 4c. Realms reached through a rift
+
+The Mirror Realm and the Crystal Abyss are reached through a **rift** in an arch (`src/content/rifts.ts`).
+A row of `RIFT_LINKS` names the awake and dormant rift blocks, the two realms, the item that wakes a
+dormant rift (the Hand Mirror, a Resonance Crystal: `use: 'hand_mirror'` / `'rift_fuel'`), the arch
+cells (`archCells`, `gateCells`) and, per realm, how an arrival gate stands: `'ground'` on the
+terrain, or `'depth'` at the height you came from in a chamber carved for it (enclosed realms).
+`Game.updateRift` (stand in an awake rift, then `beginTravel` with `{ kind: 'rift', rift }`) and
+`Game.arriveAtRift` (stand beside the nearest awake rift of that link, else build the gate) need
+nothing else. Put the dormant rift in a Surface structure and list the structure in the biomes.
+
 ## 5. Test it
 
 * Unit: see `tests/unit/ember.test.ts` and `tests/unit/void.test.ts`. It checks determinism, that every biome is reachable,

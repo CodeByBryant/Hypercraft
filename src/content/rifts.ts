@@ -1,0 +1,62 @@
+// Rifts (Phase 9): the links between the Surface and the realms reached through a rift in an arch
+// instead of a portal. Each link names its awake and dormant rift blocks, the realms it joins, what
+// wakes it, the cells of the arch built around an arrival, and how the arrival stands in each realm.
+// Game (updateRift, arriveAtRift, the wake items) reads this table; add a row for a new link.
+
+import { ARCH_AIR, archCells, type ArchCell } from './mirror';
+import { gateCells } from './abyss';
+
+export interface RiftLink {
+  /** The awake and dormant rift blocks. */
+  rift: string;
+  dormant: string;
+  /** The two realms it joins (travel goes to the other one). */
+  realms: [string, string];
+  /** The cells of the arch around a rift's base cell, for the given rift block. */
+  cells(rift: string): ArchCell[];
+  /** The block under the arch's four corner pillars when an arrival builds one. */
+  foot: string;
+  /** What wakes a dormant rift: the item held up to it (the Hand Mirror, a Resonance Crystal). */
+  waker: string;
+  /** The line shown on arrival, by the realm you arrive in. */
+  arrival: Record<string, string>;
+  /**
+   * How an arrival gate stands in each realm: 'ground' on the top of the terrain (open sky), or
+   * 'depth' at about the height you came from, in a chamber carved for it (enclosed realms).
+   */
+  stand: Record<string, 'ground' | 'depth'>;
+}
+
+export const RIFT_LINKS: RiftLink[] = [
+  {
+    rift: 'mirror_rift',
+    dormant: 'dormant_rift',
+    realms: ['surface', 'mirror'],
+    cells: archCells,
+    foot: 'arch_stone',
+    waker: 'hand_mirror',
+    arrival: { mirror: 'The Mirror Realm: up is W, and left and right swap (Settings turns that off)', surface: 'Back on the Surface' },
+    stand: { surface: 'ground', mirror: 'ground' },
+  },
+  {
+    rift: 'abyss_rift',
+    dormant: 'dormant_abyss_rift',
+    realms: ['surface', 'abyss'],
+    cells: gateCells,
+    foot: 'gate_stone',
+    waker: 'resonance_crystal',
+    arrival: { abyss: 'The Crystal Abyss: no sun, no sky, and only the crystals for light', surface: 'Back on the Surface' },
+    stand: { surface: 'ground', abyss: 'depth' },
+  },
+];
+
+export const riftLinkOf = (rift: string | undefined): RiftLink => RIFT_LINKS.find((l) => l.rift === rift) ?? RIFT_LINKS[0]!;
+
+/** The air an arrival gate needs around it in a realm where it stands in rock ('depth'): a 5 x 5 x 5 x 5 chamber over its floor. */
+export const ARRIVAL_ROOM: [number, number, number, number][] = (() => {
+  const out: [number, number, number, number][] = [];
+  for (let c = -2; c <= 2; c++) for (let b = -2; b <= 2; b++) for (let a = -2; a <= 2; a++) for (let y = 0; y <= 4; y++) out.push([a, y, b, c]);
+  return out;
+})();
+
+export { ARCH_AIR };

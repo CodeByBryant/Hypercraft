@@ -15,7 +15,7 @@
 //   event   something happened (see EVENTS: the game calls them out)
 //   stat    a counter reached a value (see STATS)
 
-export type AdvCategory = 'surface' | 'mining' | 'husbandry' | 'combat' | 'magic' | 'fourd' | 'ember' | 'void' | 'mirror';
+export type AdvCategory = 'surface' | 'mining' | 'husbandry' | 'combat' | 'magic' | 'fourd' | 'ember' | 'void' | 'mirror' | 'abyss';
 
 export interface AdvCategoryDef {
   id: AdvCategory;
@@ -35,10 +35,11 @@ export const ADV_CATEGORIES: AdvCategoryDef[] = [
   { id: 'ember', name: 'Ember Depths', icon: 'hypercinder', blurb: 'The burning realm' },
   { id: 'void', name: 'Hollow Void', icon: 'void_eye', blurb: 'Islands in the dark' },
   { id: 'mirror', name: 'Mirror Realm', icon: 'hand_mirror', blurb: 'Up is W, left is right' },
+  { id: 'abyss', name: 'Crystal Abyss', icon: 'prism_shard', blurb: 'Light is the only map' },
 ];
 
 /** Things the game reports (Game calls Advancements.event with these names). */
-export const EVENTS = ['sleep', 'trade', 'plant', 'breed', 'fish', 'block', 'enchant', 'anvil', 'phase_strike', 'void_gate', 'phase_step', 'rocket', 'rift_wake', 'rift', 'reflect', 'twin_wake'] as const;
+export const EVENTS = ['sleep', 'trade', 'plant', 'breed', 'fish', 'block', 'enchant', 'anvil', 'phase_strike', 'void_gate', 'phase_step', 'rocket', 'rift_wake', 'rift', 'reflect', 'twin_wake', 'gate_wake'] as const;
 export type AdvEvent = (typeof EVENTS)[number];
 
 /** Counters the game keeps: the largest slice tilt (degrees), blocks walked along the hidden axis, blocks glided. */
@@ -163,6 +164,16 @@ export const ADVANCEMENTS: AdvancementDef[] = [
   A('mirror/palace', 'mirror', 'Face Your Reflection', 'Wake the Mirror Twin at its altar', 'twin_core', { type: 'event', name: 'twin_wake' }, 40, 'mirror/enter'),
   A('mirror/twin', 'mirror', 'Mirror, Mirror', 'Defeat the Mirror Twin', 'twin_core', { type: 'kill', mobs: ['mirror_twin'] }, 300, 'mirror/palace'),
   A('mirror/reflect', 'mirror', 'Not My Problem', 'Reflect a blow with a full set of mirror armour', 'mirror_helmet', { type: 'event', name: 'reflect' }, 40, 'mirror/armor'),
+
+  // ---------------------------------------------------------------- Crystal Abyss
+  A('abyss/root', 'abyss', 'Resonance', 'Collect a resonance crystal', 'resonance_crystal', { type: 'have', items: ['resonance_crystal'] }, 20),
+  A('abyss/compass', 'abyss', 'Tuned In', 'Attune a slicer compass to the deep', 'resonance_compass', { type: 'have', items: ['resonance_compass'] }, 25, 'abyss/root'),
+  A('abyss/wake', 'abyss', 'Wake the Gate', 'Feed a resonance crystal to a Geode Gate', 'resonance_crystal', { type: 'event', name: 'gate_wake' }, 25, 'abyss/root'),
+  A('abyss/enter', 'abyss', 'Into the Abyss', 'Enter the Crystal Abyss', 'prism_shard', { type: 'realm', realm: 'abyss' }, 40, 'abyss/wake'),
+  A('abyss/prism', 'abyss', 'Prismatic', 'Mine a prism shard', 'prism_shard', { type: 'have', items: ['prism_shard'] }, 30, 'abyss/enter'),
+  A('abyss/ingot', 'abyss', 'Light Through Glass', 'Smelt a prism ingot', 'prism_ingot', { type: 'have', items: ['prism_ingot'] }, 30, 'abyss/prism'),
+  A('abyss/pickaxe', 'abyss', 'Cut Like Light', 'Craft a prism pickaxe', 'prism_pickaxe', { type: 'have', items: ['prism_pickaxe'] }, 50, 'abyss/ingot'),
+  A('abyss/block', 'abyss', 'Crystal Clear', 'Craft a block of resonance crystal', 'resonance_block', { type: 'have', items: ['resonance_block'] }, 25, 'abyss/root'),
 ];
 
 export const ADV_BY_ID = new Map(ADVANCEMENTS.map((a) => [a.id, a]));
