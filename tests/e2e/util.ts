@@ -107,6 +107,10 @@ export interface Hc {
   hurtMob(id: number, amount: number): boolean;
   voidBoss(): { defeated: boolean; pylons: number; lances: number; warning: string; shifted: boolean; phase: number; health: number; id: number };
   setVoidDefeated(on: boolean): void;
+  pulses(): { tone: number; r: number; spent: boolean; owner: string; c: number[] }[];
+  singPulse(tone: number, x: number, y: number, z: number, w: number, damage?: number): void;
+  cancelPulses(tone: number): number;
+  shootBeam(dist?: number): void;
   mirrorBoss(): { defeated: boolean; lances: number; warning: string; phase: number; health: number; shielded: boolean; dyn: number; id: number };
   summonTwin(x: number, y: number, z: number, w: number): boolean;
   setMirrorDefeated(on: boolean): void;

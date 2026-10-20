@@ -50,6 +50,8 @@ export const ARMOR_MATERIALS: ArmorMaterial[] = [
   // Hollow Void (Phase 8): the Phase Step set. Worn whole, the first hit you take every 10 s is phased away.
   // Mirror Realm (Phase 9): a full set reflects a third of the damage of melee hits back at their source.
   { name: 'mirror', displayName: 'Mirror', points: [3, 8, 6, 3], toughness: 2, durability: 36, enchantability: 18, material: 'mirror_ingot', color: '#dfe9fa', shade: '#8a96b4', craftable: true, set: 'mirror' },
+  // Crystal Abyss (Phase 9.5): the Prism set. Worn whole it reflects light beams and gives night vision.
+  { name: 'prism', displayName: 'Prism', points: [3, 8, 6, 3], toughness: 3, durability: 42, enchantability: 24, material: 'prism_ingot', color: '#d0b0ff', shade: '#8a68d8', craftable: true, set: 'prism' },
   { name: 'starlight', displayName: 'Starlight', points: [3, 8, 6, 3], toughness: 3, knockback: 0.1, durability: 40, enchantability: 22, material: 'starlight_ingot', color: '#9ad8ff', shade: '#4a78c0', craftable: true, set: 'starlight' },
 ];
 

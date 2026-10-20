@@ -36,9 +36,12 @@ export interface Projectile {
   boomerang?: { out: number; back: boolean; hidden: number; hit: Set<Mob> };
   /** The thrown stack itself (chakram, dagger): returned or dropped, wear and all. */
   stack?: ItemStack;
+  /** A light beam (Prism Spiders): a full set of Prism armour reflects it. */
+  beam?: boolean;
 }
 
 export interface ProjectileOpts {
+  beam?: boolean;
   fire?: boolean;
   knock?: number;
   burst?: boolean;
@@ -52,7 +55,8 @@ export interface ProjectileOpts {
 export interface ProjectileHost {
   playerPos: Float64Array;
   playerHeight: number;
-  hurtPlayer(amount: number, from: Float64Array, cause: string): void;
+  /** `beam` is the velocity of a light beam that hit (a full set of Prism armour sends it back). */
+  hurtPlayer(amount: number, from: Float64Array, cause: string, beam?: Float64Array): void;
   /** A stuck player arrow was walked over; returns true if it was collected. */
   collect(item: number): boolean;
   /** A projectile hit a block (x, y, z, w, block id): return true to use the projectile up (pylons shatter). */
@@ -89,6 +93,7 @@ export class Projectiles {
       gravity: opts?.gravity,
       boomerang: opts?.boomerang ? { out: opts.boomerang.out, back: false, hidden: opts.boomerang.hidden, hit: new Set() } : undefined,
       stack: opts?.stack,
+      beam: opts?.beam,
     });
   }
 
@@ -220,7 +225,7 @@ export class Projectiles {
         } else {
           const dx = a.pos[0]! - p[0]!, dy = a.pos[1]! - p[1]!, dz = a.pos[2]! - p[2]!, dw = a.pos[3]! - p[3]!;
           if (Math.abs(dx) < 0.4 && Math.abs(dz) < 0.4 && Math.abs(dw) < 0.4 && dy > 0 && dy < h.playerHeight) {
-            h.hurtPlayer(a.damage, this.prev, 'Arrow');
+            h.hurtPlayer(a.damage, this.prev, a.beam ? 'Prism beam' : 'Arrow', a.beam ? a.vel : undefined);
             this.list.splice(i, 1);
             removed = true;
           }

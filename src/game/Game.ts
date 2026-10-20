@@ -73,6 +73,8 @@ import { ARRIVAL_POS, gatewayAt } from '../content/void';
 import { GATE, fillFrame, gateProgress } from './VoidGate';
 import { VoidBoss } from './VoidBoss';
 import { MirrorBoss } from './MirrorBoss';
+import { Pulses, type PulseHost } from './mobs/Pulses';
+import { TONES } from '../content/titanBody';
 import type { BossFight, PlayerAction } from './BossFight';
 import { ROCKET_TIME } from '../physics/glide';
 import { Advancements } from './Advancements';
@@ -270,6 +272,11 @@ export class Game {
   // ---- Phase 4: mobs, combat, health
   readonly mobs: MobManager;
   readonly projectiles = new Projectiles();
+  /** Sound pulses (Resonance Golems, the Resonance Titan): expanding 4D shells. */
+  readonly pulses = new Pulses();
+  private pulseHost!: PulseHost;
+  private pulseFxT = 0;
+  private prismNv = 0;
   readonly vitals = new Vitals();
   /** Mob under the crosshair (nearer than the targeted block), or null. */
   targetMob: Mob | null = null;
@@ -621,7 +628,8 @@ export class Game {
       get playerStealth() {
         return game.effects.has('invisibility') ? 0.25 : 1;
       },
-      shoot: (from, vel, damage, item, byPlayer) => this.projectiles.spawn(from, vel, damage, item, byPlayer),
+      shoot: (from, vel, damage, item, byPlayer, beam) => this.projectiles.spawn(from, vel, damage, item, byPlayer, beam ? { beam: true } : undefined),
+      pulse: (from, tone, damage, owner) => void this.pulses.spawn(from, tone, damage, owner),
       mobDied: (m) => {
         if (m.playerHit > 0) this.adv.killed(m.def.name, m.def.hostile);
         const h = m.height * 0.5;
@@ -675,13 +683,24 @@ export class Game {
       hurt: (amount, attacker, cause) => void this.hurtPlayer(amount, attacker.pos, cause, 'melee', attacker),
     });
     this.fights = [this.voidBoss, this.mirrorBoss];
+    this.pulseHost = {
+      world: this.world,
+      playerPos: this.player.pos,
+      get playerHeight() {
+        return game.player.height;
+      },
+      hurt: (amount, from, owner) => void this.hurtPlayer(amount, from, MOB_REG.has(owner) ? MOB_REG.get(owner).def.displayName : 'A sound pulse', 'explosion'),
+    };
     this.adv.onUnlock = (a) => this.advancementMade(a);
     this.projHost = {
       playerPos: this.player.pos,
       get playerHeight() {
         return game.player.height;
       },
-      hurtPlayer: (amount, from, cause) => void this.hurtPlayer(amount, from, cause, 'projectile'),
+      hurtPlayer: (amount, from, cause, beam) => {
+        if (beam && this.setBonus('prism')) this.reflectBeam(beam, amount);
+        else void this.hurtPlayer(amount, from, cause, 'projectile');
+      },
       blockHit: (x, y, z, w, id, byPlayer) => this.fights.some((f) => f.projectileHit(x, y, z, w, id, byPlayer)),
       collect: (item) => {
         if (this.player.mode === 'spectator') return false;
@@ -1086,6 +1105,9 @@ export class Game {
       p.eye(this.eyePos);
       this.mobs.update(dt, this.mobHost, this.biomeFn, this.caveFn);
       this.projectiles.update(dt, this.world, this.mobs, this.projHost);
+      if (this.player.mode !== 'spectator') this.pulses.update(dt, this.pulseHost);
+      this.pulseFx(dt);
+      this.prismGear(dt);
       this.bosses.update(dt);
       this.watchActions();
       for (const f of this.fights) if (f.realm === this.world.realm.name) f.update(dt);
@@ -3909,6 +3931,56 @@ export class Game {
       this.harvestTarget();
       this.resetMining();
       this.mineDelay = 0.2;
+    }
+  }
+
+  /** A light beam met a full set of Prism armour: it turns around and flies back at where it came from. */
+  private reflectBeam(vel: Float64Array, damage: number): void {
+    const p = this.player;
+    const from = Float64Array.from(this.eyePos);
+    const back = new Float64Array(4);
+    for (let k = 0; k < 4; k++) {
+      back[k] = -vel[k]!;
+      from[k] = from[k]! + back[k]! * 0.03;
+    }
+    this.projectiles.spawn(from, back, damage * 1.25, IREG.id('prism_shard'), true, { beam: true, gravity: 0 });
+    this.particles.burst(p.pos[0]!, p.pos[1]! + 1.2, p.pos[2]!, p.pos[3]!, p.cam, 'spark', '#f0e0ff', 14, 2.6, 0.4, true);
+    this.message?.('Prism armour turns the beam back');
+    this.adv.event('beam_reflect');
+  }
+
+  /** A full set of Prism armour: night vision, kept topped up. */
+  private prismGear(dt: number): void {
+    if (this.vitals.dead || !this.setBonus('prism')) return;
+    this.prismNv -= dt;
+    if (this.prismNv > 0) return;
+    this.prismNv = 5;
+    void this.applyEffect('night_vision', 16, 0);
+  }
+
+  /** The cross-section of every pulse shell in your slice, drawn as a ring of sparks (about 20 times a second). */
+  private pulseFx(dt: number): void {
+    this.pulseFxT -= dt;
+    if (this.pulseFxT > 0 || this.pulses.list.length === 0) return;
+    this.pulseFxT = 0.05;
+    const cam = this.player.cam, e = this.eyePos, H = cam.H, R = cam.R, F = cam.F, up = cam.upAxis;
+    const q = [0, 0, 0, 0];
+    for (const p of this.pulses.list) {
+      let dh = 0;
+      for (let k = 0; k < 4; k++) dh += (p.c[k]! - e[k]!) * H[k]!;
+      if (Math.abs(dh) >= p.r) continue;
+      const rs = Math.sqrt(p.r * p.r - dh * dh);
+      const n = Math.min(64, Math.ceil(rs * 9));
+      const color = TONES[p.tone]!.color;
+      for (let i = 0; i < n; i++) {
+        let a = Math.random() * 2 - 1, b = Math.random() * 2 - 1, f = Math.random() * 2 - 1;
+        const l = Math.hypot(a, b, f) || 1;
+        a /= l;
+        b /= l;
+        f /= l;
+        for (let k = 0; k < 4; k++) q[k] = p.c[k]! - dh * H[k]! + rs * (a * R[k]! + f * F[k]! + (k === up ? b : 0));
+        this.particles.burst(q[0]!, q[1]!, q[2]!, q[3]!, cam, 'ping', color, 1, 0, 0, true);
+      }
     }
   }
 

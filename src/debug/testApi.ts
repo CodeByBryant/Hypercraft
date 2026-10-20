@@ -436,6 +436,17 @@ export function installTestApi(game: Game, screen?: InventoryScreen): void {
     },
     /** Wake the Twin at the altar cell, as the Hand Mirror does. */
     summonTwin: (x: number, y: number, z: number, w: number) => game.mirrorBoss.summon(x, y, z, w),
+    /** Sound pulses in flight (Resonance Golems, the Titan). */
+    pulses: () => game.pulses.list.map((p) => ({ tone: p.tone, r: p.r, spent: p.spent, owner: p.owner, c: Array.from(p.c) })),
+    /** Sing a pulse of a tone from a 4D point. */
+    singPulse: (tone: number, x: number, y: number, z: number, w: number, damage = 6) => void game.pulses.spawn([x, y, z, w], tone, damage, 'resonance_golem'),
+    /** Sound a tone at the player (as a matching Tuning Fork does): how many pulses it cancelled. */
+    cancelPulses: (tone: number) => game.pulses.cancel(tone, game.player.pos).length,
+    /** Fire a light beam at the player from `dist` blocks along +x. */
+    shootBeam(dist = 6): void {
+      const p = game.player.pos;
+      game.projectiles.spawn([p[0]! + dist, p[1]! + 1.2, p[2]!, p[3]!], [-20, 0, 0, 0], 4, IREG.id('prism_shard'), false, { beam: true, gravity: 0 });
+    },
     setMirrorDefeated: (on: boolean) => void (game.mirrorBoss.defeated = on),
     /** Run the Sovereign's light drain once (phase III), returning how many torches went out. */
     voidDrain: () => game.voidBoss.drain(),

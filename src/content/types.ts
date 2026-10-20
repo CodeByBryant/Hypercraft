@@ -609,7 +609,11 @@ export type MobAI =
   | 'sovereign'
   // Phase 9: the Mirror Stalker keeps to your reflection; the Mirror Twin is you.
   | 'mirror'
-  | 'twin';
+  | 'twin'
+  // Phase 9.5: the Prism Spider shoots light beams, the Resonance Golem sings sound pulses, the Titan answers to forks.
+  | 'prism'
+  | 'resonant'
+  | 'titan';
 
 export interface MobDef {
   name: string;
@@ -637,7 +641,7 @@ export interface MobDef {
   /** Only damageable while its cross-section is inside your slice (Phase Golem). */
   sliceBound?: boolean;
   /** Ranged: projectile item and seconds between shots. */
-  projectile?: { item: string; cooldown: number; damage: number };
+  projectile?: { item: string; cooldown: number; damage: number; /** A light beam (a full Prism set reflects it). */ beam?: boolean };
   /** Exploder: blast radius (4D ball) and fuse seconds. */
   blast?: { radius: number; fuse: number };
   /** Periodically drops an item (hyperchickens lay eggs): item and seconds range. */
@@ -669,6 +673,8 @@ export interface MobDef {
   inflicts?: { effect: string; seconds: number; amp?: number };
   /** Arrows and other projectiles you shoot at it bounce back at you (Reflection Shamblers). */
   reflects?: boolean;
+  /** A shell that hardens for a moment after every hit (a quarter damage): Geode Slimes. */
+  hardens?: boolean;
 }
 
 // ------------------------------------------------------------------ loot (Phase 5)

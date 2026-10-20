@@ -15,6 +15,7 @@
 
 import type { BiomeDef, BlockDef, Hex, ItemDef, LootTable, MiningDef, RecipeDef, TextureDef, TexturePattern } from './types';
 import type { ArchCell } from './mirror';
+import { ABYSS_SPAWNS } from './abyssMobs';
 
 // ---------------------------------------------------------------- the gate
 
@@ -144,6 +145,8 @@ export const ABYSS_ITEMS: ItemDef[] = [
   // Grown on the Surface in crystal geodes, and in every geode of the Abyss: the Abyss gate's fuel
   // (held up to a dormant rift) and what attunes a compass to find the gates.
   { name: 'resonance_crystal', displayName: 'Resonance Crystal', icon: { shape: 'shard', colors: ['#a8e0ff', '#5aa0e8', '#ffffff'] }, use: 'rift_fuel', group: 'materials', tags: ['glint'] },
+  // The Resonance Titan's heart: proof, and the right to wear what the Cathedral keeps.
+  { name: 'resonance_heart', displayName: 'Resonance Heart', maxStack: 1, icon: { shape: 'gem', colors: ['#a8e0ff', '#3a6ad8', '#ffffff'] }, group: 'combat', tags: ['glint'] },
   // A Slicer Compass tuned by resonance: its arrow points to the nearest Geode Gate.
   { name: 'resonance_compass', displayName: 'Resonance Compass', maxStack: 1, icon: { shape: 'compass', colors: ['#5aa0e8', '#2a4a98', '#e8f8ff'] }, readout: 'atlas', atlas: ['geode_gate'], group: 'tools', tags: ['glint'] },
 ];
@@ -325,4 +328,4 @@ export const ABYSS_LOOT: Record<string, LootTable> = {
 
 // Everything a Surface land biome offers: the Geode Gate (see structures.ts and biomes.ts).
 // Natural spawns come with the Abyss mobs (9.5); until then the existing cavern dwellers live here.
-for (const b of ABYSS_BIOMES) b.mobs = { day: [{ mob: 'crystal_crawler', weight: 10 }] };
+for (const b of ABYSS_BIOMES) b.mobs = { day: ABYSS_SPAWNS[b.name] ?? [] };

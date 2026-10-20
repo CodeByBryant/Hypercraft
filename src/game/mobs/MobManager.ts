@@ -91,7 +91,9 @@ export interface MobHost {
   /** A lead snapped (too far): drop it here. */
   leadBroke?(x: number, y: number, z: number, w: number): void;
   explode(x: number, y: number, z: number, w: number, radius: number): void;
-  shoot(from: Float64Array, vel: Float64Array, damage: number, item: number, byPlayer: boolean): void;
+  shoot(from: Float64Array, vel: Float64Array, damage: number, item: number, byPlayer: boolean, beam?: boolean): void;
+  /** A mob sings a sound pulse (an expanding 4D shell) of tone 0..3 from this point (Resonance Golems). */
+  pulse?(from: Float64Array, tone: number, damage: number, owner: string): void;
   /** A mob died (not by exploding): death effects. */
   mobDied?(m: Mob): void;
   /** The player's eye and view direction (Void Walkers freeze while watched). */
@@ -185,6 +187,10 @@ export class Mob {
   dyn: MobPart[] | null = null;
   /** Shield up: damage is cut to a quarter. */
   shielded = false;
+  /** Bosses: the share of every hit that armour soaks up (0 none .. 0.9 almost all). */
+  guard = 0;
+  /** Geode Slimes: seconds the shell stays hard after a hit. */
+  hardenT = 0;
   /** Within 32 blocks of the player this frame: faces and wanders relative to their slice. */
   near = false;
   /** Villagers: profession, trades, reputation, home (saved with the mob). */
@@ -302,6 +308,7 @@ export class MobManager {
       m.awake = false;
     }
     if (cm.def.ai === 'sentinel') m.awake = false; // dormant until disturbed
+    if (cm.def.ai === 'resonant') m.fuse = 2 + Math.random() * 2; // its first song
     if (cm.def.lays) m.layTimer = cm.def.lays.every[0] + Math.random() * (cm.def.lays.every[1] - cm.def.lays.every[0]);
     this.list.push(m);
     return m;
@@ -531,6 +538,7 @@ export class MobManager {
       m.age += dt;
       m.hurt = Math.max(0, m.hurt - dt);
       m.attackCd -= dt;
+      if (m.hardenT > 0 && (m.hardenT -= dt) <= 0) this.soften(m);
       if (m.playerHit > 0) m.playerHit -= dt;
       if (m.glowing > 0) m.glowing -= dt;
       if (m.effects) this.tickEffects(m, dt);
@@ -814,7 +822,7 @@ export class MobManager {
     }
     l = Math.sqrt(l);
     for (let k = 0; k < 4; k++) v[k] = (v[k]! / l) * speed + (Math.random() - 0.5) * 0.8;
-    h.shoot(from, v, pr.damage * (h.difficulty === 1 ? 0.5 : h.difficulty === 3 ? 1.5 : 1), IREG.id(pr.item), false);
+    h.shoot(from, v, pr.damage * (h.difficulty === 1 ? 0.5 : h.difficulty === 3 ? 1.5 : 1), IREG.id(pr.item), false, pr.beam === true);
   }
 
   private think(m: Mob, dt: number, h: MobHost, d4: number): void {
@@ -1225,6 +1233,69 @@ export class MobManager {
         this.meleeReach(m, p, h, 0.6);
         break;
       }
+      case 'prism': {
+        // The Prism Spider skitters about 6 to 11 blocks from you, climbs whatever is in its way and
+        // shoots light beams (a full set of Prism armour reflects them).
+        if (!seePlayer) {
+          this.wander(m, dt, sp * 0.6);
+          if (m.hitWall) m.vel[1] = 3.2;
+          break;
+        }
+        if (d4 > 11) this.chase(m, dt, p, sp);
+        else if (d4 < 6) this.steer(m, m.pos[0]! * 2 - p[0]!, m.pos[2]! * 2 - p[2]!, m.pos[3]! * 2 - p[3]!, sp);
+        else {
+          this.brake(m);
+          m.face(p[0]! - m.pos[0]!, p[2]! - m.pos[2]!, p[3]! - m.pos[3]!, m.near ? h.playerHidden : undefined);
+        }
+        if (m.hitWall) m.vel[1] = 3.2;
+        this.shootAt(m, p, h, d4, 15, 26);
+        if (d4 < 2.2) this.meleeReach(m, p, h);
+        break;
+      }
+      case 'resonant': {
+        // The Resonance Golem keeps its distance and sings: every four to six seconds a sound pulse
+        // of a random tone leaves its chest. Hide behind stone, outrun it, or sound the same tone.
+        if (!seePlayer) {
+          this.wander(m, dt, sp * 0.6);
+          m.fuse = Math.max(m.fuse, 1.5);
+          break;
+        }
+        if (d4 > 10) this.chase(m, dt, p, sp);
+        else if (d4 < 4) this.steer(m, m.pos[0]! * 2 - p[0]!, m.pos[2]! * 2 - p[2]!, m.pos[3]! * 2 - p[3]!, sp * 0.8);
+        else {
+          this.brake(m);
+          m.face(p[0]! - m.pos[0]!, p[2]! - m.pos[2]!, p[3]! - m.pos[3]!, m.near ? h.playerHidden : undefined);
+        }
+        m.fuse -= dt;
+        if (m.fuse <= 0 && d4 < 22 && h.pulse && this.lineOfSight(m, p)) {
+          m.fuse = 4 + Math.random() * 2;
+          const mult = h.difficulty === 1 ? 0.5 : h.difficulty === 3 ? 1.5 : 1;
+          h.pulse(Float64Array.from([m.pos[0]!, m.pos[1]! + m.height * 0.5, m.pos[2]!, m.pos[3]!]), Math.floor(Math.random() * 4), (def.damage ?? 8) * 0.8 * mult, def.name);
+        }
+        if (d4 < 2.6) this.meleeReach(m, p, h);
+        break;
+      }
+      case 'titan': {
+        // The Resonance Titan walks at you, keeps about six blocks off and stamps when you are close;
+        // ResonanceBoss makes it sing. Leave its cathedral (40 blocks) and it goes home and heals.
+        const home = m.home;
+        const away = home ? Math.hypot(p[0]! - home[0]!, p[2]! - home[2]!, p[3]! - home[3]!) : 0;
+        if (!home || !h.playerTargetable || away > 40) {
+          if (home) this.steer(m, home[0]!, home[2]!, home[3]!, sp);
+          else this.brake(m);
+          m.health = Math.min(def.health, m.health + 10 * dt);
+          m.mode = 'idle';
+          break;
+        }
+        m.mode = 'chase';
+        const dx = p[0]! - m.pos[0]!, dz = p[2]! - m.pos[2]!, dw = p[3]! - m.pos[3]!;
+        if (d4 > 9) this.steer(m, p[0]!, p[2]!, p[3]!, sp);
+        else if (d4 < 4) this.steer(m, m.pos[0]! - dx, m.pos[2]! - dz, m.pos[3]! - dw, sp * 0.6);
+        else this.brake(m);
+        m.face(dx, dz, dw, m.near ? h.playerHidden : undefined);
+        this.meleeReach(m, p, h);
+        break;
+      }
       case 'sentinel': {
         // Sky Vault Sentinels never move. Dormant until disturbed (a vault chest opened nearby, a
         // hit, or you walking right up to one), then they fan starlight at you while you are in range.
@@ -1446,6 +1517,7 @@ export class MobManager {
     if (m.def.ai === 'sovereign' && m.shift > 0) return false;
     if (byPlayer) m.playerHit = 5;
     if (m.shielded) amount *= 0.25;
+    if (m.guard > 0) amount *= 1 - m.guard;
     const res = m.effects?.amp('resistance') ?? -1;
     if (res >= 0) amount *= Math.max(0, 1 - 0.2 * (res + 1));
     if (m.def.sliceBound && eye && hidden) {
@@ -1470,7 +1542,25 @@ export class MobManager {
       }
       m.awake = true;
     } else m.hurt = Math.max(m.hurt, 0.2);
+    // A Geode Slime's shell hardens after a hit.
+    if (m.def.hardens && m.health > 0) {
+      m.shielded = true;
+      m.hardenT = 1.3;
+      const t = Float32Array.from(m.cm.colors);
+      for (let i = 0; i < t.length; i += 3) {
+        t[i] = 0.62;
+        t[i + 1] = 0.6;
+        t[i + 2] = 0.66;
+      }
+      m.tint = t;
+    }
     return true;
+  }
+
+  private soften(m: Mob): void {
+    m.shielded = false;
+    m.hardenT = 0;
+    if (m.def.hardens) m.tint = null;
   }
 
   // ---------------------------------------------------------------- husbandry (Phase 7)

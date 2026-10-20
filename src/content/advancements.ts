@@ -39,7 +39,7 @@ export const ADV_CATEGORIES: AdvCategoryDef[] = [
 ];
 
 /** Things the game reports (Game calls Advancements.event with these names). */
-export const EVENTS = ['sleep', 'trade', 'plant', 'breed', 'fish', 'block', 'enchant', 'anvil', 'phase_strike', 'void_gate', 'phase_step', 'rocket', 'rift_wake', 'rift', 'reflect', 'twin_wake', 'gate_wake'] as const;
+export const EVENTS = ['sleep', 'trade', 'plant', 'breed', 'fish', 'block', 'enchant', 'anvil', 'phase_strike', 'void_gate', 'phase_step', 'rocket', 'rift_wake', 'rift', 'reflect', 'twin_wake', 'gate_wake', 'beam_reflect'] as const;
 export type AdvEvent = (typeof EVENTS)[number];
 
 /** Counters the game keeps: the largest slice tilt (degrees), blocks walked along the hidden axis, blocks glided. */
@@ -173,6 +173,11 @@ export const ADVANCEMENTS: AdvancementDef[] = [
   A('abyss/prism', 'abyss', 'Prismatic', 'Mine a prism shard', 'prism_shard', { type: 'have', items: ['prism_shard'] }, 30, 'abyss/enter'),
   A('abyss/ingot', 'abyss', 'Light Through Glass', 'Smelt a prism ingot', 'prism_ingot', { type: 'have', items: ['prism_ingot'] }, 30, 'abyss/prism'),
   A('abyss/pickaxe', 'abyss', 'Cut Like Light', 'Craft a prism pickaxe', 'prism_pickaxe', { type: 'have', items: ['prism_pickaxe'] }, 50, 'abyss/ingot'),
+  A('abyss/spider', 'abyss', 'Light Show', 'Defeat a prism spider', 'prism_shard', { type: 'kill', mobs: ['prism_spider'] }, 20, 'abyss/enter'),
+  A('abyss/golem', 'abyss', 'Noise Complaint', 'Defeat a resonance golem', 'resonance_crystal', { type: 'kill', mobs: ['resonance_golem'] }, 25, 'abyss/enter'),
+  A('abyss/slime', 'abyss', 'Rock and a Hard Place', 'Defeat a geode slime', 'amethyst_shard', { type: 'kill', mobs: ['geode_slime'] }, 20, 'abyss/enter'),
+  A('abyss/armor', 'abyss', 'Faceted', 'Craft or find a prism chestplate', 'prism_chestplate', { type: 'have', items: ['prism_chestplate'] }, 50, 'abyss/ingot'),
+  A('abyss/beam', 'abyss', 'Returned to Sender', 'Reflect a light beam with a full set of prism armour', 'prism_helmet', { type: 'event', name: 'beam_reflect' }, 40, 'abyss/armor'),
   A('abyss/block', 'abyss', 'Crystal Clear', 'Craft a block of resonance crystal', 'resonance_block', { type: 'have', items: ['resonance_block'] }, 25, 'abyss/root'),
 ];
 

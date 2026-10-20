@@ -165,3 +165,73 @@ test('geode gate: a resonance crystal wakes the rift, which leads down to your o
   expect(Math.hypot(home[0]! - (start.x + 0.5), home[2]! - (start.z + 0.5))).toBeLessThan(4);
   expect(errors).toEqual([]);
 });
+
+test('abyss mobs: a sound pulse is a shell you see in your slice, and a full prism set turns beams back', async ({ page }) => {
+  test.setTimeout(500_000);
+  const errors: string[] = [];
+  await boot(page, 'res=180&rd=2&seed=glowdeep&realm=abyss', errors);
+  await page.evaluate(async () => {
+    const hc = window.__hc;
+    hc.setMode('survival');
+    hc.setMobSpawning(false);
+    hc.clearMobs();
+    hc.clearInventory();
+    // A clear stage around you: stone floor, open air.
+    const s = hc.state();
+    const x = Math.floor(s.pos[0]!), y = Math.floor(s.pos[1]!), z = Math.floor(s.pos[2]!), w = Math.floor(s.pos[3]!);
+    for (let dx = -10; dx <= 10; dx++)
+      for (let dz = -6; dz <= 6; dz++)
+        for (let dw = -6; dw <= 6; dw++) {
+          hc.setBlock(x + dx, y - 1, z + dz, w + dw, 'stone');
+          for (let dy = 0; dy <= 5; dy++) hc.setBlock(x + dx, y + dy, z + dz, w + dw, 'air');
+        }
+    hc.setView({ yaw: 90, pitch: 0 });
+    await hc.frames(4);
+  });
+  const base = await page.evaluate(() => {
+    const hc = window.__hc;
+    const s = hc.state();
+    return { x: s.pos[0]!, y: s.pos[1]!, z: s.pos[2]!, w: s.pos[3]!, hp: hc.vitals().health };
+  });
+  // A pulse sung 7 blocks away is a growing ring in the slice; the matching tone cancels it.
+  const ring = await page.evaluate(async ([x, y, z, w]) => {
+    const hc = window.__hc;
+    hc.singPulse(2, x! + 7, y! + 1, z!, w!, 6);
+    await hc.frames(6);
+    const early = hc.pulses();
+    const wrong = hc.cancelPulses(0);
+    const right = hc.cancelPulses(2);
+    return { early: early.length, r: early[0]?.r ?? 0, wrong, right, left: hc.pulses().length };
+  }, [base.x, base.y, base.z, base.w]);
+  expect(ring.early).toBe(1);
+  expect(ring.r).toBeGreaterThan(0.6);
+  expect(ring.wrong).toBe(0);
+  expect(ring.right).toBe(1);
+  expect(ring.left).toBe(0);
+  // Uncancelled: it spreads as sparks on the slice, passes you and hurts once.
+  await page.evaluate(([x, y, z, w]) => window.__hc.singPulse(1, x! + 7, y! + 1, z!, w!, 6), [base.x, base.y, base.z, base.w]);
+  await page.evaluate(async () => {
+    await window.__hc.frames(14);
+  });
+  await shot(page, 'abyss-6-sound-pulse');
+  await page.evaluate(async () => {
+    await window.__hc.frames(60);
+  });
+  const hurt = await page.evaluate(() => window.__hc.vitals().health);
+  expect(hurt).toBeLessThan(base.hp);
+
+  // Prism armour: a beam is turned back instead of hurting.
+  const beam = await page.evaluate(async () => {
+    const hc = window.__hc;
+    hc.setHealth(20);
+    for (let k = 0; k < 4; k++) hc.wear(k, ['prism_helmet', 'prism_chestplate', 'prism_leggings', 'prism_boots'][k]!);
+    await hc.frames(3);
+    const before = hc.vitals().health;
+    hc.shootBeam(5);
+    await hc.frames(40);
+    return { before, after: hc.vitals().health, done: hc.advancements().done.includes('abyss/beam') };
+  });
+  expect(beam.after).toBe(beam.before);
+  expect(beam.done).toBe(true);
+  expect(errors).toEqual([]);
+});
