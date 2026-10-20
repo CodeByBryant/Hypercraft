@@ -614,7 +614,11 @@ export type MobAI =
   // Phase 9.5: the Prism Spider shoots light beams, the Resonance Golem sings sound pulses, the Titan answers to forks.
   | 'prism'
   | 'resonant'
-  | 'titan';
+  | 'titan'
+  // Phase 9.7: the Thunder Hawk dives, the Wind Sprite gusts you along W, the Storm Sovereign commands the weather.
+  | 'diver'
+  | 'sprite'
+  | 'tempest';
 
 export interface MobDef {
   name: string;

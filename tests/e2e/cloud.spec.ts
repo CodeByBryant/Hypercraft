@@ -170,3 +170,48 @@ test('cloud: a zephyr feather wakes the sky gate; light gravity; a wind glider r
   expect(Math.abs(ride.dw)).toBeGreaterThan(3);
   expect(errors).toEqual([]);
 });
+
+test('cloud mobs: a lineup in the sky, and a full cloud set falls slowly and glides without wings', async ({ page }) => {
+  test.setTimeout(500_000);
+  const errors: string[] = [];
+  await boot(page, 'res=180&rd=2&seed=cumulus&realm=cloud', errors);
+  const lineup = await page.evaluate(async () => {
+    const hc = window.__hc;
+    hc.setMode('survival');
+    hc.setMobSpawning(false);
+    hc.clearMobs();
+    hc.setTime(6000);
+    hc.setView({ yaw: 0, pitch: 8 });
+    const names = ['storm_kite', 'thunder_hawk', 'wind_sprite', 'cloud_whale'];
+    const dist = [5, 6.5, 4, 11];
+    const side = [-2.4, 2.2, 0, 4.5];
+    const ids = names.map((n, i) => hc.spawnMobAhead(n, dist[i]!, side[i]!));
+    await hc.frames(6);
+    hc.freezeMobs(true);
+    await hc.frames(4);
+    return { ids, mobs: hc.mobs().map((m) => m.name), packed: hc.packedMobs() };
+  });
+  expect(lineup.ids.every((i) => i >= 0)).toBe(true);
+  expect(lineup.mobs).toEqual(expect.arrayContaining(['storm_kite', 'thunder_hawk', 'wind_sprite', 'cloud_whale']));
+  await shot(page, 'cloud-5-mobs');
+  const gear = await page.evaluate(async () => {
+    const hc = window.__hc;
+    hc.freezeMobs(false);
+    hc.clearMobs();
+    hc.clearInventory();
+    ['cloud_helmet', 'cloud_chestplate', 'cloud_leggings', 'cloud_boots'].forEach((n, k) => hc.wear(k, n));
+    const s = hc.state();
+    hc.teleport(s.pos[0]!, s.pos[1]! + 40, s.pos[2]!, s.pos[3]!);
+    await hc.frames(50);
+    const slow = hc.glide().vy;
+    hc.key('Space', true);
+    await hc.frames(2);
+    hc.key('Space', false);
+    await hc.frames(2);
+    return { slow, gliding: hc.glide().gliding };
+  });
+  // Slow fall (about -2.2 at most) and, with no wings on, a glide.
+  expect(gear.slow).toBeGreaterThan(-2.6);
+  expect(gear.gliding).toBe(true);
+  expect(errors).toEqual([]);
+});

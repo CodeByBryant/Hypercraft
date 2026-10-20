@@ -309,6 +309,8 @@ export class MobManager {
     }
     if (cm.def.ai === 'sentinel') m.awake = false; // dormant until disturbed
     if (cm.def.ai === 'resonant') m.fuse = 2 + Math.random() * 2; // its first song
+    if (cm.def.ai === 'diver') m.fuse = 2 + Math.random() * 2; // its first dive
+    if (cm.def.ai === 'sprite') m.fuse = 2 + Math.random() * 3; // its first gust
     if (cm.def.lays) m.layTimer = cm.def.lays.every[0] + Math.random() * (cm.def.lays.every[1] - cm.def.lays.every[0]);
     this.list.push(m);
     return m;
@@ -1273,6 +1275,67 @@ export class MobManager {
           h.pulse(Float64Array.from([m.pos[0]!, m.pos[1]! + m.height * 0.5, m.pos[2]!, m.pos[3]!]), Math.floor(Math.random() * 4), (def.damage ?? 8) * 0.8 * mult, def.name);
         }
         if (d4 < 2.6) this.meleeReach(m, p, h);
+        break;
+      }
+      case 'diver': {
+        // The Thunder Hawk circles about nine blocks off and five above you, then folds its wings and
+        // dives: fast, and a hard hit if it lands.
+        if (!seePlayer) {
+          this.wander(m, dt, sp, true);
+          break;
+        }
+        const dx = p[0]! - m.pos[0]!, dz = p[2]! - m.pos[2]!, dw = p[3]! - m.pos[3]!;
+        const hd = Math.hypot(dx, dz, dw) || 1;
+        if (m.mode === 'strike') {
+          m.timer -= dt;
+          this.steer(m, p[0]!, p[2]!, p[3]!, sp * 2.6);
+          m.vel[1] = (p[1]! + 0.3 - m.pos[1]!) * 3.2;
+          m.face(dx, dz, dw, m.near ? h.playerHidden : undefined);
+          this.meleeReach(m, p, h, 1.2);
+          if (m.timer <= 0 || m.attackCd > 0.5) {
+            m.mode = 'chase';
+            m.fuse = 3 + Math.random() * 2;
+          }
+          break;
+        }
+        m.mode = 'chase';
+        if (hd > 12) this.steer(m, p[0]!, p[2]!, p[3]!, sp);
+        else if (hd < 7) this.steer(m, m.pos[0]! - dx, m.pos[2]! - dz, m.pos[3]! - dw, sp);
+        else {
+          // Around you, in the plane of x and z.
+          this.steer(m, m.pos[0]! - dz, m.pos[2]! + dx, m.pos[3]!, sp * 0.9);
+          m.face(dx, dz, dw, m.near ? h.playerHidden : undefined);
+        }
+        m.vel[1] = (p[1]! + 5 - m.pos[1]!) * 1.4;
+        m.fuse -= dt;
+        if (m.fuse <= 0 && hd < 14 && this.lineOfSight(m, p)) {
+          m.mode = 'strike';
+          m.timer = 2.8;
+        }
+        break;
+      }
+      case 'sprite': {
+        // The Wind Sprite hovers a few blocks away, bobbing, and every four to six seconds blows a gust
+        // that shoves you along W (an Anchor charm or Kata Grip resists it).
+        if (!seePlayer) {
+          this.wander(m, dt, sp, true);
+          m.fuse = Math.max(m.fuse, 1.5);
+          break;
+        }
+        const dx = p[0]! - m.pos[0]!, dz = p[2]! - m.pos[2]!, dw = p[3]! - m.pos[3]!;
+        const hd = Math.hypot(dx, dz, dw) || 1;
+        if (hd > 7) this.steer(m, p[0]!, p[2]!, p[3]!, sp);
+        else if (hd < 4) this.steer(m, m.pos[0]! - dx, m.pos[2]! - dz, m.pos[3]! - dw, sp);
+        else this.brake(m);
+        m.vel[1] = (p[1]! + 2 + Math.sin(m.age * 2) - m.pos[1]!) * 1.5;
+        m.face(dx, dz, dw, m.near ? h.playerHidden : undefined);
+        m.fuse -= dt;
+        if (m.fuse <= 0 && d4 < 12 && h.shovePlayer) {
+          m.fuse = 4 + Math.random() * 2;
+          h.puff?.(m.pos[0]!, m.pos[1]! + 0.5, m.pos[2]!, m.pos[3]!, '#dcecff');
+          h.shovePlayer((Math.random() < 0.5 ? -1 : 1) * (3 + Math.floor(Math.random() * 2)), def.displayName);
+        }
+        if (d4 < 1.8) this.meleeReach(m, p, h);
         break;
       }
       case 'titan': {

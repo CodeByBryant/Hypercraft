@@ -191,6 +191,11 @@ export const ADVANCEMENTS: AdvancementDef[] = [
   A('cloud/enter', 'cloud', 'Head in the Clouds', 'Enter the Cloud Archipelago', 'cloud_cotton', { type: 'realm', realm: 'cloud' }, 40, 'cloud/wake'),
   A('cloud/cotton', 'cloud', 'Cotton Picking', 'Gather cloud cotton', 'cloud_cotton', { type: 'have', items: ['cloud_cotton'] }, 20, 'cloud/enter'),
   A('cloud/glider', 'cloud', 'Wind Rider', 'Craft a wind glider', 'wind_glider', { type: 'have', items: ['wind_glider'] }, 50, 'cloud/cotton'),
+  A('cloud/kite', 'cloud', 'Fly a Kite', 'Defeat a storm kite', 'feather', { type: 'kill', mobs: ['storm_kite'] }, 20, 'cloud/enter'),
+  A('cloud/hawk', 'cloud', 'Thunderstruck', 'Defeat a thunder hawk', 'storm_feather', { type: 'kill', mobs: ['thunder_hawk'] }, 30, 'cloud/enter'),
+  A('cloud/sprite', 'cloud', 'Wind Sprite Wrangler', 'Defeat a wind sprite', 'gale_dust', { type: 'kill', mobs: ['wind_sprite'] }, 20, 'cloud/enter'),
+  A('cloud/silk', 'cloud', 'Woven Weather', 'Weave cloud silk', 'cloud_silk', { type: 'have', items: ['cloud_silk'] }, 25, 'cloud/cotton'),
+  A('cloud/armor', 'cloud', 'Light as Air', 'Craft a cloud chestplate', 'cloud_chestplate', { type: 'have', items: ['cloud_chestplate'] }, 50, 'cloud/silk'),
   A('cloud/far', 'cloud', 'Jet Stream', 'Glide five hundred blocks', 'wind_glider', { type: 'stat', stat: 'glide', value: 500 }, 60, 'cloud/glider'),
 ];
 

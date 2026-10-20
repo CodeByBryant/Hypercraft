@@ -52,6 +52,8 @@ export const ARMOR_MATERIALS: ArmorMaterial[] = [
   { name: 'mirror', displayName: 'Mirror', points: [3, 8, 6, 3], toughness: 2, durability: 36, enchantability: 18, material: 'mirror_ingot', color: '#dfe9fa', shade: '#8a96b4', craftable: true, set: 'mirror' },
   // Crystal Abyss (Phase 9.5): the Prism set. Worn whole it reflects light beams and gives night vision.
   { name: 'prism', displayName: 'Prism', points: [3, 8, 6, 3], toughness: 3, durability: 42, enchantability: 24, material: 'prism_ingot', color: '#d0b0ff', shade: '#8a68d8', craftable: true, set: 'prism' },
+  // Cloud Archipelago (Phase 9.7): a full set falls slowly and lets you glide without wings (the chestplate wears).
+  { name: 'cloud', displayName: 'Cloud', points: [2, 6, 5, 2], toughness: 0, durability: 30, enchantability: 22, material: 'cloud_silk', color: '#f4f8ff', shade: '#9ac8f0', craftable: true, set: 'cloud' },
   { name: 'starlight', displayName: 'Starlight', points: [3, 8, 6, 3], toughness: 3, knockback: 0.1, durability: 40, enchantability: 22, material: 'starlight_ingot', color: '#9ad8ff', shade: '#4a78c0', craftable: true, set: 'starlight' },
 ];
 

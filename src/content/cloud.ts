@@ -10,6 +10,7 @@
 
 import { gateCells as makeGateCells } from './abyss';
 import type { ArchCell } from './mirror';
+import { CLOUD_SPAWNS } from './cloudMobs';
 import type { BiomeDef, BlockDef, Hex, ItemDef, LootTable, MiningDef, RecipeDef, TextureDef, TexturePattern } from './types';
 
 export const SKY_GATE_STONE = 'sky_gate_stone';
@@ -118,6 +119,12 @@ export const CLOUD_ITEMS: ItemDef[] = [
   { name: 'zephyr_feather', displayName: 'Zephyr Feather', icon: { shape: 'feather', colors: ['#e8f4ff', '#9ac8f0', '#ffffff'] }, use: 'rift_fuel', group: 'materials', tags: ['glint'] },
   // Picked from cirrus cotton: the cloth of a glider.
   { name: 'cloud_cotton', displayName: 'Cloud Cotton', icon: { shape: 'dust', colors: ['#ffffff', '#c8d8ec', '#f0f8ff'] }, group: 'materials' },
+  // What the mobs of the Archipelago leave: the Thunder Hawk's feather, the Wind Sprite's dust, the cloth woven from
+  // cotton (cloud armour) and the bolt a Storm Kite spits (an arrow's picture, not an item to find).
+  { name: 'storm_feather', displayName: 'Storm Feather', icon: { shape: 'feather', colors: ['#fff08a', '#5a6684', '#ffffff'] }, group: 'materials', tags: ['glint'] },
+  { name: 'gale_dust', displayName: 'Gale Dust', icon: { shape: 'dust', colors: ['#bcd8f8', '#7ab0e8', '#ffffff'] }, group: 'materials' },
+  { name: 'cloud_silk', displayName: 'Cloud Silk', icon: { shape: 'ingot', colors: ['#f4f8ff', '#a8c8ec', '#ffffff'] }, group: 'materials' },
+  { name: 'static_bolt', displayName: 'Static Bolt', icon: { shape: 'shard', colors: ['#fff08a', '#c8a020', '#ffffff'] }, group: 'materials' },
   // The Wind Glider: worn in the chest slot like wings (fall, press jump), but it rides the wind currents
   // instead of fighting them: in a current along W it carries you at full strength.
   { name: 'wind_glider', displayName: 'Wind Glider', maxStack: 1, durability: 600, enchantability: 12, armor: { slot: 'chest', points: 0, toughness: 0, repair: 'cloud_cotton' }, icon: { shape: 'glider', colors: ['#f4f8ff', '#8a6a4a', '#7ab8ff'] }, group: 'combat', tags: ['armor', 'armor_chest', 'wings', 'glider'] },
@@ -126,6 +133,7 @@ export const CLOUD_ITEMS: ItemDef[] = [
 export const CLOUD_RECIPES: RecipeDef[] = [
   { type: 'shapeless', ingredients: ['feather', 'feather', 'feather', 'resonance_crystal'], result: 'zephyr_feather' },
   // Cloth of cotton on a frame of feather and string.
+  { type: 'shaped', pattern: ['cc', 'cc'], key: { c: 'cloud_cotton' }, result: 'cloud_silk' },
   { type: 'shaped', pattern: ['ccc', 'cfc', 's s'], key: { c: 'cloud_cotton', f: 'feather', s: 'string' }, result: 'wind_glider' },
 ];
 
@@ -244,5 +252,7 @@ export const CLOUD_STYLE: Record<string, CloudStyle> = {
 
 export const CLOUD_LOOT: Record<string, LootTable> = {};
 
-// Natural spawns come with the Cloud mobs (9.7).
-for (const b of CLOUD_BIOMES) b.structures = [];
+for (const b of CLOUD_BIOMES) {
+  b.structures = [];
+  b.mobs = CLOUD_SPAWNS[b.name] ?? {};
+}

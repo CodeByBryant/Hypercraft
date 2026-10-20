@@ -7,6 +7,7 @@ import { CLOUD_BIOMES, CLOUD_BLOCKS, CLOUD_ITEMS, CLOUD_LOOT, CLOUD_MINING, CLOU
 import { MIRROR_BIOMES, MIRROR_BLOCKS, MIRROR_ITEMS, MIRROR_LOOT, MIRROR_MINING, MIRROR_RECIPES, MIRROR_TEXTURES } from './mirror';
 import { MIRROR_MOBS } from './mirrorMobs';
 import { ABYSS_MOBS } from './abyssMobs';
+import { CLOUD_MOBS } from './cloudMobs';
 import { BIOMES } from './biomes';
 import { WILDS_BIOMES } from './wilds';
 import type { BiomeDef, BlockDef, ItemDef, LootTable, MiningDef, MobDef, RecipeDef, TextureDef } from './types';
@@ -18,7 +19,7 @@ export const P9_RECIPES: RecipeDef[] = [...MIRROR_RECIPES, ...ABYSS_RECIPES, ...
 export const P9_MINING: Record<string, MiningDef> = { ...MIRROR_MINING, ...ABYSS_MINING, ...CLOUD_MINING };
 export const P9_FOOD: Record<string, { nutrition: number; saturation: number; always?: boolean }> = {};
 export const P9_LOOT: Record<string, LootTable> = { ...MIRROR_LOOT, ...ABYSS_LOOT, ...CLOUD_LOOT };
-export const P9_MOBS: MobDef[] = [...MIRROR_MOBS, ...ABYSS_MOBS];
+export const P9_MOBS: MobDef[] = [...MIRROR_MOBS, ...ABYSS_MOBS, ...CLOUD_MOBS];
 export const P9_BIOMES: BiomeDef[] = [...MIRROR_BIOMES, ...ABYSS_BIOMES, ...CLOUD_BIOMES];
 
 /** The Surface biomes a Sky Gate may stand in: the peaks. */

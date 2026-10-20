@@ -2204,7 +2204,9 @@ export class Game {
   /** Chest-slot wings: Phase Wings or a Wind Glider. */
   private wings(): ItemStack | null {
     const s = this.armorPiece(1);
-    return s && IREG.tags[s.id]!.has('wings') ? s : null;
+    if (!s) return null;
+    // A full Cloud set glides without wings (the chestplate takes the wear).
+    return IREG.tags[s.id]!.has('wings') || this.setBonus('cloud') ? s : null;
   }
 
   /** A Wind Glider rides the wind currents at full strength; other wings only a little. */
@@ -3079,7 +3081,7 @@ export class Game {
     if (this.blocking) k *= 0.3;
     p.speedMul = k;
     p.jumpBoost = e.level('jump_boost');
-    p.slowFall = e.has('slow_falling');
+    p.slowFall = e.has('slow_falling') || this.setBonus('cloud');
     p.lavaSwim = this.setBonus('slag');
     p.depthStrider = enchLevel(this.armorPiece(3), 'depth_strider');
     p.hanging = this.roping !== 0;
