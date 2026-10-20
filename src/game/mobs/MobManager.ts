@@ -6,10 +6,10 @@
 // 4D (including "into" the hidden axis) and the slice cuts it like any other 4D object.
 
 import { REG, COLLISION_NONE, FLUID_LAVA, FLUID_WATER, hexToRgb } from '../../content/registry';
-import type { ExtraBody } from '../PlayerModel';
+import { DOLL_RADIUS, type ExtraBody } from '../PlayerModel';
 import { IREG } from '../../content/itemRegistry';
 import { MOB_REG, MAX_MOB_PARTS, type CompiledMob } from '../../content/mobRegistry';
-import type { BiomeDef, MobSpawn } from '../../content/types';
+import type { BiomeDef, MobPart, MobSpawn } from '../../content/types';
 import type { Frame4 } from '../../math/frame';
 import type { World } from '../../world/World';
 import { Pathfinder } from './Pathfinder';
@@ -174,8 +174,17 @@ export class Mob {
   noiseAt: Float64Array | null = null;
   /** Bosses: where the arena is (they return there and heal when you flee). */
   home: Float64Array | null = null;
+  /** Mirror Stalker: the normal of its mirror, pointing from you toward the stalker. */
+  readonly mirN = new Float64Array(4);
+  /** A point of the mirror's plane, and whether one is set up (1) or not (0). */
+  readonly mirA = new Float64Array(4);
+  mirD = 0;
   /** Bosses: 1 or 2 (enraged below half health). */
   phase = 1;
+  /** A body built each frame by its boss fight (the Mirror Twin wears your pose), replacing def.parts. */
+  dyn: MobPart[] | null = null;
+  /** Shield up: damage is cut to a quarter. */
+  shielded = false;
   /** Within 32 blocks of the player this frame: faces and wanders relative to their slice. */
   near = false;
   /** Villagers: profession, trades, reputation, home (saved with the mob). */
@@ -1141,6 +1150,81 @@ export class MobManager {
         this.meleeReach(m, p, h);
         break;
       }
+      case 'mirror': {
+        // The Mirror Stalker keeps to YOUR REFLECTION in a mirror that stands between you and it and
+        // creeps toward you: when you step left it steps left, when you walk toward the glass it
+        // comes toward you twice as fast, and when you jump it jumps. Standing still does not help:
+        // the glass advances. Back away faster than it creeps, or fight it when the two of you meet.
+        if (!seePlayer) {
+          m.mirD = 0;
+          this.wander(m, dt, sp * 0.5);
+          break;
+        }
+        const n = m.mirN, a = m.mirA;
+        if (m.mirD <= 0) {
+          let l = 0;
+          for (const k of [0, 2, 3]) {
+            n[k] = m.pos[k]! - p[k]!;
+            l += n[k]! * n[k]!;
+          }
+          l = Math.sqrt(l);
+          if (l < 2) {
+            // Already on you: fight.
+            this.chase(m, dt, p, sp);
+            this.meleeReach(m, p, h);
+            break;
+          }
+          // The glass stands halfway between you.
+          for (const k of [0, 2, 3]) {
+            n[k] = n[k]! / l;
+            a[k] = p[k]! + n[k]! * (l / 2);
+          }
+          m.mirD = 1;
+        }
+        // The glass creeps toward you; d is how far it stands from you along its normal.
+        let d = 0;
+        for (const k of [0, 2, 3]) {
+          a[k] = a[k]! - n[k]! * 0.9 * dt;
+          d += (a[k]! - p[k]!) * n[k]!;
+        }
+        if (d <= 0.4 || d > 24) {
+          // The glass has reached you (or you left it far behind): a new one next time.
+          m.mirD = 0;
+          this.chase(m, dt, p, sp);
+          this.meleeReach(m, p, h);
+          break;
+        }
+        // Your reflection: your position mirrored in the plane.
+        this.steer(m, p[0]! + 2 * d * n[0]!, p[2]! + 2 * d * n[2]!, p[3]! + 2 * d * n[3]!, sp * 1.7);
+        if (m.onGround && p[1]! - m.pos[1]! > 0.4) m.vel[1] = 7;
+        m.face(p[0]! - m.pos[0]!, p[2]! - m.pos[2]!, p[3]! - m.pos[3]!, m.near ? h.playerHidden : undefined);
+        this.meleeReach(m, p, h);
+        break;
+      }
+      case 'twin': {
+        // The Mirror Twin stands where you would stand if the dais were a mirror: the point
+        // reflection of you through the arena's centre. Walk toward the middle and it does too, so
+        // the two of you meet there; keep to the rim and it keeps to the opposite rim. MirrorBoss
+        // makes it copy your swings, shots and shield a moment late. Leave the arena (30 blocks)
+        // and it goes home and heals.
+        const home = m.home;
+        const away = home ? Math.hypot(p[0]! - home[0]!, p[2]! - home[2]!, p[3]! - home[3]!) : 0;
+        if (!home || !h.playerTargetable || away > 30) {
+          if (home) this.steer(m, home[0]!, home[2]!, home[3]!, sp);
+          else this.brake(m);
+          m.health = Math.min(def.health, m.health + 12 * dt);
+          m.mode = 'idle';
+          break;
+        }
+        m.mode = 'chase';
+        const dist = Math.hypot(p[0]! - m.pos[0]!, p[2]! - m.pos[2]!, p[3]! - m.pos[3]!);
+        if (dist > 2) this.steer(m, 2 * home[0]! - p[0]!, 2 * home[2]! - p[2]!, 2 * home[3]! - p[3]!, sp * 1.6);
+        else this.brake(m);
+        if (m.onGround && p[1]! - m.pos[1]! > 0.4) m.vel[1] = 7.8;
+        m.face(p[0]! - m.pos[0]!, p[2]! - m.pos[2]!, p[3]! - m.pos[3]!, m.near ? h.playerHidden : undefined);
+        this.meleeReach(m, p, h, 0.6);
+        break;
+      }
       case 'sentinel': {
         // Sky Vault Sentinels never move. Dormant until disturbed (a vault chest opened nearby, a
         // hit, or you walking right up to one), then they fan starlight at you while you are in range.
@@ -1361,6 +1445,7 @@ export class MobManager {
     // The Sovereign is out of reach while it is phase-shifted off your slice.
     if (m.def.ai === 'sovereign' && m.shift > 0) return false;
     if (byPlayer) m.playerHit = 5;
+    if (m.shielded) amount *= 0.25;
     const res = m.effects?.amp('resistance') ?? -1;
     if (res >= 0) amount *= Math.max(0, 1 - 0.2 * (res + 1));
     if (m.def.sliceBound && eye && hidden) {
@@ -1608,7 +1693,7 @@ export class MobManager {
     for (const m of this.list) {
       let dh = 0;
       for (let k = 0; k < 4; k++) dh += (m.pos[k]! - o[k]!) * H[k]!;
-      const r = m.cm.radius * m.scale;
+      const r = Math.max(m.cm.radius, m.dyn ? DOLL_RADIUS : 0) * m.scale;
       if (Math.abs(dh) <= r * 0.5 || Math.abs(dh) > maxDh) continue;
       for (let k = 0; k < 4; k++) c[k] = m.pos[k]! - dh * H[k]! + (k === 1 ? m.height * 0.5 : 0);
       const t = rayBall(o, d, c, Math.max(m.width + 0.2, m.height * 0.5));
@@ -1626,7 +1711,7 @@ export class MobManager {
     out.mob = null;
     const lo = this.lo, ld = this.ld;
     for (const m of this.list) {
-      const r = m.cm.radius * m.scale;
+      const r = Math.max(m.cm.radius, m.dyn ? DOLL_RADIUS : 0) * m.scale;
       if (rayBall(o, d, m.pos, r) > best) continue;
       this.toLocal(m, o, d, lo, ld);
       const t = this.rayParts(m, lo, ld) * m.scale;
@@ -1686,7 +1771,7 @@ export class MobManager {
 
   private rayParts(m: Mob, lo: Float64Array, ld: Float64Array): number {
     let best = Infinity;
-    const parts = m.def.parts;
+    const parts = m.dyn ?? m.def.parts;
     const a = this.pa, b = this.pb;
     for (let i = 0; i < parts.length; i++) {
       const pt = parts[i]!;
@@ -1699,11 +1784,12 @@ export class MobManager {
 
   /** Animated part position (A and, for capsules, B) in local coordinates. */
   animate(m: Mob, i: number, a: Float64Array, b: Float64Array): void {
-    const pt = m.def.parts[i]!;
+    const pt = (m.dyn ?? m.def.parts)[i]!;
     for (let k = 0; k < 4; k++) {
       a[k] = pt.at[k]!;
       b[k] = pt.to ? pt.to[k]! : 0;
     }
+    if (m.dyn) return; // already posed by its fight
     const ph = pt.phase ?? 0;
     const moving = Math.min(1, Math.hypot(m.vel[0]!, m.vel[2]!, m.vel[3]!) / Math.max(0.5, m.def.speed));
     switch (pt.anim) {
@@ -1765,7 +1851,7 @@ export class MobManager {
     let part = 0;
     for (const m of this.list) {
       if (n >= MAX_GPU_MOBS) break;
-      const r = m.cm.radius * m.scale;
+      const r = Math.max(m.cm.radius, m.dyn ? DOLL_RADIUS : 0) * m.scale;
       let dh = 0, d2 = 0, f = 0, x = 0, y = 0;
       for (let k = 0; k < 4; k++) {
         const dk = m.pos[k]! - eye[k]!;
@@ -1780,7 +1866,7 @@ export class MobManager {
         const rr = r * 1.05 + 0.1;
         if (f < -rr || (Math.abs(x) - f * tanX) * kx > rr || (Math.abs(y) - f * tanY) * ky > rr) continue;
       }
-      const parts = m.def.parts;
+      const parts = m.dyn ?? m.def.parts;
       const e = n * MOB_TEXELS * 4;
       for (let k = 0; k < 4; k++) {
         g[e + k] = m.pos[k]! - origin[k]!;
@@ -1808,10 +1894,21 @@ export class MobManager {
           g[o + 4 + k] = a[k]!;
           g[o + 8 + k] = pt.kind === 'box' ? pt.size![k]! : b[k]!;
         }
-        const cols = m.tint ?? m.cm.colors;
-        g[o + 12] = cols[i * 3]!;
-        g[o + 13] = cols[i * 3 + 1]!;
-        g[o + 14] = cols[i * 3 + 2]!;
+        if (m.dyn) {
+          let c = this.hexCache.get(pt.color);
+          if (!c) {
+            c = hexToRgb(pt.color);
+            this.hexCache.set(pt.color, c);
+          }
+          g[o + 12] = c[0]!;
+          g[o + 13] = c[1]!;
+          g[o + 14] = c[2]!;
+        } else {
+          const cols = m.tint ?? m.cm.colors;
+          g[o + 12] = cols[i * 3]!;
+          g[o + 13] = cols[i * 3 + 1]!;
+          g[o + 14] = cols[i * 3 + 2]!;
+        }
         g[o + 15] = 0;
       }
       part += parts.length;

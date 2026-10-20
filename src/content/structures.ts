@@ -63,6 +63,8 @@ export const STRUCTURES: StructureDef[] = [
   { name: 'regent_caldera', displayName: "Regent's Caldera", placement: 'lava', spacing: 160, chance: 0.8, builder: 'regent_caldera', radius: 23, salt: 0x6106, realm: 'ember' },
 
   // Phase 9: the way into the Mirror Realm (the Hand Mirror points to the nearest).
+  // The Mirror Palace (realm 'mirror'): a hall of mirrors with an altar, where the Mirror Twin waits.
+  { name: 'mirror_palace', displayName: 'Mirror Palace', placement: 'surface', spacing: 160, chance: 0.45, builder: 'mirror_palace', radius: 20, salt: 0x7302, realm: 'mirror' },
   { name: 'silver_arch', displayName: 'Silver Arch', placement: 'surface', spacing: 256, chance: 0.5, builder: 'silver_arch', radius: 4, salt: 0x7301 },
 
   // ---------------------------------------------------------------- Hollow Void (Phase 8)

@@ -47,11 +47,18 @@ export interface ExtraBody {
 export const DOLL_RADIUS = 2.4;
 
 export const SKIN: Hex = '#e0ac82';
-const HAIR: Hex = '#3b2a1c';
-const SHIRT: Hex = '#3d8fbf';
-const PANTS: Hex = '#3a4a8a';
-const SHOES: Hex = '#4a4a50';
-const FACE: Hex = '#2a2118';
+
+/** The colours of the parts that are not armour (the Mirror Twin wears the same body in silver). */
+export interface DollPalette {
+  skin: Hex;
+  hair: Hex;
+  shirt: Hex;
+  pants: Hex;
+  shoes: Hex;
+  face: Hex;
+}
+
+export const DEFAULT_PALETTE: DollPalette = { skin: SKIN, hair: '#3b2a1c', shirt: '#3d8fbf', pants: '#3a4a8a', shoes: '#4a4a50', face: '#2a2118' };
 
 export function newDollState(): DollState {
   return { walk: 0, moving: 0, swing: -1, sneak: false, glide: false, wingSpread: 0, blocking: false, draw: 0, armor: [null, null, null, null], wings: null, held: null };
@@ -64,12 +71,12 @@ function box(out: MobPart[], x: number, y: number, z: number, hx: number, hy: nu
 }
 
 /** Fill `out` with the body parts for this pose (at most 16). */
-export function dollParts(s: DollState, out: MobPart[] = []): MobPart[] {
+export function dollParts(s: DollState, out: MobPart[] = [], pal: DollPalette = DEFAULT_PALETTE): MobPart[] {
   out.length = 0;
   const sw = Math.sin(s.walk) * 0.3 * s.moving;
   const sw2 = Math.sin(s.walk + Math.PI) * 0.3 * s.moving;
   const [helm, chest, legs, boots] = s.armor;
-  const shirt = chest ?? SHIRT, pants = legs ?? PANTS;
+  const shirt = chest ?? pal.shirt, pants = legs ?? pal.pants;
   // Swing: the right arm comes up and forward and back.
   const sp = s.swing >= 0 ? Math.sin(Math.PI * Math.min(1, s.swing)) : 0;
   const draw = s.draw;
@@ -83,9 +90,9 @@ export function dollParts(s: DollState, out: MobPart[] = []): MobPart[] {
     if (chest) box(out, 0, y, 0, 0.26, 0.15, 0.35, chest, 0.15);
     box(out, -0.355, y, -0.05, 0.1, 0.11, 0.34, shirt, 0.11);
     box(out, 0.355, y, -0.05, 0.1, 0.11, 0.34, shirt, 0.11);
-    box(out, 0, y, 0.58, 0.22, 0.22, 0.22, SKIN, 0.22);
-    box(out, 0, y + 0.03, 0.803, 0.17, 0.05, 0.004, FACE, 0.06);
-    box(out, 0, y + 0.19, 0.58, 0.225, 0.045, 0.225, HAIR, 0.225);
+    box(out, 0, y, 0.58, 0.22, 0.22, 0.22, pal.skin, 0.22);
+    box(out, 0, y + 0.03, 0.803, 0.17, 0.05, 0.004, pal.face, 0.06);
+    box(out, 0, y + 0.19, 0.58, 0.225, 0.045, 0.225, pal.hair, 0.225);
     if (helm) box(out, 0, y + 0.1, 0.56, 0.24, 0.17, 0.235, helm, 0.235);
     if (boots) {
       box(out, -0.12, y, -1.0, 0.125, 0.125, 0.09, boots, 0.135);
@@ -107,8 +114,8 @@ export function dollParts(s: DollState, out: MobPart[] = []): MobPart[] {
     box(out, -0.12, 0.09, sw, 0.125, 0.09, 0.125, boots, 0.135);
     box(out, 0.12, 0.09, sw2, 0.125, 0.09, 0.125, boots, 0.135);
   } else {
-    box(out, -0.12, 0.05, sw, 0.115, 0.05, 0.115, SHOES, 0.125);
-    box(out, 0.12, 0.05, sw2, 0.115, 0.05, 0.115, SHOES, 0.125);
+    box(out, -0.12, 0.05, sw, 0.115, 0.05, 0.115, pal.shoes, 0.125);
+    box(out, 0.12, 0.05, sw2, 0.115, 0.05, 0.115, pal.shoes, 0.125);
   }
   // Torso (and its armour).
   box(out, 0, 1.04 - drop, lean * 0.5, 0.24, 0.34, 0.12, shirt, 0.13);
@@ -123,9 +130,9 @@ export function dollParts(s: DollState, out: MobPart[] = []): MobPart[] {
   box(out, 0.355, 1.04 - drop + ry, rz + lean * 0.5, 0.1, 0.34, 0.1, shirt, 0.11);
   // Head.
   const hy = 1.6 - drop;
-  box(out, 0, hy, lean, 0.22, 0.22, 0.22, SKIN, 0.22);
-  box(out, 0, hy + 0.02, lean + 0.222, 0.17, 0.05, 0.004, FACE, 0.06);
-  box(out, 0, hy + 0.18, lean - 0.01, 0.225, 0.045, 0.225, HAIR, 0.225);
+  box(out, 0, hy, lean, 0.22, 0.22, 0.22, pal.skin, 0.22);
+  box(out, 0, hy + 0.02, lean + 0.222, 0.17, 0.05, 0.004, pal.face, 0.06);
+  box(out, 0, hy + 0.18, lean - 0.01, 0.225, 0.045, 0.225, pal.hair, 0.225);
   if (helm) box(out, 0, hy + 0.08, lean - 0.02, 0.24, 0.16, 0.235, helm, 0.235);
   // Wings: folded on the back, or spread (the paper doll shows them open while you glide).
   if (s.wings) {

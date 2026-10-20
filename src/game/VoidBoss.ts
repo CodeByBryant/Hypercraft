@@ -26,6 +26,8 @@ import type { World } from '../world/World';
 import type { Mob, MobManager } from './mobs/MobManager';
 import type { ItemStack } from './items/ItemStack';
 import { pillarLine } from './Boss';
+import type { BossFight, Mark } from './BossFight';
+import { LanceField, type Lance } from './Lances';
 
 export const SOVEREIGN = 'void_sovereign';
 /** Health a standing pylon gives back per second. */
@@ -44,26 +46,7 @@ export function phaseFor(health: number, max: number): number {
   return f > 0.66 ? 1 : f > 0.33 ? 2 : 3;
 }
 
-export interface Lance {
-  x: number;
-  y: number;
-  z: number;
-  w: number;
-  /** Seconds until it strikes (<= 0: struck). */
-  erupt: number;
-  burn: number;
-  cells: number[][];
-}
-
-export interface Mark {
-  x: number;
-  y: number;
-  z: number;
-  w: number;
-  kind: 'pylon' | 'lance' | 'boss';
-  /** Blinks (announced, not yet struck). */
-  pending: boolean;
-}
+export type { Lance, Mark };
 
 export interface VoidBossHost {
   world: World;
@@ -82,9 +65,12 @@ export interface VoidBossHost {
   blind(seconds: number): void;
 }
 
-export class VoidBoss {
+export class VoidBoss implements BossFight {
+  readonly realm = 'void';
+  readonly mobName = SOVEREIGN;
+  readonly lockMessage = 'The arena stone will not yield while the Void Sovereign lives · only its pylons break';
   defeated = false;
-  readonly lances: Lance[] = [];
+  private readonly field: LanceField;
   /** HUD line: lances announced, the Sovereign off your slice, pylons standing ('' when idle). */
   warning = '';
   /** Pylons standing at the last count. */
@@ -96,7 +82,14 @@ export class VoidBoss {
   private readonly t = { bolt: 3, shift: 9, lance: 7, drain: 8 };
   private wasShifted = false;
 
-  constructor(private readonly host: VoidBossHost) {}
+  constructor(private readonly host: VoidBossHost) {
+    this.field = new LanceField(host, { block: LANCE_ID, warning: LANCE_WARNING, burn: LANCE_BURN, height: LANCE_HEIGHT, color: '#b890ff' });
+  }
+
+  /** Lances standing or announced right now. */
+  get lances(): Lance[] {
+    return this.field.list;
+  }
 
   // ------------------------------------------------------------------ saving
 
@@ -333,52 +326,17 @@ export class VoidBoss {
 
   /** Void lances down along W through you (and, in phase III, across your slice), announced first. */
   private summonLances(m: Mob): void {
-    const h = this.host, p = h.playerPos, world = h.world;
-    for (const [x, z, w] of pillarLine(p, h.playerRight, m.phase >= 3 ? 2 : 1)) {
-      let y = -1;
-      for (let yy = Math.floor(p[1]! + 3); yy > Math.floor(p[1]!) - 12 && yy > 1; yy--) {
-        const v = world.getBlock(x!, yy - 1, z!, w!);
-        const a = world.getBlock(x!, yy, z!, w!);
-        if (v === VOID_VOXEL || a === VOID_VOXEL) break;
-        if (REG.solid[v & 0xfff] && !REG.solid[a & 0xfff]) {
-          y = yy;
-          break;
-        }
-      }
-      if (y < 0) continue;
-      this.lances.push({ x: x!, y, z: z!, w: w!, erupt: LANCE_WARNING, burn: LANCE_BURN, cells: [] });
-    }
+    const h = this.host, p = h.playerPos;
+    for (const [x, z, w] of pillarLine(p, h.playerRight, m.phase >= 3 ? 2 : 1)) this.field.announce(x!, z!, w!, p[1]!);
   }
 
   private updateLances(dt: number): void {
-    const h = this.host, world = h.world;
-    for (let i = this.lances.length - 1; i >= 0; i--) {
-      const l = this.lances[i]!;
-      if (l.erupt > 0) {
-        l.erupt -= dt;
-        if (Math.random() < dt * 8) h.glow(l.x + 0.5, l.y + 0.1, l.z + 0.5, l.w + 0.5, '#b890ff', 1);
-        if (l.erupt <= 0) {
-          for (let k = 0; k < LANCE_HEIGHT; k++) {
-            const v = world.getBlock(l.x, l.y + k, l.z, l.w);
-            if (v === VOID_VOXEL || (v !== 0 && !REG.replaceable[v & 0xfff])) break;
-            world.setBlock(l.x, l.y + k, l.z, l.w, LANCE_ID);
-            l.cells.push([l.x, l.y + k, l.z, l.w]);
-          }
-        }
-        continue;
-      }
-      l.burn -= dt;
-      if (l.burn > 0) continue;
-      for (const c of l.cells) if ((world.getBlock(c[0]!, c[1]!, c[2]!, c[3]!) & 0xfff) === LANCE_ID) world.setBlock(c[0]!, c[1]!, c[2]!, c[3]!, 0);
-      this.lances.splice(i, 1);
-    }
+    this.field.update(dt);
   }
 
   /** Remove every lance at once (the Sovereign fell, or the player left). */
   clearLances(): void {
-    const world = this.host.world;
-    for (const l of this.lances) for (const c of l.cells) if ((world.getBlock(c[0]!, c[1]!, c[2]!, c[3]!) & 0xfff) === LANCE_ID) world.setBlock(c[0]!, c[1]!, c[2]!, c[3]!, 0);
-    this.lances.length = 0;
+    this.field.clear();
   }
 
   /** Drain the light: torches and lanterns within 12 blocks of you go out (as items), and the dark closes in. */
@@ -406,13 +364,7 @@ export class VoidBoss {
   private updateWarning(m: Mob): void {
     const h = this.host, p = h.playerPos, H = h.playerHidden;
     const parts: string[] = [];
-    let pending = 0, inSlice = 0;
-    for (const l of this.lances) {
-      if (l.erupt <= 0) continue;
-      pending++;
-      const dh = (l.x + 0.5 - p[0]!) * H[0]! + (l.z + 0.5 - p[2]!) * H[2]! + (l.w + 0.5 - p[3]!) * H[3]!;
-      if (Math.abs(dh) < 0.75) inSlice++;
-    }
+    const { pending, inSlice } = this.field.pending(p, H);
     if (pending) parts.push(`⚠ Void lances: ${inSlice} in your slice, ${pending - inSlice} kata/ana along W · sidestep!`);
     if (m.shift > 0) parts.push(`The Sovereign hangs ${Math.round(Math.abs(m.shiftOff))} m ${m.shiftOff > 0 ? 'ana' : 'kata'} of your slice: untouchable, deal with its swarms`);
     if (this.standing > 0) {
@@ -438,7 +390,7 @@ export class VoidBoss {
         const c = this.pylonCell(i, 1);
         if ((w.getBlock(c[0], c[1], c[2], c[3]) & 0xfff) === PYLON_ID) out.push({ x: c[0], y: c[1], z: c[2], w: c[3], kind: 'pylon', pending: false });
       }
-    for (const l of this.lances) out.push({ x: l.x, y: l.y, z: l.z, w: l.w, kind: 'lance', pending: l.erupt > 0 });
+    this.field.marks(out);
     const m = this.sovereign;
     if (m && m.shift > 0) out.push({ x: Math.floor(m.pos[0]!), y: Math.floor(m.pos[1]!), z: Math.floor(m.pos[2]!), w: Math.floor(m.pos[3]!), kind: 'boss', pending: true });
     return out;

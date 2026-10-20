@@ -62,3 +62,40 @@ A reflected copy of the Surface (Realm D).
   ingots), for the realm's armour (9.3).
 * Tests: `tests/unit/mirror.test.ts` (realm flags, biome mapping, the reflection itself, the arch, the
   recipe), `tests/e2e/mirror.spec.ts` (labels, sun below, the palette; wake a rift, cross, come home).
+
+## 9.3 Mirror mobs, the Mirror Palace, the Mirror Twin, Mirror armour
+
+* **Mobs** (`src/content/mirrorMobs.ts`, night tables in `MIRROR_SPAWNS`):
+  * *Reflection Shambler*: walks on its hands with its legs in the air; arrows you shoot at it come
+    back at you (`reflects`, handled in `Projectiles`).
+  * *Mirror Stalker* (AI `mirror`): keeps to **your reflection** in a pane of glass that stands
+    between you and it and creeps toward you (0.9 m/s). Step left and it steps left; walk at the
+    glass and it comes twice as fast. Back away faster than the glass advances, or let it reach you
+    and fight.
+  * *Silver Wraith*: quick, flying, undead (silver and Smite hurt it double); its touch weakens you.
+* **Mirror Palace** (`mirror_palace` structure, Mirror land biomes only): a silver hall with a dais, a
+  **Mirror Altar** in the middle, four chests of palace loot (mirror armour, reflection dust, Hand
+  Mirrors, mirrorite) and two Shambler spawners.
+* **The Mirror Twin** (`src/game/MirrorBoss.ts`, AI `twin`): hold a Hand Mirror up to the altar.
+  * It stands where you would stand if the dais were a mirror: the **point reflection of you through
+    the altar**. Walk toward the middle and it does too, so the two of you meet at the altar.
+  * Its body is rebuilt every frame from *your* pose and colours, in silver (`Mob.dyn`, the player
+    model's `dollParts` with a palette): your armour, your held item, your walk.
+  * It **copies what you do a moment late** (0.7 s, 0.5 s in phase II, 0.3 s in phase III): a swing
+    hurts you if you are in reach of it when the copy lands, a shot comes back at you, a raised
+    shield means it raises one too (it takes a quarter damage while shielded: don't block).
+  * Phase II (below 66%): two Mirror Stalkers step out. Phase III (below 33%): faster copies and
+    **mirror beams** along W, announced on the hidden-axis radar first (same machinery as the
+    Sovereign's lances, now the shared `LanceField` in `src/game/Lances.ts`).
+  * While it lives nothing within 28 blocks of the altar can be broken or placed; leave the arena and
+    it goes home and heals. A defeat is remembered (`SavedState.data.bossFights.mirror`) and drops a
+    **Twin Core**, mirror shards, silver and golden apples.
+* **Mirror armour** (mirrorite): a full set sends a third of a melee hit back at whatever struck you.
+* **`BossFight`** (`src/game/BossFight.ts`) is the interface every realm boss now runs behind; `Game`
+  keeps a list (`fights`) so the Resonance Titan and the Storm Sovereign slot in the same way. The
+  Void Sovereign was moved onto it (and onto `LanceField`) without changing its behaviour.
+* Advancements: Face Your Reflection, Mirror Mirror (the Twin), Not My Problem (reflect a blow with a
+  full set), Copycat, Upside Down, Silver Lining Again.
+* Tests: `tests/unit/mirrormobs.test.ts`, `tests/unit/mirrorboss.test.ts` (reflection steering, the
+  delayed copies, shield, phases, beams, arena rules, save), the palace in `mirror.test.ts`, and an
+  e2e that wakes the Twin with a Hand Mirror and fells it (`mirror.spec.ts`).

@@ -198,7 +198,17 @@ export class Projectiles {
         }
         if (a.byPlayer) {
           const m = this.hitMob(mobs, a.pos);
-          if (m) {
+          if (m && m.def.reflects && !a.boomerang && !a.stack) {
+            // A Reflection Shambler throws it back at you.
+            for (let k = 0; k < 4; k++) {
+              a.vel[k] = -a.vel[k]! * 0.9;
+              a.pos[k] = a.pos[k]! + a.vel[k]! * 0.06;
+            }
+            a.byPlayer = false;
+            a.damage = Math.max(2, a.damage * 0.7);
+            a.age = 0;
+            a.stuck = false;
+          } else if (m) {
             const dmg = a.damage * (a.undead && m.def.undead ? a.undead : 1);
             if (mobs.damage(m, dmg, this.prev, h.eye, h.hidden, true, 1 + (a.knock ?? 0)) && a.fire && !m.def.fireproof) m.burning = Math.max(m.burning, 5);
             if (a.glow) m.glowing = Math.max(m.glowing, a.glow);

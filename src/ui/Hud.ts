@@ -351,7 +351,7 @@ export class Hud {
       if (this.glideHud.textContent !== text) this.glideHud.textContent = text;
       this.glideHud.style.display = 'block';
     } else if (this.glideHud.style.display !== 'none') this.glideHud.style.display = 'none';
-    const warn = g.bosses.warning || g.voidBoss.warning;
+    const warn = g.bosses.warning || g.fights.find((f) => f.warning && f.realm === g.world.realm.name)?.warning || '';
     if (this.bossWarn.textContent !== warn) {
       this.bossWarn.textContent = warn;
       this.bossWarn.style.display = warn ? 'block' : 'none';
@@ -771,8 +771,9 @@ export class Hud {
     }
     // The Void Sovereign's fight: pylons (magenta), lances (violet, blinking while announced) and the
     // Sovereign itself while it hangs off your slice (white).
-    if (g.world.realm.name === 'void') {
-      for (const mk of g.voidBoss.marks()) {
+    for (const fight of g.fights) {
+      if (fight.realm !== g.world.realm.name) continue;
+      for (const mk of fight.marks()) {
         const a = (mk.x + 0.5 - pos[0]!) * R[0]! + (mk.z + 0.5 - pos[2]!) * R[2]! + (mk.w + 0.5 - pos[3]!) * R[3]!;
         const b = (mk.x + 0.5 - pos[0]!) * H[0]! + (mk.z + 0.5 - pos[2]!) * H[2]! + (mk.w + 0.5 - pos[3]!) * H[3]!;
         if (Math.abs(a) > 12.5 || Math.abs(b) > 12.5) continue;

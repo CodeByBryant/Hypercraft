@@ -429,6 +429,14 @@ export function installTestApi(game: Game, screen?: InventoryScreen): void {
       return { defeated: game.voidBoss.defeated, pylons: game.voidBoss.countPylons(), lances: game.voidBoss.lances.length, warning: game.voidBoss.warning, shifted: m ? m.shift > 0 : false, phase: m ? m.phase : 0, health: m ? m.health : 0, id: m ? m.id : -1 };
     },
     setVoidDefeated: (on: boolean) => void (game.voidBoss.defeated = on),
+    /** The Mirror Twin's fight: defeated flag, beams, warning, phase, health, shield. */
+    mirrorBoss: () => {
+      const m = game.mirrorBoss.find();
+      return { defeated: game.mirrorBoss.defeated, lances: game.mirrorBoss.lances.length, warning: game.mirrorBoss.warning, phase: m ? m.phase : 0, health: m ? m.health : 0, shielded: m ? m.shielded : false, dyn: m?.dyn?.length ?? 0, id: m ? m.id : -1 };
+    },
+    /** Wake the Twin at the altar cell, as the Hand Mirror does. */
+    summonTwin: (x: number, y: number, z: number, w: number) => game.mirrorBoss.summon(x, y, z, w),
+    setMirrorDefeated: (on: boolean) => void (game.mirrorBoss.defeated = on),
     /** Run the Sovereign's light drain once (phase III), returning how many torches went out. */
     voidDrain: () => game.voidBoss.drain(),
     /** Advancements: done ids, counters and progress; grant one by id. */

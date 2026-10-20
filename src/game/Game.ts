@@ -72,6 +72,8 @@ import { ARMOR_START, OFFHAND } from './items/Inventory';
 import { ARRIVAL_POS, gatewayAt } from '../content/void';
 import { GATE, fillFrame, gateProgress } from './VoidGate';
 import { VoidBoss } from './VoidBoss';
+import { MirrorBoss } from './MirrorBoss';
+import type { BossFight, PlayerAction } from './BossFight';
 import { ROCKET_TIME } from '../physics/glide';
 import { Advancements } from './Advancements';
 import type { AdvancementDef } from '../content/advancements';
@@ -283,6 +285,11 @@ export class Game {
   readonly bosses: BossDirector;
   /** The Void Sovereign's fight (Hollow Void). */
   voidBoss!: VoidBoss;
+  mirrorBoss!: MirrorBoss;
+  /** Every realm boss's fight; each runs only in its own realm. */
+  fights: BossFight[] = [];
+  private lastSwingT = 99;
+  private wasBlocking = false;
   /** Advancements (key L): what is done and the counters behind the numeric goals. */
   readonly adv = new Advancements();
   /** The HUD shows a toast for each goal reached; main.ts opens the screen. */
@@ -515,7 +522,7 @@ export class Game {
     this.world.onBlockChange((x, y, z, w, o, n) => {
       this.light.onBlockChanged(x, y, z, w, o, n);
       this.keyBlocks.blockChanged(x, z, w, o, n);
-      this.voidBoss.blockChanged(x, y, z, w, o, n);
+      for (const f of this.fights) f.blockChanged(x, y, z, w, o, n);
       this.farming.blockChanged(x, y, z, w, o, n);
       this.portalBlockChanged(x, y, z, w, o, n);
       this.fire.blockChanged(x, y, z, w, o, n);
@@ -621,7 +628,7 @@ export class Game {
           this.particles.burst(m.pos[0]!, m.pos[1]! + h, m.pos[2]!, m.pos[3]!, this.player.cam, 'spark', '#ffb030', 60, 5, 1.2, true);
           this.bosses.clear();
           this.message?.(`${m.def.displayName} is defeated!`);
-          if (m.def.name === 'void_sovereign') this.voidBoss.onDefeat(m);
+          this.fights.find((f) => f.mobName === m.def.name)?.onDefeat(m);
         }
       },
     };
@@ -650,6 +657,22 @@ export class Game {
       dropItem: (x, y, z, w, st) => this.dropAtCell(x, y, z, w, st),
       blind: (seconds) => void this.applyEffect('blindness', seconds, 0),
     });
+    this.mirrorBoss = new MirrorBoss({
+      world: this.world,
+      mobs: this.mobs,
+      playerPos: this.player.pos,
+      playerRight: this.player.cam.R,
+      playerHidden: this.player.cam.H,
+      playerTargetable: () => this.mobHost.playerTargetable,
+      difficulty: () => DIFFICULTY[this.info.difficulty] ?? 2,
+      shoot: (from, vel, damage, item, byPlayer) => this.projectiles.spawn(from, vel, damage, item, byPlayer),
+      glow: (x, y, z, w, color, n = 3) => this.particles.burst(x, y, z, w, this.player.cam, 'spark', color, n, 2.4, 0.5, true),
+      message: (t) => this.message?.(t),
+      dropItem: (x, y, z, w, st) => this.dropAtCell(x, y, z, w, st),
+      doll: () => this.doll,
+      hurt: (amount, attacker, cause) => void this.hurtPlayer(amount, attacker.pos, cause, 'melee', attacker),
+    });
+    this.fights = [this.voidBoss, this.mirrorBoss];
     this.adv.onUnlock = (a) => this.advancementMade(a);
     this.projHost = {
       playerPos: this.player.pos,
@@ -657,7 +680,7 @@ export class Game {
         return game.player.height;
       },
       hurtPlayer: (amount, from, cause) => void this.hurtPlayer(amount, from, cause, 'projectile'),
-      blockHit: (x, y, z, w, id, byPlayer) => this.voidBoss.projectileHit(x, y, z, w, id, byPlayer),
+      blockHit: (x, y, z, w, id, byPlayer) => this.fights.some((f) => f.projectileHit(x, y, z, w, id, byPlayer)),
       collect: (item) => {
         if (this.player.mode === 'spectator') return false;
         if (this.player.mode === 'creative') return true;
@@ -767,6 +790,8 @@ export class Game {
     const wd = st.data ?? {};
     if (Array.isArray(wd.portals)) this.portals = wd.portals as PortalRecord[];
     this.voidBoss.load(wd.voidSovereign);
+    const bf = (wd.bossFights ?? {}) as Record<string, unknown>;
+    for (const f of this.fights) if (f.realm !== 'void') f.load(bf[f.realm]);
     this.adv.load(wd.advancements);
     if (Array.isArray(wd.graves)) this.graves = (wd.graves as Game['graves']).filter((g) => typeof g.realm === 'string' && Array.isArray(g.pos) && g.pos.length === 4).slice(-MAX_GRAVES);
     if (wd.arrival && typeof wd.arrival === 'object') {
@@ -798,7 +823,7 @@ export class Game {
     const away = dead && this.world.realm.name !== 'surface';
     return {
       realm: away ? 'surface' : this.world.realm.name,
-      data: away ? { portals: this.portals, graves: this.graves, voidSovereign: this.voidBoss.save(), advancements: this.adv.save(), arrival: { kind: 'respawn' } } : { portals: this.portals, graves: this.graves, voidSovereign: this.voidBoss.save(), advancements: this.adv.save() },
+      data: away ? { ...this.worldData(), arrival: { kind: 'respawn' } } : this.worldData(),
       player: {
         pos: dead ? (away ? this.surfaceRespawnPoint() : this.respawnPoint()) : Array.from(p.pos),
         F: Array.from(p.cam.F),
@@ -1060,7 +1085,8 @@ export class Game {
       this.mobs.update(dt, this.mobHost, this.biomeFn, this.caveFn);
       this.projectiles.update(dt, this.world, this.mobs, this.projHost);
       this.bosses.update(dt);
-      if (this.world.realm.name === 'void') this.voidBoss.update(dt);
+      this.watchActions();
+      for (const f of this.fights) if (f.realm === this.world.realm.name) f.update(dt);
       this.villageTimer -= dt;
       if (this.villageTimer <= 0) {
         this.villageTimer = 1;
@@ -2034,8 +2060,13 @@ export class Game {
   private useHandMirror(): void {
     const dormant = REG.id('dormant_rift'), awake = REG.id('mirror_rift');
     const t = this.target;
+    // The Mirror Altar of a palace: it wakes the Twin.
+    if (this.hasTarget && (this.world.getBlock(t.x, t.y, t.z, t.w) & 0xfff) === REG.id('mirror_altar')) {
+      if (this.world.realm.name === 'mirror' && this.mirrorBoss.summon(t.x, t.y, t.z, t.w)) this.adv.event('twin_wake');
+      return;
+    }
     if (!this.hasTarget || (this.world.getBlock(t.x, t.y, t.z, t.w) & 0xfff) !== dormant) {
-      this.message?.('Hold the mirror up to a dormant rift in a Silver Arch (the arrow points to the nearest)');
+      this.message?.('Hold the mirror up to a dormant rift in a Silver Arch, or to the altar of a Mirror Palace (the arrow points to the nearest arch)');
       return;
     }
     for (const dy of [-1, 0, 1]) if ((this.world.getBlock(t.x, t.y + dy, t.z, t.w) & 0xfff) === dormant) this.world.setBlock(t.x, t.y + dy, t.z, t.w, awake);
@@ -3097,6 +3128,7 @@ export class Game {
     const dmg = arrowDamage(power) * (pw > 0 ? 1 + 0.25 * (pw + 1) : 1) * kind.damage;
     this.projectiles.spawn(from, v, dmg, arrow, true, { fire: enchLevel(bowStack, 'flame') > 0, knock: enchLevel(bowStack, 'punch'), undead: kind.undead, glow: kind.glow });
     if (survival) this.wearHeld(1);
+    this.fightAction('shoot');
   }
 
   /**
@@ -3126,6 +3158,13 @@ export class Game {
       return false;
     }
     const dmg = this.reduceDamage(amount, kind);
+    // Mirror armour (a full set): a third of a melee hit goes back at whatever struck you.
+    if (attacker && kind === 'melee' && this.setBonus('mirror')) {
+      attacker.hurt = 0;
+      this.mobs.damage(attacker, Math.max(1, amount * 0.33), p.pos, undefined, undefined, true, 0.5);
+      this.particles.burst(attacker.pos[0]!, attacker.pos[1]! + attacker.height * 0.6, attacker.pos[2]!, attacker.pos[3]!, p.cam, 'spark', '#e6eeff', 10, 2, 0.4, true);
+      this.adv.event('reflect');
+    }
     // Thorns: a chance to hurt whatever hit you in melee.
     if (attacker && kind === 'melee') {
       for (let k = 0; k < 4; k++) {
@@ -3721,7 +3760,7 @@ export class Game {
             if (id === this.tntLitId) continue;
             const hard = REG.hardness[id]!;
             if (hard < 0 || hard >= 30 || REG.fluid[id] !== 0 || this.blockEntities.isGrave(id)) continue;
-            if (this.voidBoss.protects(bx, by, bz, bw, id)) continue;
+            if (this.fightProtects(bx, by, bz, bw, id)) continue;
             if (!this.world.setBlock(bx, by, bz, bw, 0)) continue;
             if (BED_IDS[id] || DOOR_PART[id]) this.removePartner(bx, by, bz, bw, v);
             if (Math.random() < 0.3) for (const st of rollDrops(id, -1, Math.random)) counts.set(st.id, (counts.get(st.id) ?? 0) + st.count);
@@ -3850,18 +3889,45 @@ export class Game {
     }
   }
 
+  /** What the world remembers beyond its blocks (saved with the player). */
+  private worldData(): Record<string, unknown> {
+    const bossFights: Record<string, unknown> = {};
+    for (const f of this.fights) if (f.realm !== 'void') bossFights[f.realm] = f.save();
+    return { portals: this.portals, graves: this.graves, voidSovereign: this.voidBoss.save(), bossFights, advancements: this.adv.save() };
+  }
+
+  /** Does a boss fight in this realm keep this cell as it is? */
+  private fightProtects(x: number, y: number, z: number, w: number, id: number): boolean {
+    for (const f of this.fights) if (f.realm === this.world.realm.name && f.protects(x, y, z, w, id)) return true;
+    return false;
+  }
+
+  /** Tell the fights what you just did (the Mirror Twin copies it). */
+  private fightAction(kind: PlayerAction): void {
+    for (const f of this.fights) if (f.realm === this.world.realm.name) f.onPlayerAction?.(kind);
+  }
+
+  /** Swings and shield changes, noticed from the state they leave behind. */
+  private watchActions(): void {
+    if (this.swingT < this.lastSwingT) this.fightAction('swing');
+    if (this.blocking !== this.wasBlocking) this.fightAction(this.blocking ? 'block' : 'unblock');
+    this.lastSwingT = this.swingT;
+    this.wasBlocking = this.blocking;
+  }
+
   /**
    * The Void Sovereign's arena: while it lives nothing in it may be broken or built (except its
    * pylons), so there is no pillaring up or tunnelling under it. Creative players are exempt.
    * Says why, at most every few seconds.
    */
   private arenaLocked(x: number, y: number, z: number, w: number, id: number, speak = true): boolean {
-    if (this.world.realm.name !== 'void' || this.player.mode === 'creative' || this.player.mode === 'spectator') return false;
-    if (!this.voidBoss.protects(x, y, z, w, id)) return false;
+    if (this.player.mode === 'creative' || this.player.mode === 'spectator') return false;
+    const f = this.fights.find((q) => q.realm === this.world.realm.name);
+    if (!f || !f.protects(x, y, z, w, id)) return false;
     const now = performance.now() / 1000;
     if (speak && now - this.arenaMsgAt > 3) {
       this.arenaMsgAt = now;
-      this.message?.('The arena stone will not yield while the Void Sovereign lives · only its pylons break');
+      this.message?.(f.lockMessage);
     }
     return true;
   }
@@ -3906,7 +3972,7 @@ export class Game {
       if (v === 0 || v === VOID_VOXEL) continue;
       const id = voxelId(v);
       const h = REG.hardness[id]!;
-      if (h < 0 || h > hard + 1.5 || REG.fluid[id] !== 0 || BED_IDS[id] || DOOR_PART[id] || this.voidBoss.protects(c[0], c[1], c[2], c[3], id)) continue;
+      if (h < 0 || h > hard + 1.5 || REG.fluid[id] !== 0 || BED_IDS[id] || DOOR_PART[id] || this.fightProtects(c[0], c[1], c[2], c[3], id)) continue;
       if (drops && !canHarvest(id, held.id)) continue;
       const out = drops ? rollDrops(id, held.id, Math.random, enchLevel(held, 'silk_touch') > 0, enchLevel(held, 'fortune')) : [];
       if (!this.world.setBlock(c[0], c[1], c[2], c[3], 0)) continue;

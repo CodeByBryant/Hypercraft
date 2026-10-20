@@ -6,6 +6,7 @@ import { REG, hexToRgb } from './registry';
 import { MOBS } from './mobs';
 import { ANIMALS } from './animals';
 import { VOID_MOBS } from './voidMobs';
+import { P9_MOBS } from './realms9';
 import type { MobDef } from './types';
 
 export const MAX_MOB_PARTS = 16;
@@ -74,4 +75,4 @@ export class MobRegistry {
   }
 }
 
-export const MOB_REG = new MobRegistry([...MOBS, ...ANIMALS, ...VOID_MOBS]);
+export const MOB_REG = new MobRegistry([...MOBS, ...ANIMALS, ...VOID_MOBS, ...P9_MOBS]);

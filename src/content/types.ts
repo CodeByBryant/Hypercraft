@@ -604,7 +604,10 @@ export type MobAI =
   | 'regent'
   | 'walker'
   | 'sentinel'
-  | 'sovereign';
+  | 'sovereign'
+  // Phase 9: the Mirror Stalker keeps to your reflection; the Mirror Twin is you.
+  | 'mirror'
+  | 'twin';
 
 export interface MobDef {
   name: string;
@@ -662,6 +665,8 @@ export interface MobDef {
   breed?: string[];
   /** A melee hit also puts this effect on the player (Whisper Swarms slow you). */
   inflicts?: { effect: string; seconds: number; amp?: number };
+  /** Arrows and other projectiles you shoot at it bounce back at you (Reflection Shamblers). */
+  reflects?: boolean;
 }
 
 // ------------------------------------------------------------------ loot (Phase 5)

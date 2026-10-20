@@ -48,6 +48,8 @@ export const ARMOR_MATERIALS: ArmorMaterial[] = [
   { name: 'hyperite', displayName: 'Hyperite', points: [3, 8, 6, 3], toughness: 2, durability: 33, enchantability: 10, material: 'hyperite', color: '#6ff8ff', shade: '#2fb4c8', craftable: true },
   { name: 'slag', displayName: 'Ancient Slag', points: [3, 8, 6, 3], toughness: 3, knockback: 0.1, durability: 37, enchantability: 15, material: 'ancient_slag_ingot', color: '#6a4430', shade: '#3a2418', craftable: false, set: 'slag' },
   // Hollow Void (Phase 8): the Phase Step set. Worn whole, the first hit you take every 10 s is phased away.
+  // Mirror Realm (Phase 9): a full set reflects a third of the damage of melee hits back at their source.
+  { name: 'mirror', displayName: 'Mirror', points: [3, 8, 6, 3], toughness: 2, durability: 36, enchantability: 18, material: 'mirror_ingot', color: '#dfe9fa', shade: '#8a96b4', craftable: true, set: 'mirror' },
   { name: 'starlight', displayName: 'Starlight', points: [3, 8, 6, 3], toughness: 3, knockback: 0.1, durability: 40, enchantability: 22, material: 'starlight_ingot', color: '#9ad8ff', shade: '#4a78c0', craftable: true, set: 'starlight' },
 ];
 

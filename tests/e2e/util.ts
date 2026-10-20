@@ -107,6 +107,9 @@ export interface Hc {
   hurtMob(id: number, amount: number): boolean;
   voidBoss(): { defeated: boolean; pylons: number; lances: number; warning: string; shifted: boolean; phase: number; health: number; id: number };
   setVoidDefeated(on: boolean): void;
+  mirrorBoss(): { defeated: boolean; lances: number; warning: string; phase: number; health: number; shielded: boolean; dyn: number; id: number };
+  summonTwin(x: number, y: number, z: number, w: number): boolean;
+  setMirrorDefeated(on: boolean): void;
   voidDrain(): number;
   advancements(): { done: string[]; stats: Record<string, number>; progress: { done: number; total: number }; biomes: number };
   grantAdvancement(id: string): boolean;

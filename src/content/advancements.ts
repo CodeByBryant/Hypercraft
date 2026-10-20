@@ -38,7 +38,7 @@ export const ADV_CATEGORIES: AdvCategoryDef[] = [
 ];
 
 /** Things the game reports (Game calls Advancements.event with these names). */
-export const EVENTS = ['sleep', 'trade', 'plant', 'breed', 'fish', 'block', 'enchant', 'anvil', 'phase_strike', 'void_gate', 'phase_step', 'rocket', 'rift_wake', 'rift'] as const;
+export const EVENTS = ['sleep', 'trade', 'plant', 'breed', 'fish', 'block', 'enchant', 'anvil', 'phase_strike', 'void_gate', 'phase_step', 'rocket', 'rift_wake', 'rift', 'reflect', 'twin_wake'] as const;
 export type AdvEvent = (typeof EVENTS)[number];
 
 /** Counters the game keeps: the largest slice tilt (degrees), blocks walked along the hidden axis, blocks glided. */
@@ -156,6 +156,13 @@ export const ADVANCEMENTS: AdvancementDef[] = [
   A('mirror/enter', 'mirror', 'The Reflection', 'Enter the Mirror Realm', 'mirror_shard', { type: 'realm', realm: 'mirror' }, 40, 'mirror/cross'),
   A('mirror/ore', 'mirror', 'Seven Years of Luck', 'Mine a mirror shard', 'mirror_shard', { type: 'have', items: ['mirror_shard'] }, 25, 'mirror/enter'),
   A('mirror/ingot', 'mirror', 'Mirrorite', 'Smelt a mirrorite ingot', 'mirror_ingot', { type: 'have', items: ['mirror_ingot'] }, 25, 'mirror/ore'),
+  A('mirror/shambler', 'mirror', 'Upside Down', 'Defeat a reflection shambler', 'reflection_dust', { type: 'kill', mobs: ['reflection_shambler'] }, 15, 'mirror/enter'),
+  A('mirror/stalker', 'mirror', 'Copycat', 'Defeat a mirror stalker', 'reflection_dust', { type: 'kill', mobs: ['mirror_stalker'] }, 20, 'mirror/enter'),
+  A('mirror/wraith', 'mirror', 'Silver Lining Again', 'Defeat a silver wraith', 'silver_nugget', { type: 'kill', mobs: ['silver_wraith'] }, 20, 'mirror/enter'),
+  A('mirror/armor', 'mirror', 'Reflective Surface', 'Craft or find a mirror chestplate', 'mirror_chestplate', { type: 'have', items: ['mirror_chestplate'] }, 35, 'mirror/ingot'),
+  A('mirror/palace', 'mirror', 'Face Your Reflection', 'Wake the Mirror Twin at its altar', 'twin_core', { type: 'event', name: 'twin_wake' }, 40, 'mirror/enter'),
+  A('mirror/twin', 'mirror', 'Mirror, Mirror', 'Defeat the Mirror Twin', 'twin_core', { type: 'kill', mobs: ['mirror_twin'] }, 300, 'mirror/palace'),
+  A('mirror/reflect', 'mirror', 'Not My Problem', 'Reflect a blow with a full set of mirror armour', 'mirror_helmet', { type: 'event', name: 'reflect' }, 40, 'mirror/armor'),
 ];
 
 export const ADV_BY_ID = new Map(ADVANCEMENTS.map((a) => [a.id, a]));

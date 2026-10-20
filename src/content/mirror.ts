@@ -12,7 +12,8 @@
 // Mirror Glass and a starlight shard) wakes it; step into the rift and you arrive in the Mirror
 // Realm at the mirror image of where you stood, in a fresh arch of your own that leads home.
 
-import type { BiomeDef, BlockDef, Hex, ItemDef, MiningDef, RecipeDef, TextureDef, TexturePattern } from './types';
+import { MIRROR_SPAWNS } from './mirrorMobs';
+import type { BiomeDef, BlockDef, Hex, ItemDef, LootTable, MiningDef, RecipeDef, TextureDef, TexturePattern } from './types';
 
 // ---------------------------------------------------------------- the rift arch
 
@@ -131,6 +132,12 @@ MIRROR_BLOCKS.push({ name: 'dormant_rift', displayName: 'Dormant Rift', render: 
 tex('mirror_rift', 'portal', ['#c8d8ff', '#ffffff', '#6a78c8'], { alpha: 0.7 });
 MIRROR_BLOCKS.push({ name: 'mirror_rift', displayName: 'Mirror Rift', render: 'translucent', solid: false, textures: { all: 'mirror_rift' }, tint: '#cfe0ff', alpha: 0.6, emission: 11, hardness: -1, tags: ['rift'] });
 
+// The Mirror Palace: its altar (the Hand Mirror wakes the Twin there) and the Twin's beams.
+tex('mirror_altar', 'metal', ['#e6eeff', '#9aa8c8', '#ffffff'], {});
+MIRROR_BLOCKS.push({ name: 'mirror_altar', displayName: 'Mirror Altar', render: 'opaque', solid: true, textures: { all: 'mirror_altar' }, emission: 7, hardness: -1, tags: ['mirror_altar'] });
+tex('mirror_beam', 'glow', ['#e8f0ff', '#9aa8ff', '#ffffff'], { alpha: 0.6 });
+MIRROR_BLOCKS.push({ name: 'mirror_beam', displayName: 'Mirror Beam', render: 'translucent', solid: false, textures: { all: 'mirror_beam' }, tint: '#d4dcff', alpha: 0.55, emission: 14, hardness: -1, damage: 6, tags: ['lance'] });
+
 // Plants: two (at least) for each biome.
 plant('silver_bloom', 'flower', ['#7a869e', '#7a869e', '#f4f8ff'], { emission: 2 });
 plant('mirror_reed', 'plant', ['#a8b4cc', '#8e9ab4'], { density: 0.6 });
@@ -154,6 +161,10 @@ export const MIRROR_ITEMS: ItemDef[] = [
   { name: 'hand_mirror', displayName: 'Hand Mirror', maxStack: 1, icon: { shape: 'mirror', colors: ['#dfe8ff', '#8a96b4', '#ffffff'] }, use: 'hand_mirror', readout: 'atlas', atlas: ['silver_arch'], group: 'tools', tags: ['glint'] },
   { name: 'mirror_shard', displayName: 'Mirror Shard', icon: { shape: 'shard', colors: ['#e6eeff', '#9aa8c8', '#ffffff'] }, group: 'materials' },
   { name: 'mirror_ingot', displayName: 'Mirrorite Ingot', icon: { shape: 'ingot', colors: ['#e6eeff', '#9aa8c8', '#ffffff'] }, group: 'materials' },
+  // Dropped by the realm's mobs: an ingredient of the potion of reflection... and, for now, of trade.
+  { name: 'reflection_dust', displayName: 'Reflection Dust', icon: { shape: 'dust', colors: ['#e6eeff', '#9aa8c8', '#ffffff'] }, group: 'materials' },
+  // The Mirror Twin's heart: proof, and the key to what comes after.
+  { name: 'twin_core', displayName: 'Twin Core', maxStack: 1, icon: { shape: 'gem', colors: ['#e6eeff', '#6a78c8', '#ffffff'] }, group: 'combat', tags: ['glint'] },
 ];
 
 export const MIRROR_RECIPES: RecipeDef[] = [
@@ -211,6 +222,7 @@ export const MIRROR_MINING: Record<string, MiningDef> = {
   resonance_reed: { shears: true, drops: 'none' },
   chrome_kelp: { shears: true, drops: 'none' },
   silver_coral: { tool: 'pickaxe', tier: 0, drops: 'none' },
+  mirror_altar: {},
 };
 
 // ---------------------------------------------------------------- biomes
@@ -313,3 +325,46 @@ export function mirrorBiomeFor(b: Pick<BiomeDef, 'kind' | 'climate' | 'trees'>):
 
 /** Mirrors an x coordinate (a cell, or a position) between the Surface and the Mirror Realm. */
 export const flipCell = (x: number): number => -x - 1;
+
+// ---------------------------------------------------------------- loot
+
+const W = (lo: number, hi: number): [number, number] => [lo, hi];
+
+export const MIRROR_LOOT: Record<string, LootTable> = {
+  mirror_palace: {
+    pools: [
+      // Every chest holds a piece of Mirror Armor.
+      {
+        rolls: W(1, 1),
+        entries: [
+          { item: 'mirror_helmet', weight: 3, wear: W(0.05, 0.4) },
+          { item: 'mirror_chestplate', weight: 2, wear: W(0.05, 0.4) },
+          { item: 'mirror_leggings', weight: 3, wear: W(0.05, 0.4) },
+          { item: 'mirror_boots', weight: 3, wear: W(0.05, 0.4) },
+        ],
+      },
+      {
+        rolls: W(3, 5),
+        entries: [
+          { item: 'mirror_shard', weight: 9, count: W(2, 5) },
+          { item: 'mirror_ingot', weight: 5, count: W(1, 3) },
+          { item: 'silver_ingot', weight: 8, count: W(2, 6) },
+          { item: 'reflection_dust', weight: 6, count: W(1, 4) },
+          { item: 'starlight_shard', weight: 5, count: W(1, 3) },
+          { item: 'golden_apple', weight: 3 },
+          { item: 'xp_bottle', weight: 4, count: W(1, 4) },
+          { item: 'book', weight: 3, enchant: W(15, 30) },
+          { item: 'hand_mirror', weight: 1 },
+        ],
+      },
+    ],
+  },
+};
+
+// ---------------------------------------------------------------- spawns and structures
+
+// Natural spawns (mirrorMobs.ts), and which structures a Mirror biome may host.
+for (const b of MIRROR_BIOMES) {
+  b.mobs = { night: MIRROR_SPAWNS[b.name] ?? [] };
+  b.structures = b.kind === 'land' ? ['mirror_palace'] : [];
+}

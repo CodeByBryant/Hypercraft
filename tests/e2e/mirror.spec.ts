@@ -151,3 +151,51 @@ test('mirror realm: wake a rift with a hand mirror, cross to your reflection and
   expect(Math.hypot(home[0]! - (start.x + 0.5), home[2]! - (start.z + 0.5))).toBeLessThan(4);
   expect(errors).toEqual([]);
 });
+
+test('mirror palace: the Hand Mirror wakes the Twin at the altar; it wears your pose and falls', async ({ page }) => {
+  test.setTimeout(400_000);
+  const errors: string[] = [];
+  await boot(page, 'realm=mirror&res=180&rd=3&seed=lookingglass', errors);
+  const set = await page.evaluate(async () => {
+    const hc = window.__hc;
+    hc.setMode('survival');
+    hc.setMobSpawning(false);
+    hc.clearMobs();
+    hc.setTime(6000);
+    const s = hc.state();
+    const x = Math.floor(s.pos[0]!) + 3, y = Math.floor(s.pos[1]!), z = Math.floor(s.pos[2]!), w = Math.floor(s.pos[3]!);
+    for (let dx = -8; dx <= 8; dx++)
+      for (let dz = -8; dz <= 8; dz++)
+        for (let dy = 0; dy <= 5; dy++) hc.setBlock(x + dx, y + dy, z + dz, w, 'air');
+    for (let dx = -8; dx <= 8; dx++) for (let dz = -8; dz <= 8; dz++) hc.setBlock(x + dx, y - 1, z + dz, w, 'stone');
+    hc.setBlock(x, y, z, w, 'mirror_altar');
+    hc.clearInventory();
+    hc.give('hand_mirror');
+    hc.select(0);
+    await hc.frames(3);
+    const before = hc.mirrorBoss();
+    hc.useOn(x, y, z, w);
+    await hc.frames(10);
+    return { x, y, z, w, before, after: hc.mirrorBoss(), mobs: hc.mobs().map((m) => m.name) };
+  });
+  expect(set.before.id).toBe(-1);
+  expect(set.mobs).toContain('mirror_twin');
+  expect(set.after.phase).toBe(1);
+  expect(set.after.dyn).toBeGreaterThan(8);
+  expect(set.after.warning).toContain('Twin');
+  await page.evaluate(async () => {
+    window.__hc.setView({ yaw: 90, pitch: 2 });
+    await window.__hc.frames(30);
+  });
+  await shot(page, 'mirror-5-twin');
+  const end = await page.evaluate(async () => {
+    const hc = window.__hc;
+    const id = hc.mirrorBoss().id;
+    hc.hurtMob(id, 99999);
+    await hc.frames(10);
+    return { boss: hc.mirrorBoss(), adv: hc.advancements().done };
+  });
+  expect(end.boss.defeated).toBe(true);
+  expect(end.adv).toContain('mirror/palace');
+  expect(errors).toEqual([]);
+});

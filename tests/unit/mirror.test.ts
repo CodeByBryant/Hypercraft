@@ -8,6 +8,7 @@ import { createGenerator } from '../../src/world/gen/generators';
 import { scalePosition } from '../../src/game/Portals';
 import { COLUMN_LAYER } from '../../src/world/constants';
 import { RECIPES } from '../../src/content/recipes';
+import { LOOT_TABLES } from '../../src/content/loot';
 
 const realm = REG.realm('mirror');
 const surfaceRealm = REG.realm('surface');
@@ -162,5 +163,43 @@ describe('Mirror Realm: the way in', () => {
     expect([...(r as { ingredients: string[] }).ingredients].sort()).toEqual(['mirror_glass', 'silver_ingot', 'starlight_shard']);
     expect(IREG.has('hand_mirror')).toBe(true);
     expect(IREG.def(IREG.id('hand_mirror')).use).toBe('hand_mirror');
+  });
+});
+
+describe('Mirror Palace (Phase 9.3)', () => {
+  const g = new MirrorGenerator(4242, realm);
+
+  it('stands in the Mirror Realm: built inside its radius, with an altar, four chests of the palace loot and two spawners', () => {
+    const st = g.structures.placer.nearest(['mirror_palace'], 0, 0, 0, 3000);
+    expect(st).not.toBeNull();
+    const plan = g.structures.plan(st!);
+    const r = st!.def.radius + 3;
+    expect(plan.min[0]!).toBeGreaterThanOrEqual(st!.x - r);
+    expect(plan.max[0]!).toBeLessThanOrEqual(st!.x + r);
+    expect(plan.min[2]!).toBeGreaterThanOrEqual(st!.z - r);
+    expect(plan.max[2]!).toBeLessThanOrEqual(st!.z + r);
+    expect(plan.min[3]!).toBeGreaterThanOrEqual(st!.w - r - 3);
+    expect(plan.max[3]!).toBeLessThanOrEqual(st!.w + r + 3);
+    const chests = plan.markers.filter((m) => m.kind === 'chest');
+    const spawners = plan.markers.filter((m) => m.kind === 'spawner');
+    expect(chests).toHaveLength(4);
+    for (const c of chests) expect(c.loot).toBe('mirror_palace');
+    expect(spawners.map((m) => m.mob)).toEqual(['reflection_shambler', 'reflection_shambler']);
+    // The altar stands at the middle of the dais, one above the floor.
+    const cx = Math.floor(st!.x / 16), cz = Math.floor(st!.z / 16), cw = Math.floor(st!.w / 16);
+    const blocks = new Uint16Array(COLUMN_LAYER * g.height);
+    g.generate(cx, cz, cw, blocks, new Uint8Array(COLUMN_LAYER * 4), {});
+    const i = (st!.x & 15) + 16 * (st!.z & 15) + 256 * (st!.w & 15) + COLUMN_LAYER * (st!.y + 1);
+    expect(blocks[i]! & 0xfff).toBe(REG.id('mirror_altar'));
+  });
+
+  it('is hosted by Mirror land biomes only, and its loot holds mirror armour', () => {
+    for (const b of REG.biomes) {
+      const hosts = (b.structures ?? []).includes('mirror_palace');
+      expect(hosts, b.name).toBe(b.realm === 'mirror' && b.kind === 'land');
+    }
+    const table = LOOT_TABLES.mirror_palace!;
+    const items = new Set(table.pools.flatMap((p) => p.entries.map((e) => e.item)));
+    for (const n of ['mirror_helmet', 'mirror_chestplate', 'mirror_leggings', 'mirror_boots']) expect(items.has(n), n).toBe(true);
   });
 });
