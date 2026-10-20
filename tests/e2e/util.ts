@@ -107,6 +107,11 @@ export interface Hc {
   hurtMob(id: number, amount: number): boolean;
   voidBoss(): { defeated: boolean; pylons: number; lances: number; warning: string; shifted: boolean; phase: number; health: number; id: number };
   setVoidDefeated(on: boolean): void;
+  resonanceBoss(): { defeated: boolean; phase: number; health: number; guard: number; plates: boolean[]; cracks: number[]; exposed: number; calls: number[]; lances: number; warning: string; dyn: number; id: number };
+  summonTitan(x: number, y: number, z: number, w: number): boolean;
+  ringFork(tone: number): void;
+  breakTitanPlates(): void;
+  freezeFights(on: boolean): void;
   pulses(): { tone: number; r: number; spent: boolean; owner: string; c: number[] }[];
   singPulse(tone: number, x: number, y: number, z: number, w: number, damage?: number): void;
   cancelPulses(tone: number): number;

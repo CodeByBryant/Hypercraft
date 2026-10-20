@@ -25,6 +25,8 @@ export interface Pulse {
   owner: string;
   /** It has passed you (hit or blocked): it still spreads but cannot hurt again. */
   spent: boolean;
+  /** Yours (a Tuning Fork's ring): drawn, but it hurts nobody and cannot be cancelled. */
+  friendly: boolean;
   age: number;
 }
 
@@ -38,6 +40,7 @@ export interface PulseHost {
 }
 
 export interface PulseOpts {
+  friendly?: boolean;
   speed?: number;
   reach?: number;
   thick?: number;
@@ -52,7 +55,7 @@ export class Pulses {
   /** Sing a pulse from `from` (4D). Returns it. */
   spawn(from: ArrayLike<number>, tone: number, damage: number, owner: string, o: PulseOpts = {}): Pulse {
     if (this.list.length > 24) this.list.shift();
-    const p: Pulse = { c: Float64Array.from(from), r: 0.5, speed: o.speed ?? DEFAULTS.speed, reach: o.reach ?? DEFAULTS.reach, thick: o.thick ?? DEFAULTS.thick, tone, damage, owner, spent: false, age: 0 };
+    const p: Pulse = { c: Float64Array.from(from), r: 0.5, speed: o.speed ?? DEFAULTS.speed, reach: o.reach ?? DEFAULTS.reach, thick: o.thick ?? DEFAULTS.thick, tone, damage, owner, spent: o.friendly === true, friendly: o.friendly === true, age: 0 };
     this.list.push(p);
     return p;
   }
@@ -111,7 +114,7 @@ export class Pulses {
     const out: Pulse[] = [];
     for (let i = this.list.length - 1; i >= 0; i--) {
       const p = this.list[i]!;
-      if (p.tone !== tone || p.spent) continue;
+      if (p.tone !== tone || p.spent || p.friendly) continue;
       const d = Math.hypot(at[0]! - p.c[0]!, at[1]! - p.c[1]!, at[2]! - p.c[2]!, at[3]! - p.c[3]!);
       if (d > range || p.r > d + p.thick) continue;
       out.push(p);
@@ -122,7 +125,7 @@ export class Pulses {
 
   /** Is there an unspent pulse of any tone but `tone` on its way to `at`? (An off-key answer.) */
   incoming(at: ArrayLike<number>, range = 30): Pulse[] {
-    return this.list.filter((p) => !p.spent && Math.hypot(at[0]! - p.c[0]!, at[1]! - p.c[1]!, at[2]! - p.c[2]!, at[3]! - p.c[3]!) <= range && p.r <= Math.hypot(at[0]! - p.c[0]!, at[1]! - p.c[1]!, at[2]! - p.c[2]!, at[3]! - p.c[3]!) + p.thick);
+    return this.list.filter((p) => !p.spent && !p.friendly && Math.hypot(at[0]! - p.c[0]!, at[1]! - p.c[1]!, at[2]! - p.c[2]!, at[3]! - p.c[3]!) <= range && p.r <= Math.hypot(at[0]! - p.c[0]!, at[1]! - p.c[1]!, at[2]! - p.c[2]!, at[3]! - p.c[3]!) + p.thick);
   }
 
   clear(): void {

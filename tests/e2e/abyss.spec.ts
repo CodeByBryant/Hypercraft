@@ -235,3 +235,84 @@ test('abyss mobs: a sound pulse is a shell you see in your slice, and a full pri
   expect(beam.done).toBe(true);
   expect(errors).toEqual([]);
 });
+
+test('resonance titan: a fork rung at the bell wakes it, the matching fork answers its call, and it falls', async ({ page }) => {
+  test.setTimeout(500_000);
+  const errors: string[] = [];
+  await boot(page, 'res=180&rd=2&seed=glowdeep&realm=abyss', errors);
+  const set = await page.evaluate(async () => {
+    const hc = window.__hc;
+    hc.setMode('survival');
+    hc.setMobSpawning(false);
+    hc.clearMobs();
+    hc.clearInventory();
+    const s = hc.state();
+    const x = Math.floor(s.pos[0]!) + 4, y = Math.floor(s.pos[1]!), z = Math.floor(s.pos[2]!), w = Math.floor(s.pos[3]!);
+    // A stage for the fight: a wide stone floor, open air above, the Bell on a pedestal.
+    for (let dx = -14; dx <= 6; dx++)
+      for (let dz = -8; dz <= 8; dz++)
+        for (let dw = -5; dw <= 5; dw++) {
+          hc.setBlock(x + dx, y - 1, z + dz, w + dw, 'stone');
+          for (let dy = 0; dy <= 9; dy++) hc.setBlock(x + dx, y + dy, z + dz, w + dw, 'air');
+        }
+    hc.setBlock(x, y, z, w, 'prism_block');
+    hc.setBlock(x, y + 1, z, w, 'cathedral_bell');
+    for (const f of ['low_fork', 'mid_fork', 'high_fork', 'shrill_fork']) hc.give(f);
+    hc.select(0);
+    await hc.frames(4);
+    const before = hc.resonanceBoss();
+    // Ring the held fork at the Bell, as a player does.
+    hc.useOn(x, y + 1, z, w);
+    await hc.frames(10);
+    const after = hc.resonanceBoss();
+    return { x, y, z, w, before, woke: after.id >= 0, after, mobs: hc.mobs().map((m) => m.name) };
+  });
+  expect(set.before.id).toBe(-1);
+  expect(set.woke).toBe(true);
+  expect(set.mobs).toContain('resonance_titan');
+  expect(set.after.dyn).toBeGreaterThan(8);
+  expect(set.after.guard).toBeGreaterThan(0.8);
+  expect(set.after.plates).toEqual([true, true, true, true]);
+  // It sings: wait for a call, then answer it with the same tone.
+  await page.evaluate(async () => {
+    const hc = window.__hc;
+    hc.setView({ yaw: 270, pitch: 8 });
+    // Advance until it sings, a little more so the ring shows, then hold everything still for the picture.
+    for (let i = 0; i < 4000 && hc.resonanceBoss().calls.length === 0; i++) await hc.frames(1);
+    await hc.frames(4);
+    hc.freezeMobs(true);
+    hc.freezeFights(true);
+    await hc.frames(8);
+  });
+  await shot(page, 'abyss-7-titan-call');
+  const answer = await page.evaluate(async () => {
+    const hc = window.__hc;
+    hc.freezeMobs(false);
+    hc.freezeFights(false);
+    const calls = hc.resonanceBoss().calls;
+    const wrong = (calls[0]! + 1) % 4;
+    hc.ringFork(wrong);
+    await hc.frames(24);
+    hc.ringFork(calls[0]!);
+    await hc.frames(4);
+    const b = hc.resonanceBoss();
+    return { tone: calls[0]!, cracks: b.cracks, pulses: hc.pulses().filter((p) => p.owner === 'resonance_titan' && !p.spent).length, warning: b.warning, advDone: hc.advancements().done.includes('abyss/answer') };
+  });
+  expect(answer.cracks[answer.tone]).toBe(1);
+  expect(answer.advDone).toBe(true);
+  // The heart exposed, the armour gone, and it falls.
+  const end = await page.evaluate(async () => {
+    const hc = window.__hc;
+    hc.breakTitanPlates();
+    await hc.frames(6);
+    const exposed = hc.resonanceBoss();
+    hc.hurtMob(exposed.id, 99999);
+    await hc.frames(10);
+    return { exposed, boss: hc.resonanceBoss(), adv: hc.advancements().done };
+  });
+  expect(end.exposed.exposed).toBeGreaterThan(0);
+  expect(end.exposed.guard).toBe(0);
+  expect(end.boss.defeated).toBe(true);
+  expect(end.adv).toContain('abyss/bell');
+  expect(errors).toEqual([]);
+});

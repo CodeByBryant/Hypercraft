@@ -147,3 +147,49 @@ A reflected copy of the Surface (Realm D).
   biome reached, `sample` against blocks, the spawn, crystals, geodes, shifting walls, the gate, rift
   links, the Prism tier), `tests/e2e/abyss.spec.ts` (the three R6 views, the dark, a biome tour, a
   full gate trip: wake with a crystal, cross down, arrive in a carved chamber, come home).
+
+## 9.5 Abyss mobs, the Crystal Cathedral, the Resonance Titan, Prism armour
+
+* **Mobs** (`src/content/abyssMobs.ts`, per-biome tables in `ABYSS_SPAWNS`):
+  * *Prism Spider* (AI `prism`): climbs, skitters 6 to 11 blocks off and shoots **light beams**: arrow-like
+    projectiles flagged `beam` (`MobDef.projectile.beam`, `Projectiles`).
+  * *Resonance Golem* (AI `resonant`): sings a **sound pulse** every four to six seconds.
+  * *Geode Slime* (`hopper`, `hardens`): its shell hardens for 1.3 s after every hit (a quarter damage, a
+    grey tint); it splits when it dies.
+* **Sound pulses** (`src/game/mobs/Pulses.ts`): an expanding 4-sphere of one of four **tones** (Low, Mid,
+  High, Shrill). In your slice it is a sphere growing around its source, drawn as a ring of glowing points
+  (`pulseFx`, the `ping` particle). It hurts once as it passes you, unless stone stands between you and its
+  source (cover is a line of sight in 4D), and it can be **cancelled** by ringing a **Tuning Fork** of the
+  same tone while it is still on its way. Pulses reach you through the hidden axis like anything else.
+* **Tuning Forks** (`low_fork`, `mid_fork`, `high_fork`, `shrill_fork`): two resonance crystals, a prism
+  ingot and a tuning metal (iron, gold, hyperite, amethyst). Ring one anywhere to sound its tone
+  (`Game.ringFork`, a 0.35 s cooldown, your own ring is drawn too); ring one at the Resonance Bell to wake
+  the Titan.
+* **Prism armour** (`armor.ts`, set `prism`): a full set **reflects light beams** (they turn around and
+  fly back at where they came from, 1.25x) and keeps **night vision** on you (`Game.prismGear`). The
+  Cathedral's chests hold it.
+* **Crystal Cathedral** (`crystal_cathedral`, Abyss land biomes, one per ~224 blocks): a nave 37 long, 19
+  wide and 15 high cut out of whatever stands there, prism-glass pillars, crystal windows, a doorway at the
+  west end, a dais at the east end with the **Resonance Bell**, four chests (Prism armour, forks, shards,
+  crystals) and three spawners. The Resonance Compass now points to Geode Gates on the Surface and
+  Cathedrals in the Abyss.
+* **The Resonance Titan** (`src/game/ResonanceBoss.ts`, AI `titan`):
+  * Four **crystal plates**, one per tone, soak nine tenths of every blow (`Mob.guard`); each shattered plate
+    gives 15% back.
+  * It **sings** a tone (a pulse, shown on the HUD: "The Titan sings SHRILL · ring the matching fork!").
+    Answer in time with the matching fork and the pulse is cancelled and the plate cracks (two cracks to
+    shatter it in phase I, three later). Ring the wrong fork and you take 3 and are told what it sang; do
+    nothing and the shell hits you for 9.
+  * All four plates gone: the **heart is exposed** for 14 s (no calls, no armour), then they re-form.
+  * Phase II (66%): calls in pairs, faster, two Geode Slimes. Phase III (33%): three voices at once and
+    crystal spikes that stab up along W, announced on the radar (the shared `LanceField`).
+  * Nothing within 30 blocks of the Bell can be broken or built while it lives; it goes home and heals if
+    you leave; its body (`titanParts`) is rebuilt every frame from its plates. A defeat is remembered
+    (`SavedState.data.bossFights.abyss`).
+* Advancements: Light Show, Noise Complaint, Rock and a Hard Place, Faceted, Returned to Sender, Perfect Pitch,
+  Call and Response, For Whom the Bell Tolls, Resonance Cascade.
+* Tests: `tests/unit/abyssmobs.test.ts` (definitions, beams, golem songs, pulses: growth, once-only hits,
+  cover, cancel, 4D reach; slime hardening; the Prism set), `tests/unit/resonance.test.ts` (the Cathedral
+  and Bell, waking, armour, plates, calls, answers, off-key, exposure, phases, arena, save), and e2e
+  (`abyss.spec.ts`: a pulse ring you see and answer, Prism armour turning a beam, a fork rung at the Bell,
+  the Titan's call answered and its fall).

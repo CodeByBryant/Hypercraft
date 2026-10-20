@@ -425,8 +425,9 @@ export interface ItemDef {
 }
 
 export type ItemUse =
-  // Phase 9: fuel for an Abyss rift.
+  // Phase 9: fuel for an Abyss rift; a Tuning Fork sounds a tone.
   | 'rift_fuel'
+  | 'tuning_fork'
   | 'bucket'
   | 'water_bucket'
   | 'lava_bucket'

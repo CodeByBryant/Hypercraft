@@ -67,6 +67,8 @@ export const STRUCTURES: StructureDef[] = [
   { name: 'mirror_palace', displayName: 'Mirror Palace', placement: 'surface', spacing: 160, chance: 0.45, builder: 'mirror_palace', radius: 20, salt: 0x7302, realm: 'mirror' },
   // The Geode Gate (realm 'surface'): a hollow geode deep underground with a dormant rift; a Resonance Crystal wakes it.
   { name: 'geode_gate', displayName: 'Geode Gate', placement: 'underground', spacing: 224, chance: 0.7, builder: 'geode_gate', radius: 11, y: [18, 44], salt: 0x7401 },
+  // The Crystal Cathedral (realm 'abyss'): a great hall with the Resonance Bell, where the Resonance Titan waits.
+  { name: 'crystal_cathedral', displayName: 'Crystal Cathedral', placement: 'surface', spacing: 224, chance: 0.55, builder: 'crystal_cathedral', radius: 24, salt: 0x7402, realm: 'abyss' },
   { name: 'silver_arch', displayName: 'Silver Arch', placement: 'surface', spacing: 256, chance: 0.5, builder: 'silver_arch', radius: 4, salt: 0x7301 },
 
   // ---------------------------------------------------------------- Hollow Void (Phase 8)

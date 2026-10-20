@@ -73,6 +73,7 @@ import { ARRIVAL_POS, gatewayAt } from '../content/void';
 import { GATE, fillFrame, gateProgress } from './VoidGate';
 import { VoidBoss } from './VoidBoss';
 import { MirrorBoss } from './MirrorBoss';
+import { ResonanceBoss } from './ResonanceBoss';
 import { Pulses, type PulseHost } from './mobs/Pulses';
 import { TONES } from '../content/titanBody';
 import type { BossFight, PlayerAction } from './BossFight';
@@ -295,6 +296,10 @@ export class Game {
   /** The Void Sovereign's fight (Hollow Void). */
   voidBoss!: VoidBoss;
   mirrorBoss!: MirrorBoss;
+  resonanceBoss!: ResonanceBoss;
+  private forkCd = 0;
+  /** Tests: hold pulses and boss fights still (for screenshots). */
+  fightsFrozen = false;
   /** Every realm boss's fight; each runs only in its own realm. */
   fights: BossFight[] = [];
   private lastSwingT = 99;
@@ -682,14 +687,28 @@ export class Game {
       doll: () => this.doll,
       hurt: (amount, attacker, cause) => void this.hurtPlayer(amount, attacker.pos, cause, 'melee', attacker),
     });
-    this.fights = [this.voidBoss, this.mirrorBoss];
+    this.resonanceBoss = new ResonanceBoss({
+      world: this.world,
+      mobs: this.mobs,
+      pulses: this.pulses,
+      playerPos: this.player.pos,
+      playerRight: this.player.cam.R,
+      playerHidden: this.player.cam.H,
+      playerTargetable: () => this.mobHost.playerTargetable,
+      difficulty: () => DIFFICULTY[this.info.difficulty] ?? 2,
+      glow: (x, y, z, w, color, n = 3) => this.particles.burst(x, y, z, w, this.player.cam, 'spark', color, n, 2.4, 0.5, true),
+      message: (t) => this.message?.(t),
+      dropItem: (x, y, z, w, st) => this.dropAtCell(x, y, z, w, st),
+      hurt: (amount, attacker, cause) => void this.hurtPlayer(amount, attacker.pos, cause, 'explosion', attacker),
+    });
+    this.fights = [this.voidBoss, this.mirrorBoss, this.resonanceBoss];
     this.pulseHost = {
       world: this.world,
       playerPos: this.player.pos,
       get playerHeight() {
         return game.player.height;
       },
-      hurt: (amount, from, owner) => void this.hurtPlayer(amount, from, MOB_REG.has(owner) ? MOB_REG.get(owner).def.displayName : 'A sound pulse', 'explosion'),
+      hurt: (amount, from, owner) => amount > 0 && void this.hurtPlayer(amount, from, MOB_REG.has(owner) ? MOB_REG.get(owner).def.displayName : 'A sound pulse', 'explosion'),
     };
     this.adv.onUnlock = (a) => this.advancementMade(a);
     this.projHost = {
@@ -1105,12 +1124,13 @@ export class Game {
       p.eye(this.eyePos);
       this.mobs.update(dt, this.mobHost, this.biomeFn, this.caveFn);
       this.projectiles.update(dt, this.world, this.mobs, this.projHost);
-      if (this.player.mode !== 'spectator') this.pulses.update(dt, this.pulseHost);
+      if (this.forkCd > 0) this.forkCd -= dt;
+      if (this.player.mode !== 'spectator' && !this.fightsFrozen) this.pulses.update(dt, this.pulseHost);
       this.pulseFx(dt);
       this.prismGear(dt);
       this.bosses.update(dt);
       this.watchActions();
-      for (const f of this.fights) if (f.realm === this.world.realm.name) f.update(dt);
+      if (!this.fightsFrozen) for (const f of this.fights) if (f.realm === this.world.realm.name) f.update(dt);
       this.villageTimer -= dt;
       if (this.villageTimer <= 0) {
         this.villageTimer = 1;
@@ -3934,6 +3954,35 @@ export class Game {
     }
   }
 
+  /** A Tuning Fork: rung at the Resonance Bell it wakes the Titan; anywhere else it sounds its tone. */
+  private useFork(held: ItemStack): void {
+    const tone = TONES.findIndex((t) => t.fork === IREG.name(held.id));
+    if (tone < 0) return;
+    const t = this.target;
+    if (this.hasTarget && (this.world.getBlock(t.x, t.y, t.z, t.w) & 0xfff) === REG.id('cathedral_bell')) {
+      if (this.world.realm.name === 'abyss' && this.resonanceBoss.summon(t.x, t.y, t.z, t.w)) this.adv.event('bell_wake');
+      return;
+    }
+    this.ringFork(tone);
+  }
+
+  /**
+   * Sound a tone (0 Low .. 3 Shrill): a ring of that colour leaves you, every hostile pulse of the tone still
+   * on its way to you is silenced, and the Resonance Titan hears whether you answered its call.
+   */
+  ringFork(tone: number): void {
+    if (this.forkCd > 0 || tone < 0 || tone > 3) return;
+    this.forkCd = 0.35;
+    const p = this.player.pos;
+    this.pulses.spawn([p[0]!, p[1]! + 1.1, p[2]!, p[3]!], tone, 0, 'player', { friendly: true, speed: 16, reach: 7, thick: 1 });
+    const cancelled = this.pulses.cancel(tone, p);
+    this.resonanceBoss.forkRung(tone, cancelled);
+    if (cancelled.length > 0) {
+      this.adv.event('fork_answer');
+      this.message?.(`${TONES[tone]!.name} answers: ${cancelled.length === 1 ? 'a pulse is' : `${cancelled.length} pulses are`} silenced`);
+    }
+  }
+
   /** A light beam met a full set of Prism armour: it turns around and flies back at where it came from. */
   private reflectBeam(vel: Float64Array, damage: number): void {
     const p = this.player;
@@ -4476,6 +4525,10 @@ export class Game {
     }
     if (use === 'rift_fuel') {
       this.useRiftFuel(held);
+      return;
+    }
+    if (use === 'tuning_fork') {
+      this.useFork(held);
       return;
     }
     if (use === 'starlight_rocket') {

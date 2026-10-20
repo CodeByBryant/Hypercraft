@@ -122,6 +122,14 @@ ABYSS_BLOCKS.push({ name: 'dormant_abyss_rift', displayName: 'Dormant Abyss Rift
 tex('abyss_rift', 'portal', ['#b8a0ff', '#ffffff', '#5a3ac8'], { alpha: 0.7 });
 ABYSS_BLOCKS.push({ name: 'abyss_rift', displayName: 'Abyss Rift', render: 'translucent', solid: false, textures: { all: 'abyss_rift' }, tint: '#c0a8ff', alpha: 0.6, emission: 12, hardness: -1, tags: ['rift'] });
 
+// The Crystal Cathedral: its stone, the Resonance Bell (a Tuning Fork rung at it wakes the Titan) and the
+// Titan's spikes (columns of crystal that stab up through the floor, announced first).
+cube('cathedral_brick', 'bricks', ['#4a3e7a', '#3c3266', '#7a68b8'], { hardness: 4, emission: 1 });
+tex('cathedral_bell', 'metal', ['#c8e0ff', '#7a9ad8', '#ffffff'], {});
+ABYSS_BLOCKS.push({ name: 'cathedral_bell', displayName: 'Resonance Bell', render: 'opaque', solid: true, textures: { all: 'cathedral_bell' }, emission: 10, hardness: -1, tags: ['cathedral_bell'] });
+tex('resonance_spike', 'glow', ['#d8f0ff', '#7ac8ff', '#ffffff'], { alpha: 0.6 });
+ABYSS_BLOCKS.push({ name: 'resonance_spike', displayName: 'Resonance Spike', render: 'translucent', solid: false, textures: { all: 'resonance_spike' }, tint: '#a8e0ff', alpha: 0.55, emission: 13, hardness: -1, damage: 7, tags: ['lance'] });
+
 // Plants: two (at least) for each biome. The Resonance Cluster is the fuel.
 plant('prism_bloom', 'flower', ['#4a3a7a', '#4a3a7a', '#f0b8ff'], { emission: 6 });
 plant('lumen_fern', 'plant', ['#8a6ad8', '#6a4ab8'], { density: 0.65, emission: 3 });
@@ -145,10 +153,16 @@ export const ABYSS_ITEMS: ItemDef[] = [
   // Grown on the Surface in crystal geodes, and in every geode of the Abyss: the Abyss gate's fuel
   // (held up to a dormant rift) and what attunes a compass to find the gates.
   { name: 'resonance_crystal', displayName: 'Resonance Crystal', icon: { shape: 'shard', colors: ['#a8e0ff', '#5aa0e8', '#ffffff'] }, use: 'rift_fuel', group: 'materials', tags: ['glint'] },
+  // Tuning Forks: each sounds one of the four tones. Ring one at a Resonance Golem's pulse (or the Titan's call)
+  // of the same tone and it is cancelled; ring one at the Resonance Bell in a Crystal Cathedral and the Titan wakes.
+  { name: 'low_fork', displayName: 'Low Tuning Fork', maxStack: 1, icon: { shape: 'fork', colors: ['#ff6a5a', '#a83a30', '#fff0ee'] }, use: 'tuning_fork', group: 'tools', tags: ['glint'] },
+  { name: 'mid_fork', displayName: 'Mid Tuning Fork', maxStack: 1, icon: { shape: 'fork', colors: ['#ffd24a', '#b08a1a', '#fffbe8'] }, use: 'tuning_fork', group: 'tools', tags: ['glint'] },
+  { name: 'high_fork', displayName: 'High Tuning Fork', maxStack: 1, icon: { shape: 'fork', colors: ['#5affd8', '#1a9a80', '#e8fffa'] }, use: 'tuning_fork', group: 'tools', tags: ['glint'] },
+  { name: 'shrill_fork', displayName: 'Shrill Tuning Fork', maxStack: 1, icon: { shape: 'fork', colors: ['#c88aff', '#7a4ab8', '#f6eaff'] }, use: 'tuning_fork', group: 'tools', tags: ['glint'] },
   // The Resonance Titan's heart: proof, and the right to wear what the Cathedral keeps.
   { name: 'resonance_heart', displayName: 'Resonance Heart', maxStack: 1, icon: { shape: 'gem', colors: ['#a8e0ff', '#3a6ad8', '#ffffff'] }, group: 'combat', tags: ['glint'] },
   // A Slicer Compass tuned by resonance: its arrow points to the nearest Geode Gate.
-  { name: 'resonance_compass', displayName: 'Resonance Compass', maxStack: 1, icon: { shape: 'compass', colors: ['#5aa0e8', '#2a4a98', '#e8f8ff'] }, readout: 'atlas', atlas: ['geode_gate'], group: 'tools', tags: ['glint'] },
+  { name: 'resonance_compass', displayName: 'Resonance Compass', maxStack: 1, icon: { shape: 'compass', colors: ['#5aa0e8', '#2a4a98', '#e8f8ff'] }, readout: 'atlas', atlas: ['geode_gate', 'crystal_cathedral'], group: 'tools', tags: ['glint'] },
 ];
 
 export const ABYSS_RECIPES: RecipeDef[] = [
@@ -157,6 +171,11 @@ export const ABYSS_RECIPES: RecipeDef[] = [
   { type: 'shapeless', ingredients: ['prism_block'], result: 'prism_ingot', count: 9 },
   { type: 'shaped', pattern: ['ccc', 'ccc', 'ccc'], key: { c: 'resonance_crystal' }, result: 'resonance_block' },
   { type: 'shapeless', ingredients: ['resonance_block'], result: 'resonance_crystal', count: 9 },
+  // A fork: two resonance crystals and a prism ingot, tuned with a metal (iron, gold, hyperite, amethyst).
+  { type: 'shapeless', ingredients: ['resonance_crystal', 'resonance_crystal', 'prism_ingot', 'iron_ingot'], result: 'low_fork' },
+  { type: 'shapeless', ingredients: ['resonance_crystal', 'resonance_crystal', 'prism_ingot', 'gold_ingot'], result: 'mid_fork' },
+  { type: 'shapeless', ingredients: ['resonance_crystal', 'resonance_crystal', 'prism_ingot', 'hyperite'], result: 'high_fork' },
+  { type: 'shapeless', ingredients: ['resonance_crystal', 'resonance_crystal', 'prism_ingot', 'amethyst_shard'], result: 'shrill_fork' },
   { type: 'shapeless', ingredients: ['slicer_compass', 'resonance_crystal', 'resonance_crystal', 'resonance_crystal'], result: 'resonance_compass' },
 ];
 
@@ -199,6 +218,8 @@ export const ABYSS_MINING: Record<string, MiningDef> = {
   resonance_cluster: { tool: 'pickaxe', tier: 0, drops: one('resonance_crystal', [1, 3]) },
   // The Surface's crystal geodes grow the first ones (the Abyss's fuel has to come from somewhere).
   sky_crystal_cluster: { tool: 'pickaxe', tier: 0, drops: one('resonance_crystal', [1, 2]) },
+  cathedral_brick: { tool: 'pickaxe', tier: 1 },
+  cathedral_bell: {},
   prism_bloom: { drops: 'none' },
   lumen_fern: { shears: true, drops: 'none' },
   geode_bud: { drops: 'none' },
@@ -307,6 +328,36 @@ export const ABYSS_STYLE: Record<string, AbyssStyle> = {
 const W = (lo: number, hi: number): [number, number] => [lo, hi];
 
 export const ABYSS_LOOT: Record<string, LootTable> = {
+  // The Crystal Cathedral: every chest holds a piece of Prism armour and, now and then, a fork.
+  crystal_cathedral: {
+    pools: [
+      {
+        rolls: W(1, 1),
+        entries: [
+          { item: 'prism_helmet', weight: 3, wear: W(0.05, 0.4) },
+          { item: 'prism_chestplate', weight: 2, wear: W(0.05, 0.4) },
+          { item: 'prism_leggings', weight: 3, wear: W(0.05, 0.4) },
+          { item: 'prism_boots', weight: 3, wear: W(0.05, 0.4) },
+        ],
+      },
+      {
+        rolls: W(3, 5),
+        entries: [
+          { item: 'prism_shard', weight: 9, count: W(2, 5) },
+          { item: 'prism_ingot', weight: 4, count: W(1, 3) },
+          { item: 'resonance_crystal', weight: 9, count: W(2, 5) },
+          { item: 'low_fork', weight: 2 },
+          { item: 'mid_fork', weight: 2 },
+          { item: 'high_fork', weight: 2 },
+          { item: 'shrill_fork', weight: 2 },
+          { item: 'torch', weight: 6, count: W(8, 16) },
+          { item: 'golden_apple', weight: 3 },
+          { item: 'xp_bottle', weight: 4, count: W(1, 4) },
+          { item: 'book', weight: 3, enchant: W(18, 32) },
+        ],
+      },
+    ],
+  },
   // The first trip: fuel for the rift, light for the dark, and a little of the Surface's comfort.
   geode_gate: {
     pools: [
@@ -328,4 +379,8 @@ export const ABYSS_LOOT: Record<string, LootTable> = {
 
 // Everything a Surface land biome offers: the Geode Gate (see structures.ts and biomes.ts).
 // Natural spawns come with the Abyss mobs (9.5); until then the existing cavern dwellers live here.
-for (const b of ABYSS_BIOMES) b.mobs = { day: ABYSS_SPAWNS[b.name] ?? [] };
+for (const b of ABYSS_BIOMES) {
+  b.mobs = { day: ABYSS_SPAWNS[b.name] ?? [] };
+  // The Crystal Cathedral stands on any dry floor, in any land biome.
+  b.structures = b.kind === 'land' ? ['crystal_cathedral'] : [];
+}

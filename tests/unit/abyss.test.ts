@@ -232,7 +232,7 @@ describe('Crystal Abyss: the way in, and the Prism tier', () => {
     expect(blockDrops('resonance_cluster')).toContain('resonance_crystal');
     const r = RECIPES.find((x) => x.result === 'resonance_compass')!;
     expect(r.type).toBe('shapeless');
-    expect(IREG.def(IREG.id('resonance_compass')).atlas).toEqual(['geode_gate']);
+    expect(IREG.def(IREG.id('resonance_compass')).atlas).toEqual(['geode_gate', 'crystal_cathedral']);
   });
 
   it('Prism Shards come from prism ore (iron-plus tier), smelt to ingots, and make a tool tier', () => {

@@ -436,6 +436,22 @@ export function installTestApi(game: Game, screen?: InventoryScreen): void {
     },
     /** Wake the Twin at the altar cell, as the Hand Mirror does. */
     summonTwin: (x: number, y: number, z: number, w: number) => game.mirrorBoss.summon(x, y, z, w),
+    /** The Resonance Titan's fight: plates, cracks, exposure, calls on the way, phase, armour. */
+    resonanceBoss: () => {
+      const b = game.resonanceBoss, m = b.find();
+      return { defeated: b.defeated, phase: m ? m.phase : 0, health: m ? m.health : 0, guard: m ? m.guard : 0, plates: [...b.plates], cracks: [...b.cracks], exposed: b.exposed, calls: b.calls.map((c) => c.tone), lances: b.lances.length, warning: b.warning, dyn: m?.dyn?.length ?? 0, id: m ? m.id : -1 };
+    },
+    /** Ring a tuning fork at the Bell cell, as a held fork does. */
+    summonTitan: (x: number, y: number, z: number, w: number) => game.resonanceBoss.summon(x, y, z, w),
+    /** Sound tone 0..3 as a Tuning Fork does (cancels matching pulses, answers the Titan). */
+    ringFork: (tone: number) => game.ringFork(tone),
+    /** Shatter every plate at once (exposes the heart). */
+    breakTitanPlates: () => {
+      game.resonanceBoss.plates.fill(false);
+      game.resonanceBoss.exposed = 14;
+    },
+    /** Hold sound pulses and boss fights still (for screenshots), or resume. */
+    freezeFights: (on: boolean) => void (game.fightsFrozen = on),
     /** Sound pulses in flight (Resonance Golems, the Titan). */
     pulses: () => game.pulses.list.map((p) => ({ tone: p.tone, r: p.r, spent: p.spent, owner: p.owner, c: Array.from(p.c) })),
     /** Sing a pulse of a tone from a 4D point. */

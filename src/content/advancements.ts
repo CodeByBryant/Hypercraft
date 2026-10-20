@@ -39,7 +39,7 @@ export const ADV_CATEGORIES: AdvCategoryDef[] = [
 ];
 
 /** Things the game reports (Game calls Advancements.event with these names). */
-export const EVENTS = ['sleep', 'trade', 'plant', 'breed', 'fish', 'block', 'enchant', 'anvil', 'phase_strike', 'void_gate', 'phase_step', 'rocket', 'rift_wake', 'rift', 'reflect', 'twin_wake', 'gate_wake', 'beam_reflect'] as const;
+export const EVENTS = ['sleep', 'trade', 'plant', 'breed', 'fish', 'block', 'enchant', 'anvil', 'phase_strike', 'void_gate', 'phase_step', 'rocket', 'rift_wake', 'rift', 'reflect', 'twin_wake', 'gate_wake', 'beam_reflect', 'fork_answer', 'bell_wake'] as const;
 export type AdvEvent = (typeof EVENTS)[number];
 
 /** Counters the game keeps: the largest slice tilt (degrees), blocks walked along the hidden axis, blocks glided. */
@@ -178,6 +178,10 @@ export const ADVANCEMENTS: AdvancementDef[] = [
   A('abyss/slime', 'abyss', 'Rock and a Hard Place', 'Defeat a geode slime', 'amethyst_shard', { type: 'kill', mobs: ['geode_slime'] }, 20, 'abyss/enter'),
   A('abyss/armor', 'abyss', 'Faceted', 'Craft or find a prism chestplate', 'prism_chestplate', { type: 'have', items: ['prism_chestplate'] }, 50, 'abyss/ingot'),
   A('abyss/beam', 'abyss', 'Returned to Sender', 'Reflect a light beam with a full set of prism armour', 'prism_helmet', { type: 'event', name: 'beam_reflect' }, 40, 'abyss/armor'),
+  A('abyss/fork', 'abyss', 'Perfect Pitch', 'Craft a tuning fork', 'mid_fork', { type: 'have', items: ['low_fork', 'mid_fork', 'high_fork', 'shrill_fork'] }, 30, 'abyss/ingot'),
+  A('abyss/answer', 'abyss', 'Call and Response', 'Silence a sound pulse with the matching fork', 'mid_fork', { type: 'event', name: 'fork_answer' }, 30, 'abyss/fork'),
+  A('abyss/bell', 'abyss', 'For Whom the Bell Tolls', 'Ring a tuning fork at the Resonance Bell', 'resonance_block', { type: 'event', name: 'bell_wake' }, 40, 'abyss/answer'),
+  A('abyss/titan', 'abyss', 'Resonance Cascade', 'Defeat the Resonance Titan', 'resonance_heart', { type: 'kill', mobs: ['resonance_titan'] }, 400, 'abyss/bell'),
   A('abyss/block', 'abyss', 'Crystal Clear', 'Craft a block of resonance crystal', 'resonance_block', { type: 'have', items: ['resonance_block'] }, 25, 'abyss/root'),
 ];
 
