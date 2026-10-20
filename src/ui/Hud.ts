@@ -16,6 +16,7 @@ import { bowPower } from '../game/combat';
 import { ATLAS_RANGE } from '../game/Game';
 import { STRUCTURES } from '../content/structures';
 import type { AdvancementDef } from '../content/advancements';
+import { HandView, PaperDoll } from './BodyViews';
 
 const STRUCT_NAMES = new Map(STRUCTURES.map((s) => [s.name, s.displayName]));
 
@@ -48,6 +49,9 @@ export class Hud {
   readonly root: HTMLElement;
   private readonly game: Game;
   private readonly debug: HTMLPreElement;
+  /** First person: the hand with the held item, and the paper doll in the corner. */
+  private readonly hand: HandView;
+  private readonly paperDoll: PaperDoll;
   private readonly hotbar: HTMLDivElement;
   private readonly slots: HTMLDivElement[] = [];
   private readonly slotIcons: HTMLDivElement[] = [];
@@ -116,6 +120,9 @@ export class Hud {
   constructor(parent: HTMLElement, game: Game) {
     this.game = game;
     this.root = el('div', 'hud', parent);
+    // The hand and the doll come first so everything else is drawn over them.
+    this.hand = new HandView(this.root, game);
+    this.paperDoll = new PaperDoll(this.root, game);
     this.crosshair = el('div', 'crosshair', this.root);
     this.bowBar = el('div', 'bowbar', this.root);
     this.bowFill = el('div', 'bowfill', this.bowBar);
@@ -292,6 +299,9 @@ export class Hud {
       if (this.toastTimer <= 0) this.toast.style.opacity = '0';
     }
     if (g.inv.version !== this.lastHotbarVersion) this.renderHotbar();
+    this.hand.update(dt);
+    this.paperDoll.hidden = g.showDebug;
+    this.paperDoll.update();
     if (this.shieldFx.classList.contains('on') !== g.blocking) this.shieldFx.classList.toggle('on', g.blocking);
     if (g.hotbarIndex !== this.lastHotbar) {
       this.slots.forEach((s, i) => s.classList.toggle('active', i === g.hotbarIndex));

@@ -447,6 +447,17 @@ export function installTestApi(game: Game, screen?: InventoryScreen): void {
       for (let i = 0; i < 4; i++) if (i !== p.up) sp += p.vel[i]! * p.vel[i]!;
       return { gliding: p.gliding, speed: Math.sqrt(sp), vy: p.vel[p.up]!, rocket: p.rocket, wear: game.inv.get(37)?.damage ?? -1, phaseStepCd: game.phaseStepCd };
     },
+    /** Camera mode (0 first person, 1 third person, 2 third person from the front); set it, or read it with no argument. */
+    camera: (mode?: number) => {
+      if (mode !== undefined) game.camMode = mode;
+      return game.camMode;
+    },
+    /** The body model: part count packed for the ray marcher and the pose flags. */
+    body: () => ({ packed: game.mobs.extraBody?.parts.length ?? 0, swing: game.doll.swing, glide: game.doll.glide, wings: !!game.doll.wings, armor: [...game.doll.armor], held: game.doll.held?.kind ?? null }),
+    /** Start an arm swing (the hand and the body animate). */
+    swingArm: () => {
+      game.swingT = 0;
+    },
     traveling: () => game.traveling,
     /** Night vision is on (and allowed in this game mode). */
     nightVision: () => game.nightVisionOn,

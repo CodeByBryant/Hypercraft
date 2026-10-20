@@ -42,6 +42,7 @@ export const ACTIONS = [
   'nightVision',
   'swapHands',
   'advancements',
+  'cameraMode',
 ] as const;
 export type Action = (typeof ACTIONS)[number];
 
@@ -86,6 +87,7 @@ export const DEFAULT_BINDINGS: Record<Action, string[]> = {
   nightVision: ['KeyN'],
   swapHands: ['KeyH'],
   advancements: ['KeyL'],
+  cameraMode: ['F5'],
 };
 
 const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);

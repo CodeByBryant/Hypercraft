@@ -21,6 +21,9 @@ export interface Settings {
   touch: 'auto' | 'on' | 'off';
   /** Ambient particle density. */
   particles: 'all' | 'reduced' | 'off';
+  /** First person: the hand with the held item, and the little paper doll of yourself in the corner. */
+  hand: boolean;
+  paperDoll: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -38,6 +41,8 @@ export const DEFAULT_SETTINGS: Settings = {
   tint4D: true,
   touch: 'auto',
   particles: 'all',
+  hand: true,
+  paperDoll: true,
 };
 
 const KEY = 'hypercraft.settings.v1';

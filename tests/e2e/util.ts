@@ -93,6 +93,9 @@ export interface Hc {
   portals(): { realm: string; axis: number; thin?: number; min: number[]; max: number[] }[];
   portalTime(): number;
   traveling(): string | null;
+  camera(mode?: number): number;
+  body(): { packed: number; swing: number; glide: boolean; wings: boolean; armor: (string | null)[]; held: string | null };
+  swingArm(): void;
   nightVision(): boolean;
   startFire(x: number, y: number, z: number, w: number): boolean;
   fires(): number;

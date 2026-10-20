@@ -127,6 +127,7 @@ function startGame(info: WorldInfo, persistence: Persistence | null, settings: S
     onPause: () => pause(),
     onInventory: () => game.onOpenScreen?.({ kind: 'inventory' }),
     onAdvancements: () => game.onOpenAdvancements?.(),
+    onCamera: () => game.cycleCamera(),
     onToggleFly: () => {
       if (game.player.mode === 'creative' || game.player.mode === 'spectator') game.player.flying = !game.player.flying;
     },

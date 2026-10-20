@@ -17,6 +17,8 @@ import { WorkerPool } from '../world/gen/WorkerPool';
 import { LightEngine } from '../world/light/LightEngine';
 import { FluidSim } from '../world/fluids/Fluids';
 import { makeRayHit, raycast, type RayHit } from '../world/raycast';
+import { Frame4 } from '../math/frame';
+import { dollParts, newDollState, DOLL_RADIUS, type DollState } from './PlayerModel';
 import { createGenerator, type WorldGenerator } from '../world/gen/generators';
 import { VOID_VOXEL } from '../world/constants';
 import { COLLISION_NONE } from '../content/registry';
@@ -35,7 +37,7 @@ import { LEVEL_NAMES } from '../content/trades';
 import type { SavedMob } from './mobs/MobManager';
 import type { Column } from '../world/World';
 import { ARROW_SPEED, CRIT_MULTIPLIER, arrowDamage, attackCooldown, attackDamage, bowPower, hitWear, swingStrength, shieldCovers } from './combat';
-import type { BiomeDef } from '../content/types';
+import type { BiomeDef, Hex } from '../content/types';
 import type { FurnaceKind } from '../content/types';
 import { IconAtlas, SHEET_H, SHEET_W } from '../ui/IconAtlas';
 import { particleDensity, type Settings } from './Settings';
@@ -291,6 +293,27 @@ export class Game {
   readonly fire: FireSystem;
   /** Night vision toggle (creative and spectator only; N, or the touch button). */
   nightVision = false;
+
+  // ---- Phase 9.1: third person, the player's body and the first-person hand
+  /** 0 first person, 1 third person behind you, 2 third person facing you (F5). */
+  camMode = 0;
+  /** Where the camera is and the frame it looks along (the eye and your own frame in first person). */
+  private readonly viewPos = new Float64Array(4);
+  viewCam!: Frame4;
+  private frontCam: Frame4 | null = null;
+  private readonly viewHit: RayHit = makeRayHit();
+  /** The body as the paper doll and the model draw it (pose, armour colours, held item). */
+  readonly doll: DollState = newDollState();
+  private readonly dollList: import('../content/types').MobPart[] = [];
+  private readonly bodyPos = new Float64Array(4);
+  /** Walk cycle phase and stride (0..1), shared by the model, the doll and the hand's bob. */
+  walkPhase = 0;
+  walkStride = 0;
+  /** Seconds since the arm last swung (attack, mine, place); large = at rest. */
+  swingT = 99;
+  /** Item switch animation: 1 just switched, falls to 0 (the hand rises into view). */
+  equipT = 0;
+  private lastHeldId = -2;
 
   // ---- Phase 7: effects, hunger, experience, armour, 4D vision
   readonly effects = new EffectList();
@@ -653,6 +676,7 @@ export class Game {
       dropStack: (pos, st) => this.dropInSlice(pos[0]!, pos[1]!, pos[2]!, pos[3]!, { id: st.id, count: 1, damage: st.damage }),
     };
 
+    this.viewCam = this.player.cam;
     this.params = {
       cam: this.player.cam,
       eye: this.eyePos,
@@ -830,6 +854,118 @@ export class Game {
     this.message?.(this.nightVision ? 'Night vision ON (N)' : 'Night vision OFF');
   }
 
+  /** Settings: draw the first-person hand / the paper doll. */
+  get showHand(): boolean {
+    return this.settings.hand !== false;
+  }
+  get paperDoll(): boolean {
+    return this.settings.paperDoll !== false;
+  }
+
+  /** F5 / the touch button: first person, third person behind you, third person facing you. */
+  cycleCamera(): void {
+    this.camMode = (this.camMode + 1) % 3;
+    this.message?.(this.camMode === 0 ? 'First person' : this.camMode === 1 ? 'Third person' : 'Third person (front)');
+  }
+
+  /** Colour of an item's icon (armour and tools take their material's colour), for the body model. */
+  private itemColor(id: number, k = 0): Hex {
+    return IREG.def(id).icon?.colors[k] ?? '#9a9a9a';
+  }
+
+  /**
+   * Camera and body for this frame: the walk cycle and arm swing, the camera's place (the eye, or 4
+   * blocks behind / in front of it, pulled in by blocks) and the player's own model for the packer.
+   */
+  private updateView(dt: number): void {
+    const p = this.player, cam = p.cam;
+    let hs = 0;
+    for (let k = 0; k < 4; k++) if (k !== p.up) hs += p.vel[k]! * p.vel[k]!;
+    hs = Math.sqrt(hs);
+    this.walkStride += ((p.onGround && !p.gliding ? Math.min(1, hs / 4.3) : 0) - this.walkStride) * Math.min(1, dt * 12);
+    if (p.onGround) this.walkPhase += hs * dt * 2.6;
+    this.swingT += dt;
+    // Item switch: the hand drops out of view and rises again with the new item.
+    const hid = this.held ? this.held.id : -1;
+    if (hid !== this.lastHeldId) {
+      this.lastHeldId = hid;
+      this.equipT = 1;
+    }
+    this.equipT = Math.max(0, this.equipT - dt * 4);
+    this.updateDoll();
+
+    const eye = this.eyePos, vp = this.viewPos;
+    if (this.camMode === 0) {
+      for (let k = 0; k < 4; k++) vp[k] = eye[k]!;
+      this.viewCam = cam;
+      this.mobs.extraBody = null;
+      return;
+    }
+    // Third person: back along the view direction (or out in front, looking back), never into a wall.
+    const sgn = this.camMode === 1 ? -1 : 1;
+    const dir = this.tmp4;
+    for (let k = 0; k < 4; k++) dir[k] = cam.fwd[k]! * sgn;
+    let d = 4;
+    if (raycast(this.world, eye, dir, d + 0.3, this.viewHit)) d = Math.max(0.3, Math.min(d, this.viewHit.t - 0.3));
+    for (let k = 0; k < 4; k++) vp[k] = eye[k]! + dir[k]! * d;
+    if (this.camMode === 1) this.viewCam = cam;
+    else {
+      const f = (this.frontCam ??= new Frame4(p.up));
+      f.copyFrom(cam);
+      for (let k = 0; k < 4; k++) {
+        f.F[k] = -f.F[k]!;
+        f.R[k] = -f.R[k]!;
+      }
+      f.pitch = -cam.pitch;
+      f.update();
+      this.viewCam = f;
+    }
+    // The body: your frame without pitch, so it turns with you and with the slice.
+    if (p.mode === 'spectator' || this.vitals.dead) {
+      this.mobs.extraBody = null;
+      return;
+    }
+    dollParts(this.doll, this.dollList);
+    for (let k = 0; k < 4; k++) this.bodyPos[k] = p.pos[k]!;
+    this.mobs.extraBody = {
+      pos: this.bodyPos,
+      R: cam.R,
+      F: cam.F,
+      H: cam.H,
+      radius: DOLL_RADIUS,
+      parts: this.dollList,
+      hurt: this.vitals.flash > 0,
+    };
+  }
+
+  /** The pose and colours of your body for this frame (the model, the paper doll and the hand read it). */
+  private updateDoll(): void {
+    const p = this.player;
+    const s = this.doll;
+    s.walk = this.walkPhase;
+    s.moving = this.walkStride;
+    s.swing = this.swingT < 0.3 ? this.swingT / 0.3 : -1;
+    s.sneak = p.sneaking;
+    s.glide = p.gliding;
+    s.wingSpread = p.gliding ? 1 : 0;
+    s.blocking = this.blocking;
+    const hu = this.held ? IREG.def(this.held.id).use : undefined;
+    s.draw = hu === 'bow' || hu === 'crossbow' ? Math.min(1, this.bowDraw) : 0;
+    s.wings = null;
+    for (let k = 0; k < 4; k++) {
+      const st = this.armorPiece(k);
+      if (st && IREG.def(st.id).tags?.includes('wings')) {
+        s.armor[k] = null;
+        s.wings = [this.itemColor(st.id, 0), this.itemColor(st.id, 1)];
+      } else s.armor[k] = st ? this.itemColor(st.id) : null;
+    }
+    if (this.held) {
+      const def = IREG.def(this.held.id);
+      const kind = def.tool || def.weapon ? 'tool' : IREG.itemBlock[this.held.id]! >= 0 ? 'block' : 'item';
+      s.held = { color: this.itemColor(this.held.id), kind };
+    } else s.held = null;
+  }
+
   /** Cheat keys (time, weather, game mode) are allowed in creative or with cheats on. */
   get cheatsAllowed(): boolean {
     return this.info.cheats || this.player.mode === 'creative' || this.test;
@@ -950,6 +1086,7 @@ export class Game {
     if (ticks >= 5) this.tickAcc = 0;
 
     p.eye(this.eyePos);
+    this.updateView(dt);
     // Streaming, lighting, uploads.
     this.streamer.update(now, this.eyePos, p.cam.hidden);
     const lt = performance.now();
@@ -977,7 +1114,7 @@ export class Game {
     org[2] = this.world.oz * 16;
     org[3] = this.world.ow * 16;
     const tanY = Math.tan(this.params.fovY / 2);
-    this.params.entityCount = this.mobs.pack(this.eyePos, p.cam, this.params.maxDist, org, tanY * (this.canvas.width / Math.max(1, this.canvas.height)), tanY);
+    this.params.entityCount = this.mobs.pack(this.viewPos, this.viewCam, this.params.maxDist, org, tanY * (this.canvas.width / Math.max(1, this.canvas.height)), tanY);
     this.params.entityData = this.mobs.gpuData;
 
     // Environment + screen effects.
@@ -994,10 +1131,10 @@ export class Game {
       pb = cb >= 0 ? REG.biomes[cb]! : null;
     }
     this.renderer.sprites.clear();
-    this.particles.update(dt, this.world, this.eyePos, p.cam, pb, this.env.sky.daylight, p.eyeInWater, this.renderer.sprites);
-    this.items.draw(this.renderer.sprites, this.eyePos, p.cam, this.world);
-    this.orbs.draw(this.renderer.sprites, this.eyePos, p.cam);
-    this.projectiles.draw(this.renderer.sprites, this.eyePos, p.cam, this.items.iconU, this.items.iconV);
+    this.particles.update(dt, this.world, this.viewPos, this.viewCam, pb, this.env.sky.daylight, p.eyeInWater, this.renderer.sprites);
+    this.items.draw(this.renderer.sprites, this.viewPos, this.viewCam, this.world);
+    this.orbs.draw(this.renderer.sprites, this.viewPos, this.viewCam);
+    this.projectiles.draw(this.renderer.sprites, this.viewPos, this.viewCam, this.items.iconU, this.items.iconV);
     this.hazardTimer -= dt;
     if (this.hazardTimer <= 0) {
       this.hazardTimer = 0.2;
@@ -1022,8 +1159,10 @@ export class Game {
     if (Math.abs(pr.nightVision - nvGoal) < 0.002) pr.nightVision = nvGoal;
     pr.damage = Math.max(pr.damage - dt * 2, this.vitals.flash * 0.8, this.vitals.dead ? 0.6 : 0);
     if (p.inLava) pr.damage = 1;
-    pr.yaw = Math.atan2(p.cam.F[0]!, p.cam.F[2]!);
-    pr.pitch = p.cam.pitch;
+    pr.cam = this.viewCam;
+    pr.eye = this.viewPos;
+    pr.yaw = Math.atan2(this.viewCam.F[0]!, this.viewCam.F[2]!);
+    pr.pitch = this.viewCam.pitch;
     pr.fovY = (this.settings.fov * Math.PI) / 180;
     pr.maxDist = this.world.radius * 16;
     pr.outline = this.settings.outline;
@@ -1170,6 +1309,7 @@ export class Game {
     if (input.pressed('resolution')) this.cycleResolution();
     if (input.pressed('nightVision')) this.toggleNightVision();
     if (input.pressed('swapHands')) this.swapHands();
+    if (input.pressed('cameraMode')) this.cycleCamera();
 
     // Touch aim: re-pick at a new aim point before acting on it; a tap interacts once.
     if (input.aimDirty) {
@@ -1209,7 +1349,7 @@ export class Game {
       this.mineStep(dt);
     } else {
       this.resetMining();
-      if (input.buttonPressed(0)) this.sinceSwing = 0; // a swing at the air still resets the cooldown
+      if (input.buttonPressed(0)) this.sinceSwing = this.swingT = 0; // a swing at the air still resets the cooldown
     }
     const bow = heldNow !== null && IREG.def(heldNow.id).use === 'bow';
     const heldUse = heldNow ? IREG.def(heldNow.id).use : undefined;
@@ -1275,6 +1415,7 @@ export class Game {
       } else if (mode !== 'spectator' && (input.buttonPressed(2) || (input.buttonHeld(2) && this.placeCooldown <= 0))) {
         this.useHeld(input.held('sneak'));
         this.placeCooldown = 0.25;
+        this.swingT = 0;
       }
     }
     if (input.buttonPressed(1) && this.hasTarget) this.pickBlock();
@@ -2090,7 +2231,7 @@ export class Game {
     if (sharp > 0) dmg += 0.5 * sharp + 0.5;
     const str = this.effects.amp('strength');
     if (str >= 0) dmg += 3 * (str + 1);
-    this.sinceSwing = 0;
+    this.sinceSwing = this.swingT = 0;
     this.hunger.exhaust(0.1);
     const e = this.eyePos, F = p.cam.F;
     const c = this.tmp4;
@@ -2143,7 +2284,7 @@ export class Game {
       this.projectiles.spawn(from, v, THROWN.chakram.damage + (sharp > 0 ? 0.5 * sharp + 0.5 : 0), held.id, true, { gravity: 0, boomerang: { out: THROWN.chakram.out, hidden: THROWN.chakram.hidden }, stack: st });
       this.inv.set(this.hotbarIndex, null);
     }
-    this.sinceSwing = 0;
+    this.sinceSwing = this.swingT = 0;
   }
 
   /** Crossbow: take an arrow (off hand first, then hotbar, then the rest) and load it. */
@@ -2773,7 +2914,7 @@ export class Game {
     // Critical hit: a full-strength swing while falling.
     const crit = full && !p.onGround && !p.flying && p.vel[p.up]! < 0 && !p.inWater && !p.onClimbable;
     if (crit) dmg *= CRIT_MULTIPLIER;
-    this.sinceSwing = 0;
+    this.sinceSwing = this.swingT = 0;
     // Knockback along your forward direction: it stays inside the slice.
     const from = this.tmp4;
     const F = p.cam.F;
@@ -3578,6 +3719,7 @@ export class Game {
 
   /** Survival mining: accumulate progress on the targeted block while the button is held. */
   private mineStep(dt: number): void {
+    if (this.swingT > 0.32) this.swingT = 0; // the arm keeps swinging while you mine
     const t = this.target;
     const c = this.mineCell;
     const held = this.held;

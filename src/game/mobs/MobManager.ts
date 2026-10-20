@@ -5,7 +5,8 @@
 // the x/z/w 3-space. Its parts are defined in that frame, so a mob can face any direction in
 // 4D (including "into" the hidden axis) and the slice cuts it like any other 4D object.
 
-import { REG, COLLISION_NONE, FLUID_LAVA, FLUID_WATER } from '../../content/registry';
+import { REG, COLLISION_NONE, FLUID_LAVA, FLUID_WATER, hexToRgb } from '../../content/registry';
+import type { ExtraBody } from '../PlayerModel';
 import { IREG } from '../../content/itemRegistry';
 import { MOB_REG, MAX_MOB_PARTS, type CompiledMob } from '../../content/mobRegistry';
 import type { BiomeDef, MobSpawn } from '../../content/types';
@@ -1816,9 +1817,54 @@ export class MobManager {
       part += parts.length;
       n++;
     }
+    // The player's own body in third person: drawn like a mob, simulated by nobody.
+    const x = this.extraBody;
+    if (x && n < MAX_GPU_MOBS) {
+      const e = n * MOB_TEXELS * 4;
+      for (let k = 0; k < 4; k++) {
+        g[e + k] = x.pos[k]! - origin[k]!;
+        g[e + 4 + k] = x.R[k]!;
+        g[e + 8 + k] = x.F[k]!;
+        g[e + 12 + k] = x.H[k]!;
+      }
+      g[e + 16] = x.radius;
+      g[e + 17] = part;
+      g[e + 18] = x.parts.length;
+      g[e + 19] = x.hurt ? 1 : 0;
+      g[e + 20] = 1;
+      g[e + 21] = 0;
+      g[e + 22] = 0;
+      g[e + 23] = 0;
+      for (let i = 0; i < x.parts.length; i++) {
+        const pt = x.parts[i]!;
+        const o = (PART_BASE + (part + i) * PART_TEXELS) * 4;
+        g[o] = pt.kind === 'box' ? 0 : pt.kind === 'ball' ? 1 : 2;
+        g[o + 1] = pt.r ?? 0;
+        g[o + 2] = pt.glow ? 1 : 0;
+        g[o + 3] = 0;
+        for (let k = 0; k < 4; k++) {
+          g[o + 4 + k] = pt.at[k]!;
+          g[o + 8 + k] = pt.kind === 'box' ? pt.size![k]! : pt.to ? pt.to[k]! : 0;
+        }
+        let c = this.hexCache.get(pt.color);
+        if (!c) {
+          c = hexToRgb(pt.color);
+          this.hexCache.set(pt.color, c);
+        }
+        g[o + 12] = c[0]!;
+        g[o + 13] = c[1]!;
+        g[o + 14] = c[2]!;
+        g[o + 15] = 0;
+      }
+      n++;
+    }
     this.packed = n;
     return n;
   }
+
+  /** A body drawn like a mob but not simulated (the player's model in third person), or null. */
+  extraBody: ExtraBody | null = null;
+  private readonly hexCache = new Map<string, ArrayLike<number>>();
 
   /** Nearest hostile mobs for the proximity indicator (R2). */
   threats(p: ArrayLike<number>, radius: number, out: Mob[]): number {

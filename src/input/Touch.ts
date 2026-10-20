@@ -31,6 +31,7 @@ export interface TouchHooks {
   onPause(): void;
   onInventory?(): void;
   onAdvancements?(): void;
+  onCamera?(): void;
   onToggleFly?(): void;
   onToggleNightVision?(): void;
 }
@@ -118,6 +119,7 @@ export class TouchControls {
     this.clickButton(top, '☰', 'pause', () => hooks.onPause());
     if (hooks.onInventory) this.clickButton(top, '🎒 Inv', 'inv', () => hooks.onInventory!());
     if (hooks.onAdvancements) this.clickButton(top, '🏆', 'adv', () => hooks.onAdvancements!());
+    if (hooks.onCamera) this.clickButton(top, '📷', 'cam', () => hooks.onCamera!());
     this.flyBtn = this.button(top, 'Fly', 'fly', () => {
       hooks.onToggleFly?.();
       return false;

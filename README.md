@@ -55,6 +55,7 @@ particles unless `&particles=1`; used by tests).
 | Shift + RMB | with a W-Anchor: mark where you stand |
 | **Tab** or **I** | inventory, crafting and recipe book |
 | **L** | advancements |
+| **F5** | camera: first person (a hand with the held item and a paper doll of yourself), third person, third person from the front |
 | **B** (Ctrl+B) | drop the held item (the whole stack) |
 | 1–9, wheel | hotbar |
 | F3 (or `) | debug overlay |

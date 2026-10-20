@@ -107,6 +107,6 @@ loot tables and three more for the islands; 916 of 1024 textures used.
 
 ## Not done / follow-ups
 
-See `KNOWN_ISSUES.md`: the Sovereign cannot be summoned again after it falls, the wings are not
-drawn on the player (there is no third-person view yet), the Void has no weather, and balance
+See `KNOWN_ISSUES.md`: the Sovereign cannot be summoned again after it falls, the wings were not
+drawn on the player (fixed in 9.1 with the third-person view), the Void has no weather, and balance
 numbers (pylon healing, lance timing, glide speeds) are a first pass that real playtests will move.
