@@ -1119,3 +1119,5 @@ export const BIOMES: BiomeDef[] = [
 // Strongholds (Phase 8) lie under every surface biome, land and sea, so each 384-block cell of
 // the horizontal 3-space holds one.
 for (const b of BIOMES) if (b.kind !== 'underground' && !b.structures?.includes('stronghold')) b.structures = [...(b.structures ?? []), 'stronghold'];
+// Phase 9: Silver Arches stand on any dry land.
+for (const b of BIOMES) if (b.kind === 'land' && !b.structures?.includes('silver_arch')) b.structures = [...(b.structures ?? []), 'silver_arch'];

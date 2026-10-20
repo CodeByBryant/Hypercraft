@@ -10,8 +10,8 @@ import type { TextureDef } from './types';
 
 export const TEX_SIZE = 16;
 export const TEX_REGION = 64;
-export const ATLAS_COLS = 16;
-export const ATLAS_WIDTH = TEX_REGION * ATLAS_COLS; // 1024
+export const ATLAS_COLS = 32;
+export const ATLAS_WIDTH = TEX_REGION * ATLAS_COLS; // 2048 (2048 textures make it 4096 tall)
 
 type RGB = [number, number, number];
 

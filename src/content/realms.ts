@@ -72,4 +72,28 @@ export const REALMS: RealmDef[] = [
     voidSky: true,
     islandSpawns: true,
   },
+  {
+    // Realm D: the Surface reflected in x, with the sun beneath your feet, "up" called W and left
+    // and right swapped. Reached through a Silver Arch rift (Game.updateRift), so no portal scale.
+    name: 'mirror',
+    displayName: 'The Mirror Realm',
+    heightChunks: 12,
+    gravityAxis: 1,
+    gravity: 32,
+    seaLevel: 104,
+    generator: 'mirror',
+    coordinateScale: 1,
+    dayCycle: true,
+    ambient: 0.05,
+    ambientColor: '#dce4ff',
+    weather: ['clear', 'rain', 'snow'],
+    skyColor: '#a8b8e0',
+    fogColor: '#c8d2ec',
+    floorBlock: 'bedrock',
+    ceilingBlock: null,
+    mirrorX: true,
+    axisLabels: ['X', 'W', 'Z', 'Y'],
+    invertedSky: true,
+    mirrorControls: true,
+  },
 ];

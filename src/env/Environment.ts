@@ -254,6 +254,14 @@ export class Environment {
     s.daylight = dayF * gloom;
     s.time = this.seconds;
     s.stars = this.realm.dayCycle ? smoothstep(0.15, -0.2, elev) : 0.6;
+    if (this.realm.invertedSky) {
+      // The Mirror Realm: the day is as long and as bright as ever, but the sun crosses the sky
+      // beneath your feet (it lights the undersides of things), the moon hangs overhead by day,
+      // and the stars come out when the sun is "up".
+      s.sunDir[1] = -s.sunDir[1]!;
+      s.moonDir[1] = -s.moonDir[1]!;
+      s.stars = smoothstep(-0.2, 0.15, elev);
+    }
     s.cloudCover = 0.32 + 0.45 * wet + 0.2 * thunder + 0.3 * storm;
     s.weatherFog = 0.35 * wet + 0.2 * thunder + 0.25 * storm;
     s.storm = storm;

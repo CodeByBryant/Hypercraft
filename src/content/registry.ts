@@ -21,6 +21,7 @@ import { ORE_BLOCKS, ORE_TEXTURES } from './ores';
 import { WOOD_BLOCKS, WOOD_TEXTURES } from './woods';
 import { SURVIVAL_BLOCKS, SURVIVAL_TEXTURES } from './survival';
 import { VOID_BIOMES, VOID_BLOCKS, VOID_TEXTURES } from './void';
+import { P9_BIOMES, P9_BLOCKS, P9_TEXTURES } from './realms9';
 import { applyFauna } from './fauna';
 import type { BiomeDef, BlockDef, Box4, Hex, RealmDef, ShapeDef, TextureDef, TreeDef } from './types';
 
@@ -28,6 +29,8 @@ import type { BiomeDef, BlockDef, Box4, Hex, RealmDef, ShapeDef, TextureDef, Tre
 export const ID_MASK = 0x0fff;
 export const META_SHIFT = 12;
 export const MAX_BLOCK_IDS = 4096;
+/** Texture ids are 11 bits in the GPU block table (10 in the face word, the 11th in the flags word). */
+export const MAX_TEXTURES = 2048;
 export const MAX_BOXES_PER_SHAPE = 7;
 /** Texels per shape row in the GPU shape table: 1 header + 2 per box. */
 export const SHAPE_TEXELS = 16;
@@ -186,7 +189,7 @@ export class Registry {
       if (this.texByName.has(t.name)) errors.push(`duplicate texture "${t.name}"`);
       this.texByName.set(t.name, i);
     });
-    if (textures.length > 1024) errors.push('too many textures (max 1024)');
+    if (textures.length > MAX_TEXTURES) errors.push(`too many textures (max ${MAX_TEXTURES})`);
 
     // Shapes: full cube first, then every variant of every shape.
     const shapeBaseByName = new Map<string, { base: number; mode: number }>();
@@ -389,9 +392,13 @@ export class Registry {
           (this.biomeTint[id]! << 19) |
           (this.fluid[id]! << 21) |
           (this.isFullShape[id]! << 23) |
-          (this.opaque[id]! << 24)) >>>
+          (this.opaque[id]! << 24) |
+          // The 11th bit of each texture id (ids go up to 2047).
+          (((this.texTop[id]! >> 10) & 1) << 25) |
+          (((this.texBottom[id]! >> 10) & 1) << 26) |
+          (((this.texSide[id]! >> 10) & 1) << 27)) >>>
         0;
-      out[id * 4 + 1] = (this.texTop[id]! | (this.texBottom[id]! << 10) | (this.texSide[id]! << 20)) >>> 0;
+      out[id * 4 + 1] = ((this.texTop[id]! & 1023) | ((this.texBottom[id]! & 1023) << 10) | ((this.texSide[id]! & 1023) << 20)) >>> 0;
       out[id * 4 + 2] = this.tintRgba[id]!;
       out[id * 4 + 3] = this.anim[id]!;
     }
@@ -413,9 +420,9 @@ export class Registry {
   }
 }
 
-export const ALL_BLOCKS: BlockDef[] = [...BLOCKS, ...TERRAIN_BLOCKS, ...FUNCTIONAL_BLOCKS, ...STRUCTURE_BLOCKS, ...EMBER_BLOCKS, ...WILDS_BLOCKS, ...CAVE_BLOCKS, ...STATION_BLOCKS, ...FARM_BLOCKS, ...ORE_BLOCKS, ...WOOD_BLOCKS, ...SURVIVAL_BLOCKS, ...VOID_BLOCKS];
-export const ALL_TEXTURES: TextureDef[] = [...TEXTURES, ...TERRAIN_TEXTURES, ...FUNCTIONAL_TEXTURES, ...STRUCTURE_TEXTURES, ...EMBER_TEXTURES, ...WILDS_TEXTURES, ...CAVE_TEXTURES, ...STATION_TEXTURES, ...FARM_TEXTURES, ...ORE_TEXTURES, ...WOOD_TEXTURES, ...SURVIVAL_TEXTURES, ...VOID_TEXTURES];
-export const ALL_BIOMES: BiomeDef[] = [...BIOMES, ...WILDS_BIOMES, ...CAVE_BIOMES, ...EMBER_BIOMES, ...VOID_BIOMES];
+export const ALL_BLOCKS: BlockDef[] = [...BLOCKS, ...TERRAIN_BLOCKS, ...FUNCTIONAL_BLOCKS, ...STRUCTURE_BLOCKS, ...EMBER_BLOCKS, ...WILDS_BLOCKS, ...CAVE_BLOCKS, ...STATION_BLOCKS, ...FARM_BLOCKS, ...ORE_BLOCKS, ...WOOD_BLOCKS, ...SURVIVAL_BLOCKS, ...VOID_BLOCKS, ...P9_BLOCKS];
+export const ALL_TEXTURES: TextureDef[] = [...TEXTURES, ...TERRAIN_TEXTURES, ...FUNCTIONAL_TEXTURES, ...STRUCTURE_TEXTURES, ...EMBER_TEXTURES, ...WILDS_TEXTURES, ...CAVE_TEXTURES, ...STATION_TEXTURES, ...FARM_TEXTURES, ...ORE_TEXTURES, ...WOOD_TEXTURES, ...SURVIVAL_TEXTURES, ...VOID_TEXTURES, ...P9_TEXTURES];
+export const ALL_BIOMES: BiomeDef[] = [...BIOMES, ...WILDS_BIOMES, ...CAVE_BIOMES, ...EMBER_BIOMES, ...VOID_BIOMES, ...P9_BIOMES];
 applyFauna(ALL_BIOMES);
 export const REG = new Registry(ALL_BLOCKS, [...SHAPES, ...STATION_SHAPES], ALL_TEXTURES, ALL_BIOMES, REALMS, [...TREES, ...EMBER_TREES, ...WILDS_TREES, ...CAVE_TREES]);
 

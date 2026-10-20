@@ -24,6 +24,8 @@ export interface Settings {
   /** First person: the hand with the held item, and the little paper doll of yourself in the corner. */
   hand: boolean;
   paperDoll: boolean;
+  /** The Mirror Realm swaps left and right (strafing, turning, slice tilt); off keeps your controls. */
+  mirrorControls: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -43,6 +45,7 @@ export const DEFAULT_SETTINGS: Settings = {
   particles: 'all',
   hand: true,
   paperDoll: true,
+  mirrorControls: true,
 };
 
 const KEY = 'hypercraft.settings.v1';

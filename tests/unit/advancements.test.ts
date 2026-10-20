@@ -7,8 +7,8 @@ import { Advancements } from '../../src/game/Advancements';
 import { treeOrder } from '../../src/ui/AdvancementsScreen';
 
 describe('advancement data', () => {
-  it('has about fifty goals in eight categories, each with a root', () => {
-    expect(ADV_CATEGORIES).toHaveLength(8);
+  it('has dozens of goals in a category per realm and topic, each with a root', () => {
+    expect(ADV_CATEGORIES.length).toBeGreaterThanOrEqual(9);
     expect(ADVANCEMENTS.length).toBeGreaterThanOrEqual(45);
     for (const c of ADV_CATEGORIES) {
       const inCat = ADVANCEMENTS.filter((a) => a.category === c.id);

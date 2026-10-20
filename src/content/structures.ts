@@ -62,6 +62,9 @@ export const STRUCTURES: StructureDef[] = [
   { name: 'ember_ruined_portal', displayName: 'Ruined Portal', placement: 'surface', spacing: 96, chance: 0.3, builder: 'ember_ruined_portal', radius: 6, salt: 0x6105, realm: 'ember' },
   { name: 'regent_caldera', displayName: "Regent's Caldera", placement: 'lava', spacing: 160, chance: 0.8, builder: 'regent_caldera', radius: 23, salt: 0x6106, realm: 'ember' },
 
+  // Phase 9: the way into the Mirror Realm (the Hand Mirror points to the nearest).
+  { name: 'silver_arch', displayName: 'Silver Arch', placement: 'surface', spacing: 256, chance: 0.5, builder: 'silver_arch', radius: 4, salt: 0x7301 },
+
   // ---------------------------------------------------------------- Hollow Void (Phase 8)
   // The Stronghold holds the Void Gate (six frames around ONE cell, two of them kata/ana of you).
   // Strongholds are rare in a slice but one lies in every 384-block cell of the horizontal 3-space.

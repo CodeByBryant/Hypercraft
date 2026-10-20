@@ -15,7 +15,7 @@
 //   event   something happened (see EVENTS: the game calls them out)
 //   stat    a counter reached a value (see STATS)
 
-export type AdvCategory = 'surface' | 'mining' | 'husbandry' | 'combat' | 'magic' | 'fourd' | 'ember' | 'void';
+export type AdvCategory = 'surface' | 'mining' | 'husbandry' | 'combat' | 'magic' | 'fourd' | 'ember' | 'void' | 'mirror';
 
 export interface AdvCategoryDef {
   id: AdvCategory;
@@ -34,10 +34,11 @@ export const ADV_CATEGORIES: AdvCategoryDef[] = [
   { id: 'fourd', name: 'The Fourth Dimension', icon: 'slicer_compass', blurb: 'Slices, kata and ana' },
   { id: 'ember', name: 'Ember Depths', icon: 'hypercinder', blurb: 'The burning realm' },
   { id: 'void', name: 'Hollow Void', icon: 'void_eye', blurb: 'Islands in the dark' },
+  { id: 'mirror', name: 'Mirror Realm', icon: 'hand_mirror', blurb: 'Up is W, left is right' },
 ];
 
 /** Things the game reports (Game calls Advancements.event with these names). */
-export const EVENTS = ['sleep', 'trade', 'plant', 'breed', 'fish', 'block', 'enchant', 'anvil', 'phase_strike', 'void_gate', 'phase_step', 'rocket'] as const;
+export const EVENTS = ['sleep', 'trade', 'plant', 'breed', 'fish', 'block', 'enchant', 'anvil', 'phase_strike', 'void_gate', 'phase_step', 'rocket', 'rift_wake', 'rift'] as const;
 export type AdvEvent = (typeof EVENTS)[number];
 
 /** Counters the game keeps: the largest slice tilt (degrees), blocks walked along the hidden axis, blocks glided. */
@@ -147,6 +148,14 @@ export const ADVANCEMENTS: AdvancementDef[] = [
   A('void/rocket', 'void', 'To the Stars', 'Fire a starlight rocket in flight', 'starlight_rocket', { type: 'event', name: 'rocket' }, 30, 'void/flight'),
   A('void/far', 'void', 'Over the Edge', 'Glide a thousand blocks', 'phase_wings', { type: 'stat', stat: 'glide', value: 1000 }, 100, 'void/flight'),
   A('void/step', 'void', 'Phase Step', 'Have a blow phased away by a full starlight set', 'starlight_chestplate', { type: 'event', name: 'phase_step' }, 40, 'void/starstuff'),
+
+  // ---------------------------------------------------------------- Mirror Realm
+  A('mirror/root', 'mirror', 'Hand Mirror', 'Craft a hand mirror', 'hand_mirror', { type: 'have', items: ['hand_mirror'] }, 20),
+  A('mirror/wake', 'mirror', 'Wake the Rift', 'Wake a rift in a Silver Arch', 'hand_mirror', { type: 'event', name: 'rift_wake' }, 25, 'mirror/root'),
+  A('mirror/cross', 'mirror', 'Through the Looking Glass', 'Cross a rift', 'mirror_shard', { type: 'event', name: 'rift' }, 30, 'mirror/wake'),
+  A('mirror/enter', 'mirror', 'The Reflection', 'Enter the Mirror Realm', 'mirror_shard', { type: 'realm', realm: 'mirror' }, 40, 'mirror/cross'),
+  A('mirror/ore', 'mirror', 'Seven Years of Luck', 'Mine a mirror shard', 'mirror_shard', { type: 'have', items: ['mirror_shard'] }, 25, 'mirror/enter'),
+  A('mirror/ingot', 'mirror', 'Mirrorite', 'Smelt a mirrorite ingot', 'mirror_ingot', { type: 'have', items: ['mirror_ingot'] }, 25, 'mirror/ore'),
 ];
 
 export const ADV_BY_ID = new Map(ADVANCEMENTS.map((a) => [a.id, a]));

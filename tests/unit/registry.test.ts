@@ -71,6 +71,16 @@ describe('content registry', () => {
     expect(shapes[1]).toBe(1); // one box
   });
 
+  it('packs 11-bit texture ids (10 bits per face plus an 11th in the flags word)', () => {
+    const info = REG.gpuBlockInfo();
+    for (let id = 0; id < REG.count; id++) {
+      const top = (info[id * 4 + 1]! & 1023) | (((info[id * 4]! >>> 25) & 1) << 10);
+      const bottom = ((info[id * 4 + 1]! >>> 10) & 1023) | (((info[id * 4]! >>> 26) & 1) << 10);
+      const side = ((info[id * 4 + 1]! >>> 20) & 1023) | (((info[id * 4]! >>> 27) & 1) << 10);
+      expect([top, bottom, side]).toEqual([REG.texTop[id], REG.texBottom[id], REG.texSide[id]]);
+    }
+  });
+
   it('reports content errors clearly', () => {
     const bad = [...ALL_BLOCKS, { name: 'stone', render: 'opaque' as const, solid: true, textures: { all: 'nope' } }];
     expect(() => new Registry(bad, SHAPES, ALL_TEXTURES, BIOMES, REALMS, TREES)).toThrow(/duplicate block "stone"[\s\S]*unknown texture "nope"/);
@@ -115,7 +125,7 @@ describe('content registry', () => {
     const b = generateTexture(TEXTURES[0]!, 0);
     expect(a).toEqual(b);
     const atlas = buildAtlas(TEXTURES);
-    expect(atlas.width).toBe(1024);
+    expect(atlas.width).toBe(2048);
     expect(atlas.height % 64).toBe(0);
     expect(atlas.data.length).toBe(atlas.width * atlas.height * 4);
     // leaves have holes, glass is mostly transparent

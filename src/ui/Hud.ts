@@ -117,8 +117,12 @@ export class Hud {
   /** Base colour per block id (radar), precomputed so the radar does not allocate. */
   private readonly rgb = new Float32Array(REG.count * 3);
 
+  /** What the realm calls the world axes (the Mirror Realm swaps Y and W). */
+  private readonly axisLabels: readonly string[];
+
   constructor(parent: HTMLElement, game: Game) {
     this.game = game;
+    this.axisLabels = game.world.realm.axisLabels ?? AXIS;
     this.root = el('div', 'hud', parent);
     // The hand and the doll come first so everything else is drawn over them.
     this.hand = new HandView(this.root, game);
@@ -189,10 +193,11 @@ export class Hud {
     for (let i = 0; i < 4; i++) {
       if (i === 1) continue;
       const row = el('div', 'bar-row', barBox);
-      el('span', 'bar-label', row, AXIS[i]);
+      const name = this.axisLabels[i]!;
+      el('span', 'bar-label', row, name);
       const track = el('div', 'bar-track', row);
       const fill = el('div', 'bar-fill', track);
-      fill.style.background = AXIS_COLORS[i]!;
+      fill.style.background = AXIS_COLORS[Math.max(0, AXIS.indexOf(name))]!;
       this.bars[i] = fill;
     }
     this.compassText = el('div', 'compass-text', this.compass);
@@ -558,7 +563,7 @@ export class Hud {
       return;
     }
     if (kind === 'slicer') {
-      this.readout.textContent = slicerReadout(g.player.cam.H, g.player.up);
+      this.readout.textContent = slicerReadout(g.player.cam.H, g.player.up, this.axisLabels);
       return;
     }
     if (kind === 'clock') {
@@ -627,7 +632,7 @@ export class Hud {
     for (let i = 1; i < 4; i++) if (Math.abs(h[i]!) > Math.abs(h[dom]!)) dom = i;
     const sgn = h[dom]! >= 0 ? '+' : '−';
     const w = this.game.eye()[3]!;
-    this.compassText.textContent = tilt < 0.5 ? `h = ${sgn}${AXIS[dom]} (aligned) · w ${w.toFixed(1)}` : `h ≈ ${sgn}${AXIS[dom]}, tilt ${tilt.toFixed(1)}° · w ${w.toFixed(1)}`;
+    this.compassText.textContent = tilt < 0.5 ? `h = ${sgn}${this.axisLabels[dom]} (aligned) · w ${w.toFixed(1)}` : `h ≈ ${sgn}${this.axisLabels[dom]}, tilt ${tilt.toFixed(1)}° · w ${w.toFixed(1)}`;
   }
 
   /**
@@ -809,7 +814,7 @@ export class Hud {
       `internal ${rs.internalW}x${rs.internalH} (${g.scaler.mode === 'auto' ? 'auto' : 'fixed'})  canvas ${g.canvas.width}x${g.canvas.height}`,
       `ray steps avg ${rs.avgSteps.toFixed(1)}  max ${rs.maxSteps}  (cap ${g.settings.maxSteps})`,
       ``,
-      `xyzw ${e[0]!.toFixed(2)} ${e[1]!.toFixed(2)} ${e[2]!.toFixed(2)} ${e[3]!.toFixed(2)}  (eye)`,
+      `${this.axisLabels.join('').toLowerCase()} ${e[0]!.toFixed(2)} ${e[1]!.toFixed(2)} ${e[2]!.toFixed(2)} ${e[3]!.toFixed(2)}  (eye)`,
       `chunk ${Math.floor(e[0]! / 16)} ${Math.floor(e[1]! / 16)} ${Math.floor(e[2]! / 16)} ${Math.floor(e[3]! / 16)}  vel ${v4(p.vel)}`,
       `hidden h ${v4(cam.hidden)}  tilt ${((cam.hiddenAxisTilt() * 180) / Math.PI).toFixed(1)}°`,
       `fwd    f ${v4(cam.fwd)}`,
@@ -835,7 +840,7 @@ export class Hud {
       lines.push(`target mob ${m.def.displayName} #${m.id}  hp ${m.health.toFixed(1)}/${m.def.health}  ai ${m.def.ai}/${m.mode}`);
     } else if (g.hasTarget) {
       const t = g.target;
-      lines.push(`target ${REG.name(t.voxel)} @ ${t.x} ${t.y} ${t.z} ${t.w}  facet ${t.sign > 0 ? '+' : '-'}${AXIS[t.axis]}  dist ${t.t.toFixed(2)}`);
+      lines.push(`target ${REG.name(t.voxel)} @ ${t.x} ${t.y} ${t.z} ${t.w}  facet ${t.sign > 0 ? '+' : '-'}${this.axisLabels[t.axis]}  dist ${t.t.toFixed(2)}`);
     }
     return lines.join('\n');
   }

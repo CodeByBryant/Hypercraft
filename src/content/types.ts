@@ -376,7 +376,12 @@ export type IconShape =
   // Phase 8.
   | 'eye'
   | 'wings'
-  | 'rocket';
+  | 'rocket'
+  // Phase 9.
+  | 'mirror'
+  | 'fork'
+  | 'glider'
+  | 'prism';
 
 /** Procedural 16x16 pixel icon: a shape painted with a small palette (main, shade, accent). */
 export interface IconDef {
@@ -449,6 +454,10 @@ export type ItemUse =
   | 'sleeping_bag'
   // Phase 8.
   | 'void_eye'
+  // Phase 9.
+  | 'hand_mirror'
+  | 'tuning_fork'
+  | 'wind_glider'
   | 'starlight_rocket';
 
 /** Melee weapons beyond the tool kinds (Phase 7.7): spears, the 4D Whip. */
@@ -779,4 +788,17 @@ export interface RealmDef {
   voidSky?: boolean;
   /** Hostile mobs spawn on any island top (no light check): there is no day. */
   islandSpawns?: boolean;
+  /** Mirror Realm (Phase 9): the realm is the Surface reflected in x, and a portal trip flips x. */
+  mirrorX?: boolean;
+  /**
+   * Display names of the world axes (x, y, z, w). The engine's up axis is always y, so the Mirror
+   * Realm, where "up is W", calls its vertical axis W and its hidden axis Y: ['X', 'W', 'Z', 'Y'].
+   */
+  axisLabels?: [string, string, string, string];
+  /** Sun and moon swap places: the sun is below the horizon by day, stars shine in the day sky. */
+  invertedSky?: boolean;
+  /** Left and right swap (strafing, turning, slice rotation) unless the setting turns it off. */
+  mirrorControls?: boolean;
+  /** Winds push anything that is not standing on the ground along W (Cloud Archipelago). */
+  wind?: boolean;
 }

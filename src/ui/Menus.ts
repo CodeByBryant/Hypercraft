@@ -286,6 +286,7 @@ export class Menus {
         toggle('invertY'),
         toggle('hand'),
         toggle('paperDoll'),
+        toggle('mirrorControls'),
         select('particles', [['all', 'All'], ['reduced', 'Reduced'], ['off', 'Off']]),
         select('touch', [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']]),
       ),
@@ -336,6 +337,7 @@ const LABELS: Partial<Record<keyof Settings, string>> = {
   invertY: 'Invert mouse Y',
   hand: 'Show hand (first person)',
   paperDoll: 'Show paper doll (first person)',
+  mirrorControls: 'Mirror Realm swaps left and right',
   touch: 'Touch controls',
   particles: 'Particles',
 };

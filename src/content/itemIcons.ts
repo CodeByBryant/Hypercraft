@@ -618,6 +618,50 @@ export function paintIcon(def: IconDef): Uint8ClampedArray {
       p.set(2, 15, light);
       break;
     }
+    case 'mirror': {
+      // A hand mirror: an oval of glass in a rim with a handle (main = glass, shade = rim, accent = gleam).
+      p.disc(8, 6, 5.4, shade);
+      p.disc(8, 6, 4.2, main);
+      p.line(8, 11, 8, 15, shade);
+      p.line(7, 11, 7, 15, shade);
+      p.set(6, 4, accent);
+      p.set(7, 3, accent);
+      p.set(6, 5, accent);
+      break;
+    }
+    case 'fork': {
+      // A tuning fork: two prongs and a stem (main = metal, shade = shadow, accent = the hum).
+      p.line(5, 1, 5, 8, main);
+      p.line(10, 1, 10, 8, main);
+      p.line(6, 1, 6, 8, shade);
+      p.poly([[5, 8], [11, 8], [8, 10]], main);
+      p.line(8, 10, 8, 15, main);
+      p.set(7, 15, shade);
+      p.set(3, 3, accent);
+      p.set(12, 3, accent);
+      p.set(2, 5, accent);
+      p.set(13, 5, accent);
+      break;
+    }
+    case 'glider': {
+      // A wind glider: a swept canvas wing on a spar (main = canvas, shade = spar, accent = trim).
+      p.poly([[8, 2], [15, 9], [8, 7], [1, 9]], main);
+      p.line(8, 2, 8, 14, shade);
+      p.line(1, 9, 8, 7, accent);
+      p.line(15, 9, 8, 7, accent);
+      p.line(8, 14, 6, 15, shade);
+      p.line(8, 14, 10, 15, shade);
+      break;
+    }
+    case 'prism': {
+      // A prism shard: a faceted triangle that splits light (main, shade, accent = the rainbow edge).
+      p.poly([[8, 1], [14, 13], [2, 13]], main);
+      p.poly([[8, 1], [14, 13], [8, 13]], shade);
+      p.line(8, 1, 2, 13, accent);
+      p.line(2, 13, 14, 13, accent);
+      p.set(8, 7, light);
+      break;
+    }
     case 'eye': {
       // A Void Eye: a glowing eye (main = iris glow, shade = dark rim, accent = highlight).
       p.disc(8, 8, 6.2, shade);

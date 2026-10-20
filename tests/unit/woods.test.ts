@@ -103,7 +103,7 @@ describe('wood families (playtest: every tree makes its own wood)', () => {
   });
 
   it('stays inside the GPU texture budget', () => {
-    // 10-bit texture indices in the block info table (see registry.gpuBlockInfo).
-    expect(ALL_TEXTURES.length).toBeLessThanOrEqual(1024);
+    // 11-bit texture indices in the block info table (see registry.gpuBlockInfo).
+    expect(ALL_TEXTURES.length).toBeLessThanOrEqual(2048);
   });
 });

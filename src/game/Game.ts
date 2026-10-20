@@ -19,6 +19,7 @@ import { FluidSim } from '../world/fluids/Fluids';
 import { makeRayHit, raycast, type RayHit } from '../world/raycast';
 import { Frame4 } from '../math/frame';
 import { dollParts, newDollState, DOLL_RADIUS, type DollState } from './PlayerModel';
+import { ARCH_AIR, archCells } from '../content/mirror';
 import { createGenerator, type WorldGenerator } from '../world/gen/generators';
 import { VOID_VOXEL } from '../world/constants';
 import { COLLISION_NONE } from '../content/registry';
@@ -77,7 +78,7 @@ import type { AdvancementDef } from '../content/advancements';
 
 /** How the player arrives in a realm: through a portal (find or build its twin) or a respawn. */
 export interface Arrival {
-  kind: 'portal' | 'respawn' | 'void';
+  kind: 'portal' | 'respawn' | 'void' | 'rift';
   /** Shape of the portal left behind (the arrival portal copies it). */
   axis?: number;
   /** Flat portals: the second normal axis. */
@@ -854,6 +855,11 @@ export class Game {
     this.message?.(this.nightVision ? 'Night vision ON (N)' : 'Night vision OFF');
   }
 
+  /** The Mirror Realm swaps left and right (unless the setting is off). */
+  get mirrored(): boolean {
+    return !!this.world.realm.mirrorControls && this.settings.mirrorControls !== false;
+  }
+
   /** Settings: draw the first-person hand / the paper doll. */
   get showHand(): boolean {
     return this.settings.hand !== false;
@@ -1065,6 +1071,7 @@ export class Game {
         this.updatePortal(dt);
         this.updateVoidGate(dt);
         this.updateGateways(dt);
+        this.updateRift(dt);
       }
       this.burnEffects(dt);
       this.enchantTick(dt);
@@ -1238,27 +1245,29 @@ export class Game {
     const p = this.player;
     const cam = p.cam;
     const sens = 0.0022 * this.settings.sensitivity;
+    // In the Mirror Realm left and right swap: turning, strafing and tilting through the right axis.
+    const mir = this.mirrored ? -1 : 1;
     // Mouse look / slice rotation.
     if (input.held('rotateSliceMouse')) {
-      cam.tiltRH(input.mouseDX * sens);
+      cam.tiltRH(input.mouseDX * sens * mir);
       cam.tiltFH(-input.mouseDY * sens);
     } else {
-      cam.yaw(input.mouseDX * sens);
+      cam.yaw(input.mouseDX * sens * mir);
       cam.addPitch(-input.mouseDY * sens * (this.settings.invertY ? -1 : 1));
     }
     // Arrow keys look around (150°/s yaw, 110°/s pitch); touch/gamepad add their deltas.
     const ky = (input.held('lookRight') ? 1 : 0) - (input.held('lookLeft') ? 1 : 0);
     const kp = (input.held('lookUp') ? 1 : 0) - (input.held('lookDown') ? 1 : 0);
-    const kyaw = ky * dt * 2.6 + input.lookYaw;
+    const kyaw = (ky * dt * 2.6 + input.lookYaw) * mir;
     const kpitch = kp * dt * 1.9 + input.lookPitch;
     if (kyaw !== 0) cam.yaw(kyaw);
     if (kpitch !== 0) cam.addPitch(kpitch);
-    if (input.sliceRH !== 0) cam.tiltRH(input.sliceRH);
+    if (input.sliceRH !== 0) cam.tiltRH(input.sliceRH * mir);
     if (input.sliceFH !== 0) cam.tiltFH(input.sliceFH);
     // Keyboard slice rotation (90°/s).
     const rs = dt * Math.PI * 0.5;
-    if (input.held('tiltRightPlus')) cam.tiltRH(rs);
-    if (input.held('tiltRightMinus')) cam.tiltRH(-rs);
+    if (input.held('tiltRightPlus')) cam.tiltRH(rs * mir);
+    if (input.held('tiltRightMinus')) cam.tiltRH(-rs * mir);
     if (input.held('tiltForwardPlus')) cam.tiltFH(rs);
     if (input.held('tiltForwardMinus')) cam.tiltFH(-rs);
     if (input.pressed('snapSlice')) this.snapping = true;
@@ -1271,7 +1280,7 @@ export class Game {
 
     const m = this.move;
     m.forward = Math.max(-1, Math.min(1, (input.held('forward') ? 1 : 0) - (input.held('back') ? 1 : 0) + input.analogForward));
-    m.strafe = Math.max(-1, Math.min(1, (input.held('right') ? 1 : 0) - (input.held('left') ? 1 : 0) + input.analogStrafe));
+    m.strafe = Math.max(-1, Math.min(1, ((input.held('right') ? 1 : 0) - (input.held('left') ? 1 : 0) + input.analogStrafe) * mir));
     m.ana = (input.held('ana') ? 1 : 0) - (input.held('kata') ? 1 : 0);
     m.jump = input.held('jump');
     m.sneak = input.held('sneak');
@@ -1949,6 +1958,92 @@ export class Game {
     this.teleportTo(hit.to[0], hit.to[1], hit.to[2], hit.to[3]);
   }
 
+  // ------------------------------------------------------------------ rifts (Phase 9)
+
+  /** Seconds spent standing in an awake rift. */
+  private riftTime = 0;
+  /** Frames an arrival has waited for the arch's columns. */
+  private riftWait = 0;
+
+  /** Standing in an awake Mirror rift: the view swirls, then you cross to your mirror image on the other side. */
+  private updateRift(dt: number): void {
+    if (this.vitals.dead || !this.bodyCell(REG.id('mirror_rift'))) {
+      this.riftTime = Math.max(0, this.riftTime - dt * 2);
+      return;
+    }
+    this.riftTime += dt;
+    const fast = this.player.mode === 'creative' || this.player.mode === 'spectator';
+    const need = fast ? 0.3 : 1.5;
+    this.portalTime = Math.max(this.portalTime, Math.min(1, this.riftTime / need) * (fast ? 1 : 4));
+    if (this.riftTime < need) return;
+    this.riftTime = 0;
+    const realm = this.world.realm.name;
+    const to = realm === 'surface' ? 'mirror' : realm === 'mirror' ? 'surface' : null;
+    if (!to) {
+      this.message?.('The rift is dormant here: it leads between the Surface and the Mirror Realm');
+      return;
+    }
+    const p = this.player.pos;
+    this.adv.event('rift');
+    this.beginTravel(to, scalePosition(p, this.world.realm, REG.realm(to)), { kind: 'rift' });
+  }
+
+  /**
+   * Arrive through a rift: stand beside the nearest awake rift (the reflected arch of a Silver
+   * Arch, or one you built here before), or build an arch around the spot. False while the
+   * columns around it have not streamed in.
+   */
+  private arriveAtRift(): boolean {
+    const world = this.world;
+    const p = this.player.pos;
+    const awake = REG.id('mirror_rift');
+    const x0 = Math.floor(p[0]!), z0 = Math.floor(p[2]!), w0 = Math.floor(p[3]!);
+    // The columns the arch will stand in (its corners), or after a while whatever has streamed in.
+    let ready = true;
+    for (const dx of [-1, 1]) for (const dz of [-1, 1]) for (const dw of [-1, 1]) if (!world.column((x0 + dx) >> 4, (z0 + dz) >> 4, (w0 + dw) >> 4)) ready = false;
+    if (!ready && this.riftWait++ < 600) {
+      this.arrival = { kind: 'rift' };
+      this.streamer.invalidate();
+      return false;
+    }
+    this.riftWait = 0;
+    const stand = (x: number, y: number, z: number, w: number): boolean => {
+      this.player.setPosition(x + 1.5, y, z + 0.5, w + 0.5);
+      this.player.vel.fill(0);
+      this.message?.(world.realm.mirrorControls ? 'The Mirror Realm: up is W, and left and right swap (Settings turns that off)' : 'Back on the Surface');
+      return true;
+    };
+    for (let dy = -8; dy <= 8; dy++)
+      for (let dw = -6; dw <= 6; dw++)
+        for (let dz = -6; dz <= 6; dz++)
+          for (let dx = -6; dx <= 6; dx++) {
+            const x = x0 + dx, y = Math.floor(p[1]!) + dy, z = z0 + dz, w = w0 + dw;
+            const v = world.getBlock(x, y, z, w);
+            if (v !== VOID_VOXEL && (v & 0xfff) === awake && (world.getBlock(x, y - 1, z, w) & 0xfff) !== awake) return stand(x, y, z, w);
+          }
+    // None near: build an arch here, on the ground (or the sea's surface).
+    const realm = world.realm;
+    const y = Math.max(realm.seaLevel + 1, world.skyHeight(x0, z0, w0));
+    for (const d of ARCH_AIR) world.setBlock(x0 + d[0], y + d[1], z0 + d[2], w0 + d[3], 0);
+    for (const c of archCells('mirror_rift')) world.setBlock(x0 + c.d[0], y + c.d[1], z0 + c.d[2], w0 + c.d[3], REG.id(c.block));
+    for (const [a, b, c] of [[-1, -1, -1], [1, -1, -1], [-1, 1, 1], [1, 1, 1], [0, 0, 0]] as number[][]) for (let k = 2; k <= 4; k++) if (!REG.solid[world.getBlock(x0 + a!, y - k, z0 + b!, w0 + c!) & 0xfff]) world.setBlock(x0 + a!, y - k, z0 + b!, w0 + c!, REG.id('arch_stone'));
+    return stand(x0, y, z0, w0);
+  }
+
+  /** Hold the Hand Mirror up to a dormant rift: it wakes. */
+  private useHandMirror(): void {
+    const dormant = REG.id('dormant_rift'), awake = REG.id('mirror_rift');
+    const t = this.target;
+    if (!this.hasTarget || (this.world.getBlock(t.x, t.y, t.z, t.w) & 0xfff) !== dormant) {
+      this.message?.('Hold the mirror up to a dormant rift in a Silver Arch (the arrow points to the nearest)');
+      return;
+    }
+    for (const dy of [-1, 0, 1]) if ((this.world.getBlock(t.x, t.y + dy, t.z, t.w) & 0xfff) === dormant) this.world.setBlock(t.x, t.y + dy, t.z, t.w, awake);
+    this.particles.burst(t.x + 0.5, t.y + 1, t.z + 0.5, t.w + 0.5, this.player.cam, 'spark', '#cfe0ff', 30, 3, 1, true);
+    this.adv.event('rift_wake');
+    this.message?.('The rift wakes · step into it');
+  }
+
   /** Move the player to a (possibly far) point and wait for the columns there to stream in. */
   teleportTo(x: number, y: number, z: number, w: number): void {
     this.player.setPosition(x, y, z, w);
@@ -2516,6 +2611,7 @@ export class Game {
       this.checkBed = a.kind === 'respawn' && this.bed !== null;
       return true;
     }
+    if (a.kind === 'rift') return this.arriveAtRift();
     const realm = this.world.realm.name;
     const p = this.player.pos;
     const R = realm === 'surface' ? 128 : 16;
@@ -4211,6 +4307,10 @@ export class Game {
     }
     if (use === 'void_eye') {
       this.useVoidEye(held);
+      return;
+    }
+    if (use === 'hand_mirror') {
+      this.useHandMirror();
       return;
     }
     if (use === 'starlight_rocket') {

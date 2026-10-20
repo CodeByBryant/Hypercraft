@@ -5,6 +5,7 @@
 
 import type { FoodDef, Hex, ItemDef, RecipeDef } from './types';
 import { VOID_FOOD } from './void';
+import { P9_FOOD } from './realms9';
 
 /** Food data for item names (existing and new). */
 export const FOOD: Record<string, FoodDef> = {
@@ -69,7 +70,7 @@ export const FOOD: Record<string, FoodDef> = {
   cooked_crab: { nutrition: 6, saturation: 9.6 },
 };
 
-Object.assign(FOOD, VOID_FOOD);
+Object.assign(FOOD, VOID_FOOD, P9_FOOD);
 
 function food(name: string, displayName: string, shape: NonNullable<ItemDef['icon']>['shape'], colors: Hex[], extra: Partial<ItemDef> = {}): ItemDef {
   return { name, displayName, icon: { shape, colors }, group: 'food', ...extra };

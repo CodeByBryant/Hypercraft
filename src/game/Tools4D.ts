@@ -36,11 +36,12 @@ export function anaSheetCells(x: number, y: number, z: number, w: number, H: Arr
 const AXES = ['X', 'Y', 'Z', 'W'];
 
 /** Slicer Compass text: the hidden axis, aligned or how far it is tilted, and toward what. */
-export function slicerReadout(H: ArrayLike<number>, up = 1): string {
+export function slicerReadout(H: ArrayLike<number>, up = 1, labels: ArrayLike<string> = AXES): string {
+  const AX = labels;
   const h = hiddenAxisIndex(H, up);
   const sgn = H[h]! >= 0 ? '+' : '−';
   const tilt = Math.round((Math.acos(Math.min(1, Math.abs(H[h]!))) * 180) / Math.PI);
-  if (tilt <= 0) return `⟁ Hidden axis ${sgn}${AXES[h]} (aligned)  · use: snap`;
+  if (tilt <= 0) return `⟁ Hidden axis ${sgn}${AX[h]} (aligned)  · use: snap`;
   // The axis it leans toward most.
   let o = -1, ov = -1;
   for (let k = 0; k < 4; k++) {
@@ -50,5 +51,5 @@ export function slicerReadout(H: ArrayLike<number>, up = 1): string {
       o = k;
     }
   }
-  return `⟁ Hidden axis ${sgn}${AXES[h]}, tilted ${tilt}° toward ${H[o]! >= 0 ? '+' : '−'}${AXES[o]}  · use: snap`;
+  return `⟁ Hidden axis ${sgn}${AX[h]}, tilted ${tilt}° toward ${H[o]! >= 0 ? '+' : '−'}${AX[o]}  · use: snap`;
 }

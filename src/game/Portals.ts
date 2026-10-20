@@ -171,7 +171,9 @@ export function portalCenter(box: PortalBox): [number, number, number, number] {
 export function scalePosition(pos: ArrayLike<number>, from: RealmDef, to: RealmDef): [number, number, number, number] {
   const k = from.coordinateScale / to.coordinateScale;
   const top = to.heightChunks * 16 - 12;
-  return [pos[0]! * k, Math.max(8, Math.min(top, pos[1]!)), pos[2]! * k, pos[3]! * k];
+  // The Mirror Realm is the Surface reflected in x.
+  const flip = !!from.mirrorX !== !!to.mirrorX ? -1 : 1;
+  return [pos[0]! * k * flip, Math.max(8, Math.min(top, pos[1]!)), pos[2]! * k, pos[3]! * k];
 }
 
 /** The other end of the Surface <-> Ember Depths link. */

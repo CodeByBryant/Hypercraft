@@ -24,6 +24,8 @@ import { StructureGen, type GenExtra } from './structures/StructureGen';
 export interface GenOptions {
   /** Stamp the engine test garden next to spawn (test worlds / R6 reference views). */
   garden?: boolean;
+  /** false: no villages, temples, dungeons... (the Mirror Realm reflects the bare terrain). */
+  structures?: boolean;
 }
 
 export interface ColumnSample {
@@ -436,6 +438,7 @@ export class SurfaceGenerator {
 
   /** Nearest start of any of the named structures (atlas items, tests). */
   nearestStructure(names: string[], x: number, z: number, w: number, maxDist = 1200): { name: string; x: number; y: number; z: number; w: number } | null {
+    if (this.options.structures === false) return null;
     const st = this.structures.placer.nearest(names, x, z, w, maxDist);
     return st ? { name: st.def.name, x: st.x, y: st.y, z: st.z, w: st.w } : null;
   }
@@ -625,7 +628,7 @@ export class SurfaceGenerator {
     this.vegetation(X0, Z0, W0, heights, biomeOf, blocks);
 
     // 7. Structures (villages, temples, dungeons...), with chests, spawners and villagers.
-    this.structures.apply(cx, cz, cw, blocks, extra ?? {});
+    if (this.options.structures !== false) this.structures.apply(cx, cz, cw, blocks, extra ?? {});
 
     if (this.garden) stampGarden(blocks, X0 - this.gardenOrigin[0], Z0 - this.gardenOrigin[2], W0 - this.gardenOrigin[3], this.gardenFloor(), H);
   }

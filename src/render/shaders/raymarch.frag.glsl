@@ -237,7 +237,7 @@ int shapeIndex(uvec4 bi, uint vox) {
 
 vec4 texel(int tex, vec3 uvs) {
   ivec3 q = clamp(ivec3(floor(uvs * 16.0)), ivec3(0), ivec3(15));
-  ivec2 base = ivec2((tex & 15) * 64, (tex >> 4) * 64);
+  ivec2 base = ivec2((tex & 31) * 64, (tex >> 5) * 64);
   return texelFetch(uAtlas, base + ivec2((q.z & 3) * 16 + q.x, (q.z >> 2) * 16 + q.y), 0);
 }
 
@@ -250,9 +250,11 @@ vec3 facetUVS(int axis, vec4 f) {
   return vec3(f.x, f.y, f.z);
 }
 
+// Texture ids: 10 bits per face in bi.y plus an 11th bit per face in bi.x (bits 25..27).
+int sideTexOf(uvec4 bi) { return int((bi.y >> 20) & 1023u) | (int((bi.x >> 27) & 1u) << 10); }
 int facetTexture(uvec4 bi, int axis, float ns) {
-  if (axis == uUpAxis) return ns > 0.0 ? int(bi.y & 1023u) : int((bi.y >> 10) & 1023u);
-  return int((bi.y >> 20) & 1023u);
+  if (axis == uUpAxis) return ns > 0.0 ? (int(bi.y & 1023u) | (int((bi.x >> 25) & 1u) << 10)) : (int((bi.y >> 10) & 1023u) | (int((bi.x >> 26) & 1u) << 10));
+  return sideTexOf(bi);
 }
 
 vec4 axisVec(int a) {
@@ -540,7 +542,7 @@ bool surfaceHit(vec4 o, vec4 d, vec4 invD, ivec4 cell, int enterAxis, float tEnt
       if (th < tEnter || th > tExit || th >= best) continue;
       vec4 f = o + d * th - c0;
       vec3 uv = vec3(fract(f.x + f.z * 0.5 + f.w * 0.25), f.y, fract(f.z + f.w));
-      if (texel(int(bi.y >> 20) & 1023, animUVS(bi, uv)).a < 0.5) continue;
+      if (texel(sideTexOf(bi), animUVS(bi, uv)).a < 0.5) continue;
       best = th;
       bn = n * -sign(dn);
       buv = uv;

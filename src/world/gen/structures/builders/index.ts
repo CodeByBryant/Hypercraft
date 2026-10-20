@@ -9,6 +9,7 @@ import { village } from './village';
 import { citadel, emberRuinedPortal, forge, magmaBridge, regentCaldera, ziggurat } from './ember';
 import { shipwreck, sunkenMonument } from './water';
 import { crystalShrine, skyVault, starlightGarden, stronghold, voidCity } from './void';
+import { silverArch } from './mirror';
 
 export const BUILDERS: Record<string, BuilderFn> = {
   village,
@@ -48,4 +49,5 @@ export const BUILDERS: Record<string, BuilderFn> = {
   starlight_garden: starlightGarden,
   sky_vault: skyVault,
   void_city: voidCity,
+  silver_arch: silverArch,
 };

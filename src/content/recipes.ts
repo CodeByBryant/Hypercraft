@@ -14,6 +14,7 @@ import { TOOLS4D_RECIPES } from './tools4d';
 import { WOOD_RECIPES } from './woods';
 import { SURVIVAL_RECIPES } from './survival';
 import { VOID_RECIPES } from './void';
+import { P9_RECIPES } from './realms9';
 
 export const RECIPES: RecipeDef[] = [
   // Wood (planks, slabs, stairs, fences and doors for every wood: see woods.ts).
@@ -158,5 +159,5 @@ RECIPES.push(...FARM_RECIPES);
 RECIPES.push({ type: 'shaped', pattern: ['ss ', 'sb ', '  s'], key: { s: 'string', b: 'slime_ball' }, result: 'lead', count: 2 });
 
 // Phase 7: smithing and shields.
-RECIPES.push(...SMITHING_RECIPES, ...ORE_RECIPES, ...TOOLS4D_RECIPES, ...SURVIVAL_RECIPES, ...VOID_RECIPES);
+RECIPES.push(...SMITHING_RECIPES, ...ORE_RECIPES, ...TOOLS4D_RECIPES, ...SURVIVAL_RECIPES, ...VOID_RECIPES, ...P9_RECIPES);
 RECIPES.push({ type: 'shaped', pattern: ['pip', 'ppp', ' p '], key: { p: '#planks', i: 'iron_ingot' }, result: 'shield' });

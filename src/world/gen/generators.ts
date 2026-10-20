@@ -5,6 +5,7 @@ import type { RealmDef } from '../../content/types';
 import { SurfaceGenerator, type ColumnSample, type GenOptions } from './SurfaceGen';
 import { EmberGenerator } from './EmberGen';
 import { VoidGenerator } from './VoidGen';
+import { MirrorGenerator } from './MirrorGen';
 
 export type { GenOptions };
 
@@ -32,6 +33,7 @@ export const GENERATORS: Record<string, (seed: number, realm: RealmDef, options:
   surface: (seed, realm, options) => new SurfaceGenerator(seed, realm, options),
   ember: (seed, realm, options) => new EmberGenerator(seed, realm, options),
   void: (seed, realm, options) => new VoidGenerator(seed, realm, options),
+  mirror: (seed, realm, options) => new MirrorGenerator(seed, realm, options),
 };
 
 export function createGenerator(seed: number, realm: RealmDef, options: GenOptions = {}): WorldGenerator {
