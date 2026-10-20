@@ -813,6 +813,6 @@ export interface RealmDef {
   invertedSky?: boolean;
   /** Left and right swap (strafing, turning, slice rotation) unless the setting turns it off. */
   mirrorControls?: boolean;
-  /** Winds push anything that is not standing on the ground along W (Cloud Archipelago). */
-  wind?: boolean;
+  /** Top speed (blocks per second) of the wind currents along W (Cloud Archipelago, src/physics/wind.ts); none if absent. */
+  wind?: number;
 }

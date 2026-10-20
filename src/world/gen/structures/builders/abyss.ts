@@ -4,6 +4,8 @@
 // Abyss's mobs.)
 
 import { gateCells } from '../../../../content/abyss';
+import { skyGateCells } from '../../../../content/cloud';
+import { IF_SOFT } from '../Plan';
 import { id, type Builder } from '../Builder';
 
 /** Geode Gate: a husk, calcite and a glowing lining around a round room, the gate in its floor. */
@@ -71,4 +73,11 @@ export function crystalCathedral(b: Builder): void {
   b.spawner(-14, 0, 0, 3, 'prism_spider');
   b.spawner(-6, 0, 0, -3, 'geode_slime');
   b.spawner(8, 0, -6, 0, 'prism_spider');
+}
+
+/** Sky Gate: a plinth, four pillars, a roof and a dormant rift on a high peak, open to the wind. */
+export function skyGate(b: Builder): void {
+  b.box(-1, 0, -1, -1, 1, 4, 1, 1, 0, IF_SOFT);
+  b.foundation(-1, -1, -1, 1, 1, 1, -2, id('sky_gate_stone'), 8);
+  for (const c of skyGateCells('dormant_cloud_rift')) b.set(c.d[0], c.d[1], c.d[2], c.d[3], id(c.block));
 }

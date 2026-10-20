@@ -632,7 +632,9 @@ export class Hud {
     for (let i = 1; i < 4; i++) if (Math.abs(h[i]!) > Math.abs(h[dom]!)) dom = i;
     const sgn = h[dom]! >= 0 ? '+' : '−';
     const w = this.game.eye()[3]!;
-    this.compassText.textContent = tilt < 0.5 ? `h = ${sgn}${this.axisLabels[dom]} (aligned) · w ${w.toFixed(1)}` : `h ≈ ${sgn}${this.axisLabels[dom]}, tilt ${tilt.toFixed(1)}° · w ${w.toFixed(1)}`;
+    const g = this.game;
+    const wind = g.world.realm.wind ? ` · wind ${g.windNow >= 0 ? '+' : '−'}W ${Math.abs(g.windNow).toFixed(0)}` : '';
+    this.compassText.textContent = (tilt < 0.5 ? `h = ${sgn}${this.axisLabels[dom]} (aligned) · w ${w.toFixed(1)}` : `h ≈ ${sgn}${this.axisLabels[dom]}, tilt ${tilt.toFixed(1)}° · w ${w.toFixed(1)}`) + wind;
   }
 
   /**

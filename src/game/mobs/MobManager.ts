@@ -1447,7 +1447,7 @@ export class MobManager {
       m.vel[1] = Math.max(m.vel[1]!, -3);
       if (m.hitWall || m.vel[1]! < 0) m.vel[1] = m.vel[1]! + 10 * dt; // paddle up
     } else {
-      m.vel[1] = Math.max(-40, m.vel[1]! - 28 * dt);
+      m.vel[1] = Math.max(-40, m.vel[1]! - 28 * ((this.world.realm?.gravity ?? 32) / 32) * dt);
     }
     const steps = Math.max(1, Math.ceil((Math.hypot(m.vel[0]!, m.vel[1]!, m.vel[2]!, m.vel[3]!) * dt) / 0.3));
     const sdt = dt / steps;

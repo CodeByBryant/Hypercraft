@@ -240,12 +240,12 @@ export const ABYSS_MINING: Record<string, MiningDef> = {
  * arch as the Silver Arch (a plinth, four pillars, a roof, two rift cells) in gate stone, with
  * the corner lamps in gate crystal.
  */
-export function gateCells(rift: string): ArchCell[] {
+export function gateCells(rift: string, stone = GATE_STONE, lamp = GATE_LAMP): ArchCell[] {
   const out: ArchCell[] = [];
   for (let c = -1; c <= 1; c++)
-    for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) out.push({ d: [a, -1, b, c], block: GATE_STONE });
-  for (const [a, b] of [[-1, -1], [-1, 1], [1, -1], [1, 1]] as [number, number][]) for (let y = 0; y <= 2; y++) out.push({ d: [a, y, b, 0], block: y === 2 ? GATE_LAMP : GATE_STONE });
-  for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) out.push({ d: [a, 3, b, 0], block: GATE_STONE });
+    for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) out.push({ d: [a, -1, b, c], block: stone });
+  for (const [a, b] of [[-1, -1], [-1, 1], [1, -1], [1, 1]] as [number, number][]) for (let y = 0; y <= 2; y++) out.push({ d: [a, y, b, 0], block: y === 2 ? lamp : stone });
+  for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) out.push({ d: [a, 3, b, 0], block: stone });
   out.push({ d: [0, 0, 0, 0], block: rift }, { d: [0, 1, 0, 0], block: rift });
   return out;
 }

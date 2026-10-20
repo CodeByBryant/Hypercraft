@@ -277,7 +277,7 @@ describe('Geode Gate (Surface)', () => {
 
 describe('Rift links', () => {
   it('each link names real blocks and realms, a waker item, and the way an arrival stands', () => {
-    expect(RIFT_LINKS.map((l) => l.rift)).toEqual(['mirror_rift', 'abyss_rift']);
+    expect(RIFT_LINKS.map((l) => l.rift)).toEqual(['mirror_rift', 'abyss_rift', 'cloud_rift']);
     for (const l of RIFT_LINKS) {
       expect(REG.has(l.rift) && REG.has(l.dormant) && REG.has(l.foot)).toBe(true);
       expect(IREG.has(l.waker)).toBe(true);

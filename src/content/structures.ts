@@ -69,6 +69,8 @@ export const STRUCTURES: StructureDef[] = [
   { name: 'geode_gate', displayName: 'Geode Gate', placement: 'underground', spacing: 224, chance: 0.7, builder: 'geode_gate', radius: 11, y: [18, 44], salt: 0x7401 },
   // The Crystal Cathedral (realm 'abyss'): a great hall with the Resonance Bell, where the Resonance Titan waits.
   { name: 'crystal_cathedral', displayName: 'Crystal Cathedral', placement: 'surface', spacing: 224, chance: 0.55, builder: 'crystal_cathedral', radius: 24, salt: 0x7402, realm: 'abyss' },
+  // The Sky Gate (realm 'surface'): a ruin on a high peak whose dormant rift a Zephyr Feather wakes.
+  { name: 'sky_gate', displayName: 'Sky Gate', placement: 'surface', spacing: 160, chance: 0.6, builder: 'sky_gate', radius: 4, salt: 0x7403 },
   { name: 'silver_arch', displayName: 'Silver Arch', placement: 'surface', spacing: 256, chance: 0.5, builder: 'silver_arch', radius: 4, salt: 0x7301 },
 
   // ---------------------------------------------------------------- Hollow Void (Phase 8)

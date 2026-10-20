@@ -7,6 +7,7 @@ import { EmberGenerator } from './EmberGen';
 import { VoidGenerator } from './VoidGen';
 import { MirrorGenerator } from './MirrorGen';
 import { AbyssGenerator } from './AbyssGen';
+import { CloudGenerator } from './CloudGen';
 
 export type { GenOptions };
 
@@ -36,6 +37,7 @@ export const GENERATORS: Record<string, (seed: number, realm: RealmDef, options:
   void: (seed, realm, options) => new VoidGenerator(seed, realm, options),
   mirror: (seed, realm, options) => new MirrorGenerator(seed, realm, options),
   abyss: (seed, realm, options) => new AbyssGenerator(seed, realm, options),
+  cloud: (seed, realm, options) => new CloudGenerator(seed, realm, options),
 };
 
 export function createGenerator(seed: number, realm: RealmDef, options: GenOptions = {}): WorldGenerator {

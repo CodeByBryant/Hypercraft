@@ -112,6 +112,8 @@ export interface Hc {
   ringFork(tone: number): void;
   breakTitanPlates(): void;
   freezeFights(on: boolean): void;
+  windAt(x: number, y: number, z: number): number;
+  wind(): { now: number; speed: number; v: number };
   pulses(): { tone: number; r: number; spent: boolean; owner: string; c: number[] }[];
   singPulse(tone: number, x: number, y: number, z: number, w: number, damage?: number): void;
   cancelPulses(tone: number): number;

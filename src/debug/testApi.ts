@@ -2,6 +2,7 @@
 // drive the same public game methods a player uses, which keeps smoke tests honest.
 
 import { makeTiltedFrame } from '../math/frame';
+import { windAt } from '../physics/wind';
 import { REG } from '../content/registry';
 import { makeRayHit, raycast } from '../world/raycast';
 import type { Game } from '../game/Game';
@@ -450,6 +451,10 @@ export function installTestApi(game: Game, screen?: InventoryScreen): void {
       game.resonanceBoss.plates.fill(false);
       game.resonanceBoss.exposed = 14;
     },
+    /** The wind: the current at the player (blocks per second along W), what carries them, and the speed it has eased to. */
+    /** The wind (blocks per second along W) at a point, now. */
+    windAt: (x: number, y: number, z: number) => windAt(x, y, z, game.env.sky.time) * (game.world.realm.wind ?? 0),
+    wind: () => ({ now: game.windNow, speed: game.player.windSpeed, v: game.player.windV }),
     /** Hold sound pulses and boss fights still (for screenshots), or resume. */
     freezeFights: (on: boolean) => void (game.fightsFrozen = on),
     /** Sound pulses in flight (Resonance Golems, the Titan). */

@@ -5,6 +5,7 @@
 
 import { ARCH_AIR, archCells, type ArchCell } from './mirror';
 import { gateCells } from './abyss';
+import { skyGateCells } from './cloud';
 
 export interface RiftLink {
   /** The awake and dormant rift blocks. */
@@ -47,6 +48,16 @@ export const RIFT_LINKS: RiftLink[] = [
     waker: 'resonance_crystal',
     arrival: { abyss: 'The Crystal Abyss: no sun, no sky, and only the crystals for light', surface: 'Back on the Surface' },
     stand: { surface: 'ground', abyss: 'depth' },
+  },
+  {
+    rift: 'cloud_rift',
+    dormant: 'dormant_cloud_rift',
+    realms: ['surface', 'cloud'],
+    cells: skyGateCells,
+    foot: 'sky_gate_stone',
+    waker: 'zephyr_feather',
+    arrival: { cloud: 'The Cloud Archipelago: light gravity, and the wind blows along W (a Wind Glider rides it)', surface: 'Back on the Surface' },
+    stand: { surface: 'ground', cloud: 'ground' },
   },
 ];
 

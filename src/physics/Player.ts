@@ -66,6 +66,9 @@ export class Player {
   fallStart = 0;
   /** Height of the most recent fall (set on landing; Phase 4 turns it into damage). */
   lastFall = 0;
+  /** Wind (Cloud Archipelago): the drift speed along W (blocks per second, signed) the game wants for this frame, and the speed it has eased to. */
+  windSpeed = 0;
+  windV = 0;
   /** Phase Wings (Phase 8): gliding. The game turns it on (jump in the air while falling) and off. */
   gliding = false;
   /** Seconds of Starlight Rocket boost left. */
@@ -362,6 +365,7 @@ export class Player {
     this.vel[up] = vy;
 
     this.integrate(world, dt);
+    this.drift(world, dt);
     // Fall tracking (used by Phase 4 damage; exposed in F3).
     const yNow = this.pos[up]!;
     const grounded = this.onGround || this.inWater || this.flying || this.onClimbable || this.slow < 1;
@@ -370,6 +374,20 @@ export class Player {
       this.fallStart = yNow;
     } else if (this.vel[up]! > 0) this.fallStart = yNow;
     this.wasGrounded = grounded;
+  }
+
+  /**
+   * The wind carries you along W (Cloud Archipelago), independently of your own motion: it is its own
+   * move, so it respects walls and is not cancelled by "no kata/ana input", and it eases in and out.
+   */
+  private drift(world: World, dt: number): void {
+    const target = this.mode === 'spectator' || this.flying ? 0 : this.windSpeed;
+    this.windV += (target - this.windV) * Math.min(1, 1.5 * dt);
+    if (Math.abs(this.windV) < 1e-3) {
+      this.windV = 0;
+      return;
+    }
+    if (this.moveAxis(world, 3, this.windV * dt)) this.windV = 0;
   }
 
   /** Integrate with axis-separated collision in substeps (no tunnelling). */
@@ -425,6 +443,7 @@ export class Player {
     const before = this.speedH();
     const vyBefore = this.vel[up]!;
     this.integrate(world, dt);
+    this.drift(world, dt);
     if (this.hitWall) this.glideImpact = Math.max(this.glideImpact, kineticDamage(before, this.speedH()));
     if (this.onGround) {
       this.glideImpact = Math.max(this.glideImpact, kineticDamage(Math.max(0, -vyBefore), 0));

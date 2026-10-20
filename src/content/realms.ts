@@ -117,4 +117,27 @@ export const REALMS: RealmDef[] = [
     ceilingBlock: 'bedrock',
     cavernSpawns: true,
   },
+  {
+    // Realm F: floating islands on a sea of cloud, low gravity (40% of the Surface) and wind
+    // currents that push you along W (src/physics/wind.ts). Reached through a Sky Gate on a
+    // Surface peak (Game.updateRift), so no portal scale.
+    name: 'cloud',
+    displayName: 'The Cloud Archipelago',
+    heightChunks: 8,
+    gravityAxis: 1,
+    gravity: 13,
+    seaLevel: 37,
+    generator: 'cloud',
+    coordinateScale: 1,
+    dayCycle: true,
+    ambient: 0.06,
+    ambientColor: '#fff0e0',
+    weather: ['clear', 'rain', 'thunder'],
+    skyColor: '#8ec8ff',
+    fogColor: '#dceaff',
+    floorBlock: 'bedrock',
+    ceilingBlock: null,
+    islandSpawns: true,
+    wind: 12,
+  },
 ];

@@ -78,6 +78,7 @@ import { Pulses, type PulseHost } from './mobs/Pulses';
 import { TONES } from '../content/titanBody';
 import type { BossFight, PlayerAction } from './BossFight';
 import { ROCKET_TIME } from '../physics/glide';
+import { WIND_AIR, WIND_GLIDE, WIND_GROUND, WIND_RIDE, windAt } from '../physics/wind';
 import { Advancements } from './Advancements';
 import type { AdvancementDef } from '../content/advancements';
 
@@ -298,6 +299,8 @@ export class Game {
   mirrorBoss!: MirrorBoss;
   resonanceBoss!: ResonanceBoss;
   private forkCd = 0;
+  /** The wind at the player right now (blocks per second along W, signed; 0 outside windy realms). */
+  windNow = 0;
   /** Tests: hold pulses and boss fights still (for screenshots). */
   fightsFrozen = false;
   /** Every realm boss's fight; each runs only in its own realm. */
@@ -1109,6 +1112,7 @@ export class Game {
     if (!this.loaded) this.checkLoaded();
     this.movementModifiers();
     this.glideControl(dt);
+    this.updateWind();
     p.update(this.world, this.move, dt);
     this.glideAftermath();
     this.updateAdvancements(dt);
@@ -2117,8 +2121,8 @@ export class Game {
       this.inv.set(this.hotbarIndex, held.count > 0 ? held : null);
     }
     this.particles.burst(t.x + 0.5, t.y + 1, t.z + 0.5, t.w + 0.5, this.player.cam, 'spark', '#a8d8ff', 30, 3, 1, true);
-    this.adv.event('gate_wake');
-    this.message?.('The crystal dissolves into the rift · it wakes · step into it');
+    this.adv.event(link.rift === 'cloud_rift' ? 'sky_wake' : 'gate_wake');
+    this.message?.(link.rift === 'cloud_rift' ? 'The feather drifts into the rift · it wakes · step into it' : 'The crystal dissolves into the rift · it wakes · step into it');
   }
 
   /** Hold the Hand Mirror up to a dormant rift: it wakes. */
@@ -2197,9 +2201,33 @@ export class Game {
   // ------------------------------------------------------------------ Phase Wings
 
   /** The wings in your chest slot, with some wear left, or null. */
+  /** Chest-slot wings: Phase Wings or a Wind Glider. */
   private wings(): ItemStack | null {
     const s = this.armorPiece(1);
-    return s && IREG.name(s.id) === 'phase_wings' ? s : null;
+    return s && IREG.tags[s.id]!.has('wings') ? s : null;
+  }
+
+  /** A Wind Glider rides the wind currents at full strength; other wings only a little. */
+  private isGlider(): boolean {
+    const s = this.armorPiece(1);
+    return !!s && IREG.tags[s.id]!.has('glider');
+  }
+
+  /** Wind (Cloud Archipelago): what carries you along W this frame, by what you are doing. */
+  private updateWind(): void {
+    const p = this.player, top = this.world.realm.wind ?? 0;
+    if (!top) {
+      this.windNow = 0;
+      p.windSpeed = 0;
+      return;
+    }
+    this.windNow = windAt(p.pos[0]!, p.pos[1]!, p.pos[2]!, this.env.sky.time) * top;
+    if (!this.loaded || this.vitals.dead || p.mode === 'spectator' || p.flying) {
+      p.windSpeed = 0;
+      return;
+    }
+    const mul = p.onGround || p.inWater || p.inLava ? WIND_GROUND : p.gliding ? (this.isGlider() ? WIND_RIDE : WIND_GLIDE) : WIND_AIR;
+    p.windSpeed = this.windNow * mul;
   }
   private jumpWas = false;
   private glideWear = 0;
@@ -3526,7 +3554,8 @@ export class Game {
       }
       if (vulnerable && !p.inWater && !p.onClimbable && p.slow >= 1 && !this.effects.has('slow_falling')) {
         // Jump Boost softens landings by a block per level.
-        const dmg = Vitals.fallDamage(fall - this.effects.level('jump_boost'));
+        // Light gravity softens a fall: the same drop is slower (the Cloud Archipelago: 40%).
+        const dmg = Vitals.fallDamage((fall * this.world.realm.gravity) / 32 - this.effects.level('jump_boost'));
         if (dmg > 0) this.hurtPlayer(dmg, null, 'Fell from a high place', 'fall');
       }
     }

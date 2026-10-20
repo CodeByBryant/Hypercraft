@@ -15,7 +15,7 @@
 //   event   something happened (see EVENTS: the game calls them out)
 //   stat    a counter reached a value (see STATS)
 
-export type AdvCategory = 'surface' | 'mining' | 'husbandry' | 'combat' | 'magic' | 'fourd' | 'ember' | 'void' | 'mirror' | 'abyss';
+export type AdvCategory = 'surface' | 'mining' | 'husbandry' | 'combat' | 'magic' | 'fourd' | 'ember' | 'void' | 'mirror' | 'abyss' | 'cloud';
 
 export interface AdvCategoryDef {
   id: AdvCategory;
@@ -36,10 +36,11 @@ export const ADV_CATEGORIES: AdvCategoryDef[] = [
   { id: 'void', name: 'Hollow Void', icon: 'void_eye', blurb: 'Islands in the dark' },
   { id: 'mirror', name: 'Mirror Realm', icon: 'hand_mirror', blurb: 'Up is W, left is right' },
   { id: 'abyss', name: 'Crystal Abyss', icon: 'prism_shard', blurb: 'Light is the only map' },
+  { id: 'cloud', name: 'Cloud Archipelago', icon: 'wind_glider', blurb: 'Low gravity, high wind' },
 ];
 
 /** Things the game reports (Game calls Advancements.event with these names). */
-export const EVENTS = ['sleep', 'trade', 'plant', 'breed', 'fish', 'block', 'enchant', 'anvil', 'phase_strike', 'void_gate', 'phase_step', 'rocket', 'rift_wake', 'rift', 'reflect', 'twin_wake', 'gate_wake', 'beam_reflect', 'fork_answer', 'bell_wake'] as const;
+export const EVENTS = ['sleep', 'trade', 'plant', 'breed', 'fish', 'block', 'enchant', 'anvil', 'phase_strike', 'void_gate', 'phase_step', 'rocket', 'rift_wake', 'rift', 'reflect', 'twin_wake', 'gate_wake', 'beam_reflect', 'fork_answer', 'bell_wake', 'sky_wake'] as const;
 export type AdvEvent = (typeof EVENTS)[number];
 
 /** Counters the game keeps: the largest slice tilt (degrees), blocks walked along the hidden axis, blocks glided. */
@@ -183,6 +184,14 @@ export const ADVANCEMENTS: AdvancementDef[] = [
   A('abyss/bell', 'abyss', 'For Whom the Bell Tolls', 'Ring a tuning fork at the Resonance Bell', 'resonance_block', { type: 'event', name: 'bell_wake' }, 40, 'abyss/answer'),
   A('abyss/titan', 'abyss', 'Resonance Cascade', 'Defeat the Resonance Titan', 'resonance_heart', { type: 'kill', mobs: ['resonance_titan'] }, 400, 'abyss/bell'),
   A('abyss/block', 'abyss', 'Crystal Clear', 'Craft a block of resonance crystal', 'resonance_block', { type: 'have', items: ['resonance_block'] }, 25, 'abyss/root'),
+
+  // ---------------------------------------------------------------- Cloud Archipelago
+  A('cloud/root', 'cloud', 'Feather Light', 'Craft a zephyr feather', 'zephyr_feather', { type: 'have', items: ['zephyr_feather'] }, 20),
+  A('cloud/wake', 'cloud', 'Wake the Sky Gate', 'Feed a zephyr feather to a Sky Gate', 'zephyr_feather', { type: 'event', name: 'sky_wake' }, 25, 'cloud/root'),
+  A('cloud/enter', 'cloud', 'Head in the Clouds', 'Enter the Cloud Archipelago', 'cloud_cotton', { type: 'realm', realm: 'cloud' }, 40, 'cloud/wake'),
+  A('cloud/cotton', 'cloud', 'Cotton Picking', 'Gather cloud cotton', 'cloud_cotton', { type: 'have', items: ['cloud_cotton'] }, 20, 'cloud/enter'),
+  A('cloud/glider', 'cloud', 'Wind Rider', 'Craft a wind glider', 'wind_glider', { type: 'have', items: ['wind_glider'] }, 50, 'cloud/cotton'),
+  A('cloud/far', 'cloud', 'Jet Stream', 'Glide five hundred blocks', 'wind_glider', { type: 'stat', stat: 'glide', value: 500 }, 60, 'cloud/glider'),
 ];
 
 export const ADV_BY_ID = new Map(ADVANCEMENTS.map((a) => [a.id, a]));

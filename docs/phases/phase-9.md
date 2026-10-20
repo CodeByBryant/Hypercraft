@@ -193,3 +193,39 @@ A reflected copy of the Surface (Realm D).
   and Bell, waking, armour, plates, calls, answers, off-key, exposure, phases, arena, save), and e2e
   (`abyss.spec.ts`: a pulse ring you see and answer, Prism armour turning a beam, a fork rung at the Bell,
   the Titan's call answered and its fall).
+
+## 9.6 The Cloud Archipelago, wind along W, Wind Gliders
+
+* **The realm** (`cloud` in `realms.ts`): an open sky with a day, floating islands over a sea of cloud, **gravity
+  13 (40% of the Surface)**: you jump about three blocks and fall slowly (fall damage scales with gravity, and
+  mobs now fall at the realm's gravity too), and **wind currents** along W (`RealmDef.wind`, 12 blocks per
+  second at most). No bedrock: dig through the cloud and you fall out of the world.
+* **The generator** (`src/world/gen/CloudGen.ts`, ~6 ms per column in Node):
+  * The **cloud sea**: a walkable, diggable floor of cloud eight blocks thick whose top rolls between y 24 and
+    36 with a slow 3D noise over (x, z, w). Its biome is the Nimbus Sea.
+  * **Islands**: one per 88-block cell of a 4D lattice (x, z *and* w), 85% of cells, jittered; a ball in the
+    three horizontal axes (radius 26 to 46) with a domed top and a conical underside, 54 to 104 up. In a slice
+    you see a disc that grows and shrinks as you walk kata and ana (a unit test measures it). Islands overlap.
+  * **Biomes**, one per island from noise at its centre and its altitude: Cirrus Meadow, Storm Reef, Sunbreak
+    Gardens, Zephyr Terraces and (only on the highest islands) the Aurora Ridge. Each brings four ground blocks
+    and two plants of its own (`src/content/cloud.ts`).
+  * `sample()` answers the highest floor (island top or cloud sea); the spawn is a calm meadow, well inside its island.
+* **Wind** (`src/physics/wind.ts`): layers about 24 blocks thick stacked in y, each blowing toward +W (ana, when
+  your slice is aligned) or -W (kata), the next the other way. The layers bend with x and z and drift up and down
+  with the clock, so a current you rode a minute ago may carry you the other way now: find the altitude you want.
+  `Player.drift` carries you along W as its own collision-respecting move (it is not your input, so "no kata/ana
+  input" does not cancel it), easing in and out. How much carries you: 10% standing, 50% falling, 60% gliding
+  with ordinary wings, 100% with a Wind Glider. The HUD's hidden-axis panel shows `wind +W 8`.
+* **Wind Glider** (`wind_glider`): chest-slot wings like Phase Wings (fall, press jump; look to steer, rotate your
+  slice to bank through W) that **ride the current at full strength**: gliding in a strong current adds its
+  full speed (up to 12 m/s) to your own glide, the fastest way across the Archipelago. Craftable from cloud
+  cotton (picked from cirrus cotton), a feather and string; repaired with cloud cotton.
+* **The way in: the Sky Gate**, a small ruin on a Surface peak (Hollow Peaks, Frost Spires, Stony Peaks, Volcanic
+  Highlands) with a dormant Cloud rift. A **Zephyr Feather** (three feathers and a resonance crystal) held up to
+  it wakes it. The rift leads to the same x, z, w in the Cloud Archipelago, in a gate of your own on top of
+  whatever lies there, and back (`rifts.ts` has its row; `stand: 'ground'` in both realms).
+* Advancements: Feather Light, Wake the Sky Gate, Head in the Clouds, Cotton Picking, Wind Rider, Jet Stream.
+* Tests: `tests/unit/cloud.test.ts` (realm flags, determinism, the cloud sea, islands and their blocks, every
+  biome reached, `sample`, the spawn, islands as 4D balls, the wind field, Player drift and walls, light gravity,
+  the glider, the Sky Gate), `tests/e2e/cloud.spec.ts` (the three R6 views, a biome tour, a full gate trip, a
+  three-block jump, a glider carried along W by the current).
