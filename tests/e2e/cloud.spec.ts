@@ -215,3 +215,90 @@ test('cloud mobs: a lineup in the sky, and a full cloud set falls slowly and gli
   expect(gear.gliding).toBe(true);
   expect(errors).toEqual([]);
 });
+
+test('storm sovereign: a horn sounded at the beacon wakes it, bolts are announced, a gale shoves you along W, and it falls', async ({ page }) => {
+  test.setTimeout(500_000);
+  const errors: string[] = [];
+  await boot(page, 'res=180&rd=2&seed=cumulus&realm=cloud', errors);
+  const set = await page.evaluate(async () => {
+    const hc = window.__hc;
+    hc.setMode('survival');
+    hc.setMobSpawning(false);
+    hc.clearMobs();
+    hc.clearInventory();
+    hc.setTime(6000);
+    const s = hc.state();
+    const x = Math.floor(s.pos[0]!) + 4, y = Math.floor(s.pos[1]!), z = Math.floor(s.pos[2]!), w = Math.floor(s.pos[3]!);
+    // A stage: a wide floor, open sky, the Beacon on a pillar.
+    for (let dx = -14; dx <= 6; dx++)
+      for (let dz = -8; dz <= 8; dz++)
+        for (let dw = -24; dw <= 24; dw++) {
+          hc.setBlock(x + dx, y - 1, z + dz, w + dw, 'cloud_brick');
+          for (let dy = 0; dy <= 16; dy++) hc.setBlock(x + dx, y + dy, z + dz, w + dw, 'air');
+        }
+    hc.setBlock(x, y, z, w, 'cloud_brick');
+    hc.setBlock(x, y + 1, z, w, 'storm_beacon');
+    hc.give('storm_horn');
+    hc.select(0);
+    await hc.frames(4);
+    const before = hc.stormBoss();
+    hc.useOn(x, y + 1, z, w);
+    await hc.frames(10);
+    return { x, y, z, w, before, mobs: hc.mobs().map((m) => m.name), after: hc.stormBoss() };
+  });
+  expect(set.before.id).toBe(-1);
+  expect(set.mobs).toContain('storm_sovereign');
+  expect(set.after.phase).toBe(1);
+
+  // Bolts: wait for one to be announced, hold everything still, photograph it, then move.
+  await page.evaluate(async () => {
+    const hc = window.__hc;
+    hc.setView({ yaw: 270, pitch: 6 });
+    for (let i = 0; i < 4000 && hc.stormBoss().pending === 0; i++) await hc.frames(1);
+    await hc.frames(3);
+    hc.freezeMobs(true);
+    hc.freezeFights(true);
+    await hc.frames(6);
+  });
+  const announced = await page.evaluate(() => window.__hc.stormBoss());
+  expect(announced.pending).toBeGreaterThan(0);
+  expect(announced.warning).toContain('Lightning');
+  await shot(page, 'cloud-6-storm-bolt');
+  await page.evaluate(() => {
+    window.__hc.freezeMobs(false);
+    window.__hc.freezeFights(false);
+  });
+
+  // A gale: warned, then it shoves you along W (the sneak grip is tested in the unit and wind tests).
+  const gale = await page.evaluate(async (c) => {
+    const hc = window.__hc;
+    let warned = false;
+    for (let i = 0; i < 6000 && hc.stormBoss().galeIn === 0; i++) await hc.frames(1);
+    warned = hc.stormBoss().galeIn > 0;
+    const dir = hc.stormBoss().galeDir;
+    // Stand mid-stage so a wall cannot stop the shove (an earlier gale may have carried you to its edge).
+    hc.teleport(c.x - 3 + 0.5, c.y, c.z + 0.5, c.w + 0.5);
+    // Wait for it to blow, then give it a couple of seconds.
+    // (A gale from just before may still be dying down: wait for one blowing the warned way.)
+    const mine = () => Math.sign(hc.wind().now) === dir && Math.abs(hc.wind().now) >= 10;
+    for (let i = 0; i < 400 && !mine(); i++) await hc.frames(1);
+    const blowing = mine();
+    const w1 = hc.state().pos[3]!;
+    await hc.frames(150);
+    return { warned, dir, blowing, dw: hc.state().pos[3]! - w1 };
+  }, { x: set.x, y: set.y, z: set.z, w: set.w });
+  expect(gale.warned).toBe(true);
+  expect(gale.blowing).toBe(true);
+  expect(Math.sign(gale.dw)).toBe(gale.dir);
+  expect(Math.abs(gale.dw)).toBeGreaterThan(4);
+
+  const end = await page.evaluate(async () => {
+    const hc = window.__hc;
+    hc.hurtMob(hc.stormBoss().id, 99999);
+    await hc.frames(10);
+    return { boss: hc.stormBoss(), adv: hc.advancements().done };
+  });
+  expect(end.boss.defeated).toBe(true);
+  expect(end.adv).toContain('cloud/beacon');
+  expect(errors).toEqual([]);
+});

@@ -11,6 +11,7 @@ import { shipwreck, sunkenMonument } from './water';
 import { crystalShrine, skyVault, starlightGarden, stronghold, voidCity } from './void';
 import { mirrorPalace, silverArch } from './mirror';
 import { crystalCathedral, geodeGate, skyGate } from './abyss';
+import { cloudCitadel } from './cloud';
 
 export const BUILDERS: Record<string, BuilderFn> = {
   village,
@@ -49,6 +50,7 @@ export const BUILDERS: Record<string, BuilderFn> = {
   geode_gate: geodeGate,
   crystal_cathedral: crystalCathedral,
   sky_gate: skyGate,
+  cloud_citadel: cloudCitadel,
   crystal_shrine: crystalShrine,
   starlight_garden: starlightGarden,
   sky_vault: skyVault,

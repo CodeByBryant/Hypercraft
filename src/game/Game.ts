@@ -74,6 +74,7 @@ import { GATE, fillFrame, gateProgress } from './VoidGate';
 import { VoidBoss } from './VoidBoss';
 import { MirrorBoss } from './MirrorBoss';
 import { ResonanceBoss } from './ResonanceBoss';
+import { GALE_SPEED, StormBoss } from './StormBoss';
 import { Pulses, type PulseHost } from './mobs/Pulses';
 import { TONES } from '../content/titanBody';
 import type { BossFight, PlayerAction } from './BossFight';
@@ -298,6 +299,10 @@ export class Game {
   voidBoss!: VoidBoss;
   mirrorBoss!: MirrorBoss;
   resonanceBoss!: ResonanceBoss;
+  stormBoss!: StormBoss;
+  /** A gale called by the Storm Sovereign: its direction along W (+1 ana, -1 kata) and seconds left. */
+  private galeDir = 0;
+  private galeT = 0;
   private forkCd = 0;
   /** The wind at the player right now (blocks per second along W, signed; 0 outside windy realms). */
   windNow = 0;
@@ -704,7 +709,23 @@ export class Game {
       dropItem: (x, y, z, w, st) => this.dropAtCell(x, y, z, w, st),
       hurt: (amount, attacker, cause) => void this.hurtPlayer(amount, attacker.pos, cause, 'explosion', attacker),
     });
-    this.fights = [this.voidBoss, this.mirrorBoss, this.resonanceBoss];
+    this.stormBoss = new StormBoss({
+      world: this.world,
+      mobs: this.mobs,
+      playerPos: this.player.pos,
+      playerRight: this.player.cam.R,
+      playerHidden: this.player.cam.H,
+      playerTargetable: () => this.mobHost.playerTargetable,
+      difficulty: () => DIFFICULTY[this.info.difficulty] ?? 2,
+      glow: (x, y, z, w, color, n = 3) => this.particles.burst(x, y, z, w, this.player.cam, 'spark', color, n, 2.4, 0.5, true),
+      message: (t) => this.message?.(t),
+      dropItem: (x, y, z, w, st) => this.dropAtCell(x, y, z, w, st),
+      gale: (dir, seconds) => {
+        this.galeDir = dir;
+        this.galeT = seconds;
+      },
+    });
+    this.fights = [this.voidBoss, this.mirrorBoss, this.resonanceBoss, this.stormBoss];
     this.pulseHost = {
       world: this.world,
       playerPos: this.player.pos,
@@ -1112,7 +1133,7 @@ export class Game {
     if (!this.loaded) this.checkLoaded();
     this.movementModifiers();
     this.glideControl(dt);
-    this.updateWind();
+    this.updateWind(dt);
     p.update(this.world, this.move, dt);
     this.glideAftermath();
     this.updateAdvancements(dt);
@@ -2216,7 +2237,7 @@ export class Game {
   }
 
   /** Wind (Cloud Archipelago): what carries you along W this frame, by what you are doing. */
-  private updateWind(): void {
+  private updateWind(dt: number): void {
     const p = this.player, top = this.world.realm.wind ?? 0;
     if (!top) {
       this.windNow = 0;
@@ -2226,6 +2247,15 @@ export class Game {
     this.windNow = windAt(p.pos[0]!, p.pos[1]!, p.pos[2]!, this.env.sky.time) * top;
     if (!this.loaded || this.vitals.dead || p.mode === 'spectator' || p.flying) {
       p.windSpeed = 0;
+      this.galeT = 0;
+      return;
+    }
+    // A gale called by the Storm Sovereign overrides the currents: it shoves you hard along W, a
+    // quarter as hard if you crouch to grip the cloud, and no softer in the air than on the ground.
+    if (this.galeT > 0) {
+      this.galeT -= dt;
+      this.windNow = this.galeDir * GALE_SPEED;
+      p.windSpeed = this.windNow * (p.sneaking ? 0.25 : 0.7);
       return;
     }
     const mul = p.onGround || p.inWater || p.inLava ? WIND_GROUND : p.gliding ? (this.isGlider() ? WIND_RIDE : WIND_GLIDE) : WIND_AIR;
@@ -3985,6 +4015,16 @@ export class Game {
     }
   }
 
+  /** A Storm Horn: sounded at the Storm Beacon on a Cloud Citadel it wakes the Storm Sovereign. */
+  private useHorn(): void {
+    const t = this.target;
+    if (this.hasTarget && (this.world.getBlock(t.x, t.y, t.z, t.w) & 0xfff) === REG.id('storm_beacon')) {
+      if (this.world.realm.name === 'cloud' && this.stormBoss.summon(t.x, t.y, t.z, t.w)) this.adv.event('horn_wake');
+      return;
+    }
+    this.message?.('Sound the horn at the Storm Beacon on the roof of a Cloud Citadel');
+  }
+
   /** A Tuning Fork: rung at the Resonance Bell it wakes the Titan; anywhere else it sounds its tone. */
   private useFork(held: ItemStack): void {
     const tone = TONES.findIndex((t) => t.fork === IREG.name(held.id));
@@ -4560,6 +4600,10 @@ export class Game {
     }
     if (use === 'tuning_fork') {
       this.useFork(held);
+      return;
+    }
+    if (use === 'storm_horn') {
+      this.useHorn();
       return;
     }
     if (use === 'starlight_rocket') {

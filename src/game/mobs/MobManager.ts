@@ -1277,6 +1277,31 @@ export class MobManager {
         if (d4 < 2.6) this.meleeReach(m, p, h);
         break;
       }
+      case 'tempest': {
+        // The Storm Sovereign circles about twelve blocks off and five above you, and stamps if you
+        // come close; StormBoss makes it call bolts and gales. Leave the Citadel (40 blocks) and it
+        // goes home to the Beacon and heals.
+        const home = m.home;
+        const away = home ? Math.hypot(p[0]! - home[0]!, p[2]! - home[2]!, p[3]! - home[3]!) : 0;
+        if (!home || !h.playerTargetable || away > 40) {
+          if (home) this.steer(m, home[0]!, home[2]!, home[3]!, sp);
+          else this.brake(m);
+          m.vel[1] = ((home ? home[1]! : m.pos[1]!) + 6 - m.pos[1]!) * 1.2;
+          m.health = Math.min(def.health, m.health + 10 * dt);
+          m.mode = 'idle';
+          break;
+        }
+        m.mode = 'chase';
+        const dx = p[0]! - m.pos[0]!, dz = p[2]! - m.pos[2]!, dw = p[3]! - m.pos[3]!;
+        const hd = Math.hypot(dx, dz, dw) || 1;
+        if (hd > 15) this.steer(m, p[0]!, p[2]!, p[3]!, sp);
+        else if (hd < 9) this.steer(m, m.pos[0]! - dx, m.pos[2]! - dz, m.pos[3]! - dw, sp * 0.8);
+        else this.steer(m, m.pos[0]! - dz, m.pos[2]! + dx, m.pos[3]!, sp * 0.5);
+        m.face(dx, dz, dw, m.near ? h.playerHidden : undefined);
+        m.vel[1] = (Math.max(p[1]! + 5, home[1]! + 4) - m.pos[1]!) * 1.2;
+        this.meleeReach(m, p, h);
+        break;
+      }
       case 'diver': {
         // The Thunder Hawk circles about nine blocks off and five above you, then folds its wings and
         // dives: fast, and a hard hit if it lands.

@@ -71,6 +71,8 @@ export const STRUCTURES: StructureDef[] = [
   { name: 'crystal_cathedral', displayName: 'Crystal Cathedral', placement: 'surface', spacing: 224, chance: 0.55, builder: 'crystal_cathedral', radius: 24, salt: 0x7402, realm: 'abyss' },
   // The Sky Gate (realm 'surface'): a ruin on a high peak whose dormant rift a Zephyr Feather wakes.
   { name: 'sky_gate', displayName: 'Sky Gate', placement: 'surface', spacing: 160, chance: 0.6, builder: 'sky_gate', radius: 4, salt: 0x7403 },
+  // The Cloud Citadel (realm 'cloud'): a keep on an island with the Storm Beacon on its roof, where the Storm Sovereign waits.
+  { name: 'cloud_citadel', displayName: 'Cloud Citadel', placement: 'surface', spacing: 200, chance: 0.5, builder: 'cloud_citadel', radius: 24, salt: 0x7404, realm: 'cloud' },
   { name: 'silver_arch', displayName: 'Silver Arch', placement: 'surface', spacing: 256, chance: 0.5, builder: 'silver_arch', radius: 4, salt: 0x7301 },
 
   // ---------------------------------------------------------------- Hollow Void (Phase 8)

@@ -98,6 +98,14 @@ CLOUD_BLOCKS.push({ name: 'dormant_cloud_rift', displayName: 'Dormant Cloud Rift
 tex('cloud_rift', 'portal', ['#fff4c8', '#ffffff', '#7ab8ff'], { alpha: 0.7 });
 CLOUD_BLOCKS.push({ name: 'cloud_rift', displayName: 'Cloud Rift', render: 'translucent', solid: false, textures: { all: 'cloud_rift' }, tint: '#fff0c0', alpha: 0.6, emission: 12, hardness: -1, tags: ['rift'] });
 
+// The Cloud Citadel: its stone, the Storm Beacon on its roof (a Storm Horn sounded at it wakes the Storm
+// Sovereign) and the Sovereign's bolts (a column of lightning, announced first).
+cube('cloud_brick', 'bricks', ['#e4ecf8', '#d0dcee', '#ffffff'], { hardness: 4 });
+tex('storm_beacon', 'metal', ['#8ac8ff', '#3a5a98', '#fff08a'], {});
+CLOUD_BLOCKS.push({ name: 'storm_beacon', displayName: 'Storm Beacon', render: 'opaque', solid: true, textures: { all: 'storm_beacon' }, emission: 11, hardness: -1, tags: ['storm_beacon'] });
+tex('lightning_bolt', 'glow', ['#fffbd0', '#ffe84a', '#ffffff'], { alpha: 0.7 });
+CLOUD_BLOCKS.push({ name: 'lightning_bolt', displayName: 'Lightning', render: 'translucent', solid: false, textures: { all: 'lightning_bolt' }, tint: '#fff4a0', alpha: 0.65, emission: 15, hardness: -1, damage: 14, tags: ['lance'] });
+
 // Plants: two (at least) for each biome. Cirrus cotton is what a Wind Glider is made of.
 plant('cirrus_cotton', 'bud', ['#9ad87a', '#9ad87a', '#ffffff'], { emission: 1 });
 plant('sky_clover', 'plant', ['#8ad06a', '#6ab852'], { density: 0.65 });
@@ -125,6 +133,10 @@ export const CLOUD_ITEMS: ItemDef[] = [
   { name: 'gale_dust', displayName: 'Gale Dust', icon: { shape: 'dust', colors: ['#bcd8f8', '#7ab0e8', '#ffffff'] }, group: 'materials' },
   { name: 'cloud_silk', displayName: 'Cloud Silk', icon: { shape: 'ingot', colors: ['#f4f8ff', '#a8c8ec', '#ffffff'] }, group: 'materials' },
   { name: 'static_bolt', displayName: 'Static Bolt', icon: { shape: 'shard', colors: ['#fff08a', '#c8a020', '#ffffff'] }, group: 'materials' },
+  // The Storm Horn: sounded at a Storm Beacon on a Cloud Citadel it wakes the Storm Sovereign (reusable).
+  { name: 'storm_horn', displayName: 'Storm Horn', maxStack: 1, icon: { shape: 'lens', colors: ['#fff08a', '#8a6a2a', '#ffffff'] }, use: 'storm_horn', group: 'tools', tags: ['glint'] },
+  // The Storm Sovereign's heart: proof, and the right to command the weather (Phase 11).
+  { name: 'storm_heart', displayName: 'Storm Heart', maxStack: 1, icon: { shape: 'gem', colors: ['#fff08a', '#5a6684', '#ffffff'] }, group: 'combat', tags: ['glint'] },
   // The Wind Glider: worn in the chest slot like wings (fall, press jump), but it rides the wind currents
   // instead of fighting them: in a current along W it carries you at full strength.
   { name: 'wind_glider', displayName: 'Wind Glider', maxStack: 1, durability: 600, enchantability: 12, armor: { slot: 'chest', points: 0, toughness: 0, repair: 'cloud_cotton' }, icon: { shape: 'glider', colors: ['#f4f8ff', '#8a6a4a', '#7ab8ff'] }, group: 'combat', tags: ['armor', 'armor_chest', 'wings', 'glider'] },
@@ -134,6 +146,7 @@ export const CLOUD_RECIPES: RecipeDef[] = [
   { type: 'shapeless', ingredients: ['feather', 'feather', 'feather', 'resonance_crystal'], result: 'zephyr_feather' },
   // Cloth of cotton on a frame of feather and string.
   { type: 'shaped', pattern: ['cc', 'cc'], key: { c: 'cloud_cotton' }, result: 'cloud_silk' },
+  { type: 'shapeless', ingredients: ['storm_feather', 'storm_feather', 'gale_dust', 'gale_dust', 'prism_ingot'], result: 'storm_horn' },
   { type: 'shaped', pattern: ['ccc', 'cfc', 's s'], key: { c: 'cloud_cotton', f: 'feather', s: 'string' }, result: 'wind_glider' },
 ];
 
@@ -164,6 +177,8 @@ export const CLOUD_MINING: Record<string, MiningDef> = {
   nimbus_mist: { tool: 'shovel' },
   nimbus_core: { tool: 'shovel' },
   nimbus_underside: { tool: 'shovel' },
+  cloud_brick: { tool: 'pickaxe', tier: 1 },
+  storm_beacon: {},
   cirrus_cotton: { drops: one('cloud_cotton', [1, 2]) },
   sky_clover: { shears: true, drops: 'none' },
   static_thistle: { drops: 'none' },
@@ -250,9 +265,42 @@ export const CLOUD_STYLE: Record<string, CloudStyle> = {
 
 // ---------------------------------------------------------------- loot
 
-export const CLOUD_LOOT: Record<string, LootTable> = {};
+const W = (lo: number, hi: number): [number, number] => [lo, hi];
+
+export const CLOUD_LOOT: Record<string, LootTable> = {
+  // The Cloud Citadel: every chest holds a piece of Cloud armour or a Wind Glider, and the cloth to mend them.
+  cloud_citadel: {
+    pools: [
+      {
+        rolls: W(1, 1),
+        entries: [
+          { item: 'cloud_helmet', weight: 3, wear: W(0.05, 0.4) },
+          { item: 'cloud_chestplate', weight: 2, wear: W(0.05, 0.4) },
+          { item: 'cloud_leggings', weight: 3, wear: W(0.05, 0.4) },
+          { item: 'cloud_boots', weight: 3, wear: W(0.05, 0.4) },
+          { item: 'wind_glider', weight: 2, wear: W(0.05, 0.4) },
+        ],
+      },
+      {
+        rolls: W(3, 5),
+        entries: [
+          { item: 'cloud_cotton', weight: 9, count: W(3, 8) },
+          { item: 'cloud_silk', weight: 4, count: W(1, 3) },
+          { item: 'feather', weight: 8, count: W(2, 6) },
+          { item: 'storm_feather', weight: 4, count: W(1, 2) },
+          { item: 'gale_dust', weight: 4, count: W(1, 3) },
+          { item: 'prism_ingot', weight: 2, count: W(1, 2) },
+          { item: 'golden_apple', weight: 3 },
+          { item: 'xp_bottle', weight: 4, count: W(1, 4) },
+          { item: 'book', weight: 3, enchant: W(18, 32) },
+        ],
+      },
+    ],
+  },
+};
 
 for (const b of CLOUD_BIOMES) {
-  b.structures = [];
+  // The Cloud Citadel stands on any island.
+  b.structures = b.kind === 'land' ? ['cloud_citadel'] : [];
   b.mobs = CLOUD_SPAWNS[b.name] ?? {};
 }

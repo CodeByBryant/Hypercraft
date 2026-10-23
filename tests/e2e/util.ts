@@ -112,6 +112,7 @@ export interface Hc {
   ringFork(tone: number): void;
   breakTitanPlates(): void;
   freezeFights(on: boolean): void;
+  stormBoss(): { defeated: boolean; phase: number; health: number; lances: number; pending: number; galeIn: number; galeDir: number; charge: number; warning: string; id: number };
   windAt(x: number, y: number, z: number): number;
   wind(): { now: number; speed: number; v: number };
   pulses(): { tone: number; r: number; spent: boolean; owner: string; c: number[] }[];

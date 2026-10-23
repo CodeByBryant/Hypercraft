@@ -41,8 +41,8 @@ const run = (mm: MobManager, h: MobHost, seconds: number) => {
 };
 
 describe('Cloud mobs (Phase 9.7): definitions', () => {
-  it('has the Kite, the Hawk, the Sprite and the Whale, flying, with bounded parts and drops that exist', () => {
-    expect(CLOUD_MOBS.map((m) => m.name)).toEqual(['storm_kite', 'thunder_hawk', 'wind_sprite', 'cloud_whale']);
+  it('has the Kite, the Hawk, the Sprite, the Whale and the Sovereign, flying, with bounded parts and drops that exist', () => {
+    expect(CLOUD_MOBS.map((m) => m.name)).toEqual(['storm_kite', 'thunder_hawk', 'wind_sprite', 'cloud_whale', 'storm_sovereign']);
     for (const m of CLOUD_MOBS) {
       const cm = MOB_REG.get(m.name);
       expect(cm.def.floats, m.name).toBe(true);

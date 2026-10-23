@@ -229,3 +229,50 @@ A reflected copy of the Surface (Realm D).
   biome reached, `sample`, the spawn, islands as 4D balls, the wind field, Player drift and walls, light gravity,
   the glider, the Sky Gate), `tests/e2e/cloud.spec.ts` (the three R6 views, a biome tour, a full gate trip, a
   three-block jump, a glider carried along W by the current).
+
+## 9.7 Cloud mobs, the Cloud Citadel, the Storm Sovereign, Cloud armour
+
+* **Mobs** (`src/content/cloudMobs.ts`; all exclusive to the realm, none of them walks):
+  * **Storm Kite** (16 hp): a canvas diamond that hangs about nine blocks off and spits bolts of static.
+  * **Thunder Hawk** (26 hp, AI `diver`): circles five blocks above you, then folds its wings and dives; the
+    dive aims at your feet so it lands even under the realm's light gravity.
+  * **Wind Sprite** (10 hp, AI `sprite`): a knot of gust that shoves you along W every few seconds.
+  * **Cloud Whale** (120 hp, passive): a giant that drifts over the islands. Riding it comes with mounts (Phase 10).
+  * Mob gravity now follows the realm (`28 * realm.gravity / 32`), so nothing falls like a stone in the sky.
+* **Cloud armour** (`armor.ts`, set `cloud`, 2/6/5/2 points, made of **cloud silk** woven from cloud cotton): the
+  full set gives **slow falling and wings** (`wings()` accepts it like a Wind Glider, `slowFall` like the potion).
+  The Citadel's chests hold finished pieces, damaged, and Wind Gliders.
+* **The Cloud Citadel** (`src/world/gen/structures/builders/cloud.ts`, realm `cloud`, one per ~200 blocks, half of
+  the cells): on a land island, a curtain wall with four gates, four towers, a keep and, on the keep's roof, the
+  **Storm Beacon** (`storm_beacon`, unbreakable). East of it a ramp climbs to the roof; four chests
+  (`cloud_citadel` loot: cloud armour, a Wind Glider, cotton and silk, storm feathers, gale dust, prism ingots, golden apples, XP bottles, enchanted books) and spawners for Wind Sprites and Storm
+  Kites guard the way.
+* **Waking it**: a **Storm Horn** (two storm feathers, two gale dust and a prism ingot) sounded at the Beacon.
+  Once: a defeated world never sees it again (saved under `bossFights.cloud`).
+* **The Storm Sovereign** (`src/game/StormBoss.ts`, 650 hp, AI `tempest`: it circles about twelve blocks off and
+  five above you, and goes home to heal if you are more than forty blocks away). It runs on the generic
+  `BossFight` interface and the shared `LanceField`, like the Mirror Twin and the Resonance Titan:
+  * **Lightning**: bolts are announced on the ground (sparks, and the radar), then strike a moment later as a
+    column of lightning and burn for a second. One in phase I, two in phase II, a line of them across your slice
+    in phase III.
+  * **Gales**: every 13 / 10 / 8 s (by phase) it calls a gale along W: a warning, then two and a half seconds of a
+    hard shove kata or ana (14 m/s, 70% of it; **crouch to grip the cloud** and a quarter of it remains).
+    `Game.updateWind` lets the gale override the realm's currents.
+  * **Phase II** (below 66%): two Thunder Hawks and two Wind Sprites join. **Phase III** (below 33%): it charges for
+    four seconds at a time, taking a quarter of the damage (`shielded`), while bolts fall faster.
+  * **Anti-cheese**: nothing within 30 blocks of the Beacon can be broken or placed while it lives.
+  * Drops: a **Storm Heart**, storm feathers and 10 000 XP.
+* **The Rift Compass** (`rifts.ts`; asked for because the rifts were nearly impossible to find): a compass, an
+  amethyst shard and a gold ingot make a held atlas that points at the nearest **Silver Arch, Geode Gate or Sky
+  Gate** (the Surface ends of the three links), or at the Crystal Cathedral and the Cloud Citadel from inside
+  those realms. The older locators (Hand Mirror, Resonance Compass) sat behind endgame materials and the Sky Gate
+  had none. It also turns up in library chests.
+* **Touch fix** (`style.css`): touch layouts had hidden the first-person hand outright and parked the paper doll
+  under the radar, so on a phone or tablet neither showed. The hand is now drawn smaller and nearer the middle
+  (clear of the right thumb's buttons) and the doll sits below the radar. The desktop layout is unchanged.
+* Advancements: Fly a Kite, Thunderstruck, Wind Sprite Wrangler, Woven Weather, Light as Air, Sound the Storm,
+  The Beacon Answers, Clear Skies.
+* Tests: `tests/unit/cloudmobs.test.ts` (mob bodies and drops, spawn tables, the Cloud set), `tests/unit/stormboss.test.ts`
+  (waking and its refusals, bolts announced and striking, gales, the sneak grip, phases and minions, the charge, the
+  arena veto, defeat, save and load), `tests/unit/rifts.test.ts` (the compass), and e2e (`cloud.spec.ts`: a lineup
+  of the realm's mobs, then the horn, an announced bolt, a gale that carries you along W, and the Sovereign's fall).

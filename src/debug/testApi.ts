@@ -452,6 +452,11 @@ export function installTestApi(game: Game, screen?: InventoryScreen): void {
       game.resonanceBoss.exposed = 14;
     },
     /** The wind: the current at the player (blocks per second along W), what carries them, and the speed it has eased to. */
+    /** The Storm Sovereign's fight: phase, health, bolts, the gale announced or blowing, charge, warning. */
+    stormBoss: () => {
+      const b = game.stormBoss, m = b.find();
+      return { defeated: b.defeated, phase: m ? m.phase : 0, health: m ? m.health : 0, lances: b.lances.length, pending: b.lances.filter((l) => l.erupt > 0).length, galeIn: b.galeIn, galeDir: b.galeDir, charge: b.charge, warning: b.warning, id: m ? m.id : -1 };
+    },
     /** The wind (blocks per second along W) at a point, now. */
     windAt: (x: number, y: number, z: number) => windAt(x, y, z, game.env.sky.time) * (game.world.realm.wind ?? 0),
     wind: () => ({ now: game.windNow, speed: game.player.windSpeed, v: game.player.windV }),

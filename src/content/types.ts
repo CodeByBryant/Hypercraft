@@ -425,9 +425,10 @@ export interface ItemDef {
 }
 
 export type ItemUse =
-  // Phase 9: fuel for an Abyss rift; a Tuning Fork sounds a tone.
+  // Phase 9: fuel for an Abyss rift; a Tuning Fork sounds a tone; a Storm Horn calls the Storm Sovereign.
   | 'rift_fuel'
   | 'tuning_fork'
+  | 'storm_horn'
   | 'bucket'
   | 'water_bucket'
   | 'lava_bucket'

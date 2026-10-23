@@ -40,7 +40,7 @@ export const ADV_CATEGORIES: AdvCategoryDef[] = [
 ];
 
 /** Things the game reports (Game calls Advancements.event with these names). */
-export const EVENTS = ['sleep', 'trade', 'plant', 'breed', 'fish', 'block', 'enchant', 'anvil', 'phase_strike', 'void_gate', 'phase_step', 'rocket', 'rift_wake', 'rift', 'reflect', 'twin_wake', 'gate_wake', 'beam_reflect', 'fork_answer', 'bell_wake', 'sky_wake'] as const;
+export const EVENTS = ['sleep', 'trade', 'plant', 'breed', 'fish', 'block', 'enchant', 'anvil', 'phase_strike', 'void_gate', 'phase_step', 'rocket', 'rift_wake', 'rift', 'reflect', 'twin_wake', 'gate_wake', 'beam_reflect', 'fork_answer', 'bell_wake', 'sky_wake', 'horn_wake'] as const;
 export type AdvEvent = (typeof EVENTS)[number];
 
 /** Counters the game keeps: the largest slice tilt (degrees), blocks walked along the hidden axis, blocks glided. */
@@ -196,6 +196,9 @@ export const ADVANCEMENTS: AdvancementDef[] = [
   A('cloud/sprite', 'cloud', 'Wind Sprite Wrangler', 'Defeat a wind sprite', 'gale_dust', { type: 'kill', mobs: ['wind_sprite'] }, 20, 'cloud/enter'),
   A('cloud/silk', 'cloud', 'Woven Weather', 'Weave cloud silk', 'cloud_silk', { type: 'have', items: ['cloud_silk'] }, 25, 'cloud/cotton'),
   A('cloud/armor', 'cloud', 'Light as Air', 'Craft a cloud chestplate', 'cloud_chestplate', { type: 'have', items: ['cloud_chestplate'] }, 50, 'cloud/silk'),
+  A('cloud/horn', 'cloud', 'Sound the Storm', 'Craft a storm horn', 'storm_horn', { type: 'have', items: ['storm_horn'] }, 40, 'cloud/hawk'),
+  A('cloud/beacon', 'cloud', 'The Beacon Answers', 'Sound the horn at the Storm Beacon', 'storm_beacon', { type: 'event', name: 'horn_wake' }, 40, 'cloud/horn'),
+  A('cloud/sovereign', 'cloud', 'Clear Skies', 'Defeat the Storm Sovereign', 'storm_heart', { type: 'kill', mobs: ['storm_sovereign'] }, 400, 'cloud/beacon'),
   A('cloud/far', 'cloud', 'Jet Stream', 'Glide five hundred blocks', 'wind_glider', { type: 'stat', stat: 'glide', value: 500 }, 60, 'cloud/glider'),
 ];
 
