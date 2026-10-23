@@ -5,6 +5,7 @@
 import { ABYSS_BIOMES, ABYSS_BLOCKS, ABYSS_ITEMS, ABYSS_LOOT, ABYSS_MINING, ABYSS_RECIPES, ABYSS_TEXTURES } from './abyss';
 import { CLOUD_BIOMES, CLOUD_BLOCKS, CLOUD_ITEMS, CLOUD_LOOT, CLOUD_MINING, CLOUD_RECIPES, CLOUD_TEXTURES } from './cloud';
 import { MIRROR_BIOMES, MIRROR_BLOCKS, MIRROR_ITEMS, MIRROR_LOOT, MIRROR_MINING, MIRROR_RECIPES, MIRROR_TEXTURES } from './mirror';
+import { RIFT_ITEMS, RIFT_RECIPES } from './rifts';
 import { MIRROR_MOBS } from './mirrorMobs';
 import { ABYSS_MOBS } from './abyssMobs';
 import { CLOUD_MOBS } from './cloudMobs';
@@ -14,8 +15,8 @@ import type { BiomeDef, BlockDef, ItemDef, LootTable, MiningDef, MobDef, RecipeD
 
 export const P9_BLOCKS: BlockDef[] = [...MIRROR_BLOCKS, ...ABYSS_BLOCKS, ...CLOUD_BLOCKS];
 export const P9_TEXTURES: TextureDef[] = [...MIRROR_TEXTURES, ...ABYSS_TEXTURES, ...CLOUD_TEXTURES];
-export const P9_ITEMS: ItemDef[] = [...MIRROR_ITEMS, ...ABYSS_ITEMS, ...CLOUD_ITEMS];
-export const P9_RECIPES: RecipeDef[] = [...MIRROR_RECIPES, ...ABYSS_RECIPES, ...CLOUD_RECIPES];
+export const P9_ITEMS: ItemDef[] = [...MIRROR_ITEMS, ...ABYSS_ITEMS, ...CLOUD_ITEMS, ...RIFT_ITEMS];
+export const P9_RECIPES: RecipeDef[] = [...MIRROR_RECIPES, ...ABYSS_RECIPES, ...CLOUD_RECIPES, ...RIFT_RECIPES];
 export const P9_MINING: Record<string, MiningDef> = { ...MIRROR_MINING, ...ABYSS_MINING, ...CLOUD_MINING };
 export const P9_FOOD: Record<string, { nutrition: number; saturation: number; always?: boolean }> = {};
 export const P9_LOOT: Record<string, LootTable> = { ...MIRROR_LOOT, ...ABYSS_LOOT, ...CLOUD_LOOT };

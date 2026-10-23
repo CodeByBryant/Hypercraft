@@ -6,6 +6,7 @@
 import { ARCH_AIR, archCells, type ArchCell } from './mirror';
 import { gateCells } from './abyss';
 import { skyGateCells } from './cloud';
+import type { ItemDef, RecipeDef } from './types';
 
 export interface RiftLink {
   /** The awake and dormant rift blocks. */
@@ -59,6 +60,20 @@ export const RIFT_LINKS: RiftLink[] = [
     arrival: { cloud: 'The Cloud Archipelago: light gravity, and the wind blows along W (a Wind Glider rides it)', surface: 'Back on the Surface' },
     stand: { surface: 'ground', cloud: 'ground' },
   },
+];
+
+/**
+ * The Rift Compass: a Hypercompass tuned to rifts. Held, its arrow points to the nearest Silver Arch,
+ * Geode Gate or Sky Gate (the three Surface ends of the links above) or, deeper in, to the Crystal
+ * Cathedral and the Cloud Citadel. It needs only a compass, an amethyst shard and a gold ingot, so it
+ * is there long before the Hand Mirror, Resonance Compass or Zephyr Feather it helps you use.
+ */
+export const RIFT_ITEMS: ItemDef[] = [
+  { name: 'rift_compass', displayName: 'Rift Compass', maxStack: 1, icon: { shape: 'compass', colors: ['#d8a0ff', '#6a3a9a', '#fff0d0'] }, readout: 'atlas', atlas: ['silver_arch', 'geode_gate', 'sky_gate', 'crystal_cathedral', 'cloud_citadel'], group: 'tools', tags: ['glint'] },
+];
+
+export const RIFT_RECIPES: RecipeDef[] = [
+  { type: 'shapeless', ingredients: ['compass', 'amethyst_shard', 'gold_ingot'], result: 'rift_compass' },
 ];
 
 export const riftLinkOf = (rift: string | undefined): RiftLink => RIFT_LINKS.find((l) => l.rift === rift) ?? RIFT_LINKS[0]!;

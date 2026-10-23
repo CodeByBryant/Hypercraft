@@ -1770,8 +1770,16 @@ select {
 .hand-item[data-kind='item'] {
   transform: rotate(-8deg) scale(0.9);
 }
+/* Touch: a smaller hand, nearer the middle so the right thumb's buttons stay clear of it, and the doll under the radar (which owns the corner). */
 body.touch-active .hand {
-  display: none !important;
+  zoom: 0.62;
+  left: calc(50% + 24px);
+  bottom: -70px;
+}
+body.touch-active .paper-doll {
+  /* zoom scales the offsets too: 306 * 0.7 is about 214 px, clear of the radar. */
+  top: 306px;
+  zoom: 0.7;
 }
 .paper-doll {
   position: absolute;
