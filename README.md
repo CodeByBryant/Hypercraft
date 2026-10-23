@@ -3,12 +3,13 @@
 A 4D voxel survival sandbox for the browser. The world is made of tesseracts; you see a true
 3D cross-section of it, and every system is built around a fourth spatial axis.
 
-**Status: Phase 8 (the Hollow Void, the Void Sovereign, Phase Wings, advancements) complete.** Phase reports
+**Status: Phase 9 (the Mirror Realm, the Crystal Abyss, the Cloud Archipelago, third person) complete.** Phase reports
 (what works, what's broken, what's next): [Phase 1 — engine](docs/phases/phase-1.md) ·
 [Phase 2 — surface terrain](docs/phases/phase-2.md) · [Phase 3 — items](docs/phases/phase-3.md) ·
 [Phase 4 — mobs](docs/phases/phase-4.md) · [Phase 5 — structures](docs/phases/phase-5.md) ·
 [Phase 6 — Ember Depths](docs/phases/phase-6.md) · [Phase 7 — survival systems and 4D tools](docs/phases/phase-7.md) ·
-[Phase 8 — Hollow Void, Void Sovereign, advancements](docs/phases/phase-8.md).
+[Phase 8 — Hollow Void, Void Sovereign, advancements](docs/phases/phase-8.md) ·
+[Phase 9 — Mirror Realm, Crystal Abyss, Cloud Archipelago](docs/phases/phase-9.md).
 
 | Axis-aligned slice | 30° XW tilt | 45° XW + 45° ZW tilt |
 |---|---|---|
@@ -151,14 +152,25 @@ phase shifts off your slice where nothing can touch it. Out on the islands: Void
 linked by bridges along W only), Sky Vaults (every one holds **Phase Wings**, an elytra for 4D:
 rotate the slice mid-flight to bank through W), Starlight Gardens and Crystal Shrines. Void
 Walkers freeze only while you look at them in your own slice. Starlight armour grants **Phase
-Step**. Press **L** for the 61 advancements.
+Step**. Press **L** for the 105 advancements.
+
+**Rifts and the three new realms** (Phase 9): craft a **Rift Compass** (compass + amethyst shard
++ gold ingot, or find one in a library) and hold it: its arrow points at the nearest **Silver
+Arch**, **Geode Gate** or **Sky Gate**, each holding a dormant rift. Wake the arch with a Hand
+Mirror to enter the **Mirror Realm** (the Surface reflected: up is W, left and right swap, a
+Mirror Twin guards the palace), the gate in a deep geode with a Resonance Crystal to enter the
+**Crystal Abyss** (shifting crystal walls, light beams and sound pulses you answer with a Tuning
+Fork, the Resonance Titan), and the Sky Gate on a peak with a Zephyr Feather to enter the **Cloud
+Archipelago** (a third of the gravity, wind along W you ride with a Wind Glider, the Storm
+Sovereign in its Citadel: crouch when it calls a gale). F5 changes the camera; in first person
+you get a hand and a paper doll of yourself.
 
 **Beds**: craft one from 3 wool over 3 planks, or use one in a village house. Right click it at
 night (or in a thunderstorm) to sleep until morning. Any bed you use becomes your respawn
 point, by day too. Monsters within 8 blocks stop you from sleeping; the message says which one
 and where, even if it is kata or ana of your slice.
 
-**Structures and villages**: 43 structures generate on a 4D grid across the three realms: villages in seven styles,
+**Structures and villages**: 49 structures generate on a 4D grid across the realms: villages in seven styles,
 temples, dungeons, hypermines, vaults, shipwrecks, ruins and more. Villages are crosses of
 streets along ±X, ±Z and ±W, so walk kata/ana to see the rest. Right click a villager to trade
 (the currency is Verdant). Trading levels villagers up and unlocks better offers. Atlases point

@@ -425,6 +425,37 @@ island layer per (x, z, w) column, so `sample()` and `generate()` share one shap
 heights, biomes, spawning and structures need no special case. Void biomes are ordinary
 `BiomeDef`s with `realm: 'void'`. `docs/how-to/add-a-realm.md` shows the steps.
 
+**Phase 9 realm fields** (the Mirror Realm, the Crystal Abyss, the Cloud Archipelago):
+
+| field | meaning |
+| ----- | ------- |
+| `gravityAxis: 3` | gravity pulls along W (the Mirror Realm): the engine's up axis stays internal Y, so the realm relabels it |
+| `axisLabels: ['X','W','Z','Y']` | the names the HUD uses for the axes (the Mirror Realm calls its vertical axis W) |
+| `mirrorX`, `mirrorControls` | the realm is the Surface reflected in x; left and right swap unless Settings turns that off |
+| `invertedSky` | the sun is below the horizon by day, stars shine in the day sky |
+| `gravity: 13` | the Cloud Archipelago's light gravity; fall damage and mob gravity scale with `gravity / 32` |
+| `wind: 12` | top speed (m/s) of wind currents along W (`src/physics/wind.ts`); `Player.drift` carries you |
+
+**Rifts** (`src/content/rifts.ts`) link the Surface to those realms through an arch instead of a
+portal. One row per link:
+
+```ts
+{ rift: 'cloud_rift', dormant: 'dormant_cloud_rift', realms: ['surface', 'cloud'],
+  cells: skyGateCells, foot: 'sky_gate_stone', waker: 'zephyr_feather',
+  arrival: { cloud: '...', surface: '...' }, stand: { surface: 'ground', cloud: 'ground' } }
+```
+
+`stand` is `'ground'` (the arrival gate on the terrain top) or `'depth'` (a chamber carved at the
+height you came from, for the enclosed Abyss). `Game.updateRift`, `arriveAtRift`, `useRiftFuel`
+and `useHandMirror` read this table. The Rift Compass (`RIFT_ITEMS`) is an atlas item naming the
+structures that hold the rifts.
+
+**Boss fights** implement `BossFight` (`src/game/BossFight.ts`): `realm`, `mobName`, `defeated`,
+`warning`, `lockMessage`, `save`/`load`, `update`, `protects`, `blockChanged`, `projectileHit`,
+`onDefeat`, `marks`, `find`. `Game.fights` holds them; state is saved under
+`SavedState.data.bossFights[realm]` (the Void Sovereign keeps `voidSovereign`). Telegraphed
+columns (lances, bolts, spikes) are `LanceField`s (`src/game/Lances.ts`).
+
 **Portal records** (saved in `SavedState.data.portals`):
 
 ```ts

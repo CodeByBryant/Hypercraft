@@ -213,6 +213,21 @@ Honest list as of Phase 8 (the Hollow Void, the Void Sovereign, Phase Wings, adv
   otherwise animals drift in and out of view as they walk through W. Hostiles that are
   chasing you use their own 4D paths, and the R2 warnings still cover them.
 
+## Mirror Realm, Crystal Abyss, Cloud Archipelago (Phase 9)
+- **Wind does not push mobs or dropped items**, only you (and only along W). A Wind Sprite's gust
+  and the Storm Sovereign's gale are the exceptions: they act on you alone.
+- **The Cloud Whale cannot be ridden yet.** It drifts over the islands; riding comes with mounts
+  (Phase 10).
+- **Sound pulses are only seen, never heard** (they are drawn as particles on your slice; audio is Phase 12).
+- **Re-summoning a defeated boss is not possible** (the Mirror Twin, Resonance Titan, Storm
+  Sovereign and Void Sovereign each stay down in a world once beaten).
+- **Portals saved by 0.8.x in the new realms**: a world from before 0.9.0 has no Silver Arches,
+  Geode Gates or Sky Gates in columns that were already generated.
+- **The Rift Compass searches the Surface structures within 1600 blocks.** In a seed with no Sky
+  Gate nearby (they stand only on high peaks) it says nothing is marked.
+- **Touch**: the hand and doll are placed and checked for a landscape phone (844 x 390, emulated
+  touch); portrait layouts have not been looked at.
+
 ## Tooling
 - The original prototype `tesseract-miner.html` was not in the repository, so the renderer
   was rebuilt from the description in the brief.

@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.9.0 — Phase 9: the Mirror Realm, the Crystal Abyss, the Cloud Archipelago (2026-10-23)
+
+### Added
+- **Third person and a body.** F5 cycles first person, third person from behind and from the
+  front. You have a model (skin, the armour you wear, wings, a walk cycle, an arm swing) drawn
+  by the ray marcher like a mob. In first person there is a **hand** holding the selected item
+  (bobbing, swinging, eating, blocking, drawing a bow) and a **paper doll** of yourself in the
+  corner. Both can be turned off in Settings.
+- **Rifts** (`src/content/rifts.ts`): a table of links between the Surface and the new realms,
+  each an arch around a rift block that a specific item wakes. Adding a link is one row.
+- **Realm D, the Mirror Realm** (Silver Arch + **Hand Mirror**): the Surface reflected. Up is W
+  (the engine's up axis is relabelled, so Y is the hidden axis), gravity pulls along W, left and
+  right swap (Settings turns that off), the sun is below the horizon by day. Mirror mobs, the
+  Mirror Palace, the **Mirror Twin** (copies your moves a moment late; its beams run along W)
+  and Mirror armour.
+- **Realm E, the Crystal Abyss** (Geode Gate + **Resonance Crystals**): an enclosed realm of 4D
+  crystal chambers whose walls shift obliquely with w, six biomes, lakes, hyper-geodes. The
+  **Prism** tool tier. **Prism Spiders** shoot beams a full Prism set reflects; **Resonance
+  Golems** sing **sound pulses** (expanding 4D shells: take cover or answer with a matching
+  **Tuning Fork**); Geode Slimes harden after every hit. The **Crystal Cathedral** holds the
+  Resonance Bell and the **Resonance Titan**.
+- **Realm F, the Cloud Archipelago** (Sky Gate on a Surface peak + **Zephyr Feather**): islands
+  floating over a sea of cloud, **gravity 40%**, and **wind along W** in 24-block layers that
+  you ride with a **Wind Glider**. Storm Kites, Thunder Hawks, Wind Sprites and Cloud Whales;
+  Cloud armour (slow falling and wings as a set); the **Cloud Citadel**, where a **Storm Horn**
+  sounded at the Storm Beacon wakes the **Storm Sovereign** (announced lightning, gales that
+  shove you along W: crouch to grip, a shielded charge, an arena nothing can be built in).
+- **Rift Compass** (compass + amethyst shard + gold ingot): a held locator for the Silver
+  Arch, Geode Gate and Sky Gate (and the Cathedral and Citadel inside their realms).
+- A generic **boss-fight** interface (`BossFight`) and a shared **lance field** (`Lances.ts`)
+  that the Void Sovereign, Mirror Twin, Resonance Titan and Storm Sovereign all run on. 44 new
+  advancements (105 in all).
+
+### Changed
+- Fall damage scales with the realm's gravity, and mobs fall at it too.
+- Touch layouts show the first-person hand (smaller, nearer the middle) and put the paper doll
+  under the radar; both were hidden or covered before.
+- The "N m away, kata/ana" warning no longer sits on top of a boss's name bar; it drops below
+  the bar and its warning line while a boss is up.
+- 49 structures, 125 biomes and 1374 items in all.
+
 ## 0.8.0 — Phase 8: the Hollow Void, the Void Sovereign, Phase Wings, advancements (2026-10-06)
 
 ### Added

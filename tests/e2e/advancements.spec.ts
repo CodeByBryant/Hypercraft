@@ -58,7 +58,7 @@ test('advancements: earned by holding, mining and doing; announced; listed on L;
     return { open: document.querySelector('.adv-screen.open') !== null, rows: rows.length, done: rows.filter((x) => x.classList.contains('done')).length, locked: rows.filter((x) => x.classList.contains('locked')).length, tabs: document.querySelectorAll('.adv-tab').length };
   });
   expect(open.open).toBe(true);
-  expect(open.tabs).toBe(8);
+  expect(open.tabs).toBe(11);
   expect(open.rows).toBeGreaterThanOrEqual(8);
   expect(open.done).toBeGreaterThanOrEqual(3);
   expect(open.locked).toBeGreaterThanOrEqual(1);

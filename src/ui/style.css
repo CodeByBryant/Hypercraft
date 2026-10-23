@@ -206,6 +206,10 @@ button {
   white-space: nowrap;
   display: none;
 }
+/* Under the boss bar and its warning line, which share its place. */
+.boss-on .threat {
+  top: 104px;
+}
 .grave-hint {
   position: absolute;
   left: 50%;

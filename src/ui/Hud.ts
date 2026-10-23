@@ -320,6 +320,7 @@ export class Hud {
     else if (!g.loaded) this.loadingText.textContent = g.arrival ? `Arriving in ${g.world.realm.displayName}… ${g.world.columns.size} columns` : `Generating 4D terrain… ${g.world.columns.size} columns`;
     const boss = g.bosses.boss;
     this.bossBar.style.display = boss ? 'block' : 'none';
+    this.root.classList.toggle('boss-on', !!boss);
     if (boss) {
       const sov = boss.def.ai === 'sovereign';
       const tag = sov ? (boss.phase >= 2 ? ` · PHASE ${boss.phase === 2 ? 'II' : 'III'}` : '') : boss.phase === 2 ? ' · ENRAGED' : '';

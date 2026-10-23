@@ -1,6 +1,6 @@
 # Phase 9 report: the Mirror Realm, the Crystal Abyss, the Cloud Archipelago
 
-Status: **in progress** (this file grows with each step).
+Status: **complete**. See the release notes in the [Changelog](../../CHANGELOG.md) (0.9.0).
 
 ## 9.1 Third person, the player's body, a hand and a paper doll
 
@@ -276,3 +276,5 @@ A reflected copy of the Surface (Realm D).
   (waking and its refusals, bolts announced and striking, gales, the sneak grip, phases and minions, the charge, the
   arena veto, defeat, save and load), `tests/unit/rifts.test.ts` (the compass), and e2e (`cloud.spec.ts`: a lineup
   of the realm's mobs, then the horn, an announced bolt, a gale that carries you along W, and the Sovereign's fall).
+
+Screenshots for the phase are in `docs/screenshots/phase-9/` (`body-*`, `mirror-*`, `abyss-*`, `cloud-*`).
