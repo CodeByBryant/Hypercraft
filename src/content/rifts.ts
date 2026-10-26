@@ -69,7 +69,7 @@ export const RIFT_LINKS: RiftLink[] = [
  * is there long before the Hand Mirror, Resonance Compass or Zephyr Feather it helps you use.
  */
 export const RIFT_ITEMS: ItemDef[] = [
-  { name: 'rift_compass', displayName: 'Rift Compass', maxStack: 1, icon: { shape: 'compass', colors: ['#d8a0ff', '#6a3a9a', '#fff0d0'] }, readout: 'atlas', atlas: ['silver_arch', 'geode_gate', 'sky_gate', 'crystal_cathedral', 'cloud_citadel'], group: 'tools', tags: ['glint'] },
+  { name: 'rift_compass', displayName: 'Rift Compass', maxStack: 1, icon: { shape: 'compass', colors: ['#d8a0ff', '#6a3a9a', '#fff0d0'] }, readout: 'atlas', atlas: [ 'sky_gate', 'cloud_citadel'], group: 'tools', tags: ['glint'] },
 ];
 
 export const RIFT_RECIPES: RecipeDef[] = [
